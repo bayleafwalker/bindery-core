@@ -32,8 +32,10 @@ type WorldInstanceSpec struct {
 }
 
 type WorldInstanceStatus struct {
-	Phase   string `json:"phase,omitempty"`
-	Message string `json:"message,omitempty"`
+	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
+	Phase              string             `json:"phase,omitempty"`
+	Message            string             `json:"message,omitempty"`
+	Conditions         []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true

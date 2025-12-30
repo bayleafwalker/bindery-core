@@ -100,6 +100,9 @@ spec:
                       status:
                         type: string
                         enum: ["True", "False", "Unknown"]
+                      observedGeneration:
+                        type: integer
+                        minimum: 0
                       reason:
                         type: string
                       message:

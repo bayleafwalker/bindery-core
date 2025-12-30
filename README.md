@@ -64,3 +64,29 @@ If you have Docker and want a quick local cluster for validating the CRDs/exampl
 
 - Bring up cluster + apply CRDs/examples: `./k8s/dev/kind-demo.sh`
 - Tear down: `./k8s/dev/kind-down.sh`
+
+## Debugging & logs
+
+### Controller logs (local)
+
+The controller manager runs locally via controller-runtime; logs go to stdout:
+
+- Run against your current kubecontext: `go run .`
+- More verbose logs: `go run . --zap-log-level=debug`
+- Production-style JSON logs: `go run . --zap-encoder=json --zap-devel=false`
+
+Useful flags (see `go run . -h`): `--zap-log-level`, `--zap-encoder`, `--zap-time-encoding`.
+
+### Inspecting resources (Kind or any cluster)
+
+- Worlds: `kubectl get worldinstances -A`
+- Bindings: `kubectl get capabilitybindings -A`
+- Binding details (incl. runtime endpoint): `kubectl get capabilitybinding -n anvil-demo <name> -o yaml`
+- Runtime workloads created by RuntimeOrchestrator: `kubectl get deploy,svc -n anvil-demo`
+
+### Integration test debugging (envtest)
+
+Integration tests are gated to avoid requiring envtest binaries during normal unit runs:
+
+- Run integration tests: `make test-integration`
+- Verbose single-package run: `ANVIL_INTEGRATION=1 go test -v ./controllers -run Integration`

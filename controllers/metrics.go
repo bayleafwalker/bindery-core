@@ -1,0 +1,60 @@
+package controllers
+
+import (
+	"github.com/prometheus/client_golang/prometheus"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
+)
+
+var (
+	anvilControllerReconcileTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "anvil_controller_reconcile_total",
+			Help: "Number of reconciliations by controller.",
+		},
+		[]string{"controller"},
+	)
+	anvilControllerReconcileErrorTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "anvil_controller_reconcile_error_total",
+			Help: "Number of reconciliation errors by controller.",
+		},
+		[]string{"controller"},
+	)
+
+	capabilityResolverUnresolvedRequired = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "anvil_capabilityresolver_unresolved_required",
+			Help: "Number of unresolved required requirements observed in the last CapabilityResolver reconcile.",
+		},
+	)
+
+	capabilityResolverBindingsCreatedTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "anvil_capabilityresolver_bindings_created_total",
+			Help: "Total number of CapabilityBindings created by CapabilityResolver.",
+		},
+	)
+	capabilityResolverBindingsUpdatedTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "anvil_capabilityresolver_bindings_updated_total",
+			Help: "Total number of CapabilityBindings updated by CapabilityResolver.",
+		},
+	)
+	capabilityResolverBindingsDeletedTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "anvil_capabilityresolver_bindings_deleted_total",
+			Help: "Total number of CapabilityBindings deleted by CapabilityResolver.",
+		},
+	)
+)
+
+func init() {
+	metrics.Registry.MustRegister(
+		anvilControllerReconcileTotal,
+		anvilControllerReconcileErrorTotal,
+		capabilityResolverUnresolvedRequired,
+		capabilityResolverBindingsCreatedTotal,
+		capabilityResolverBindingsUpdatedTotal,
+		capabilityResolverBindingsDeletedTotal,
+	)
+}

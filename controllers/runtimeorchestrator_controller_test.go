@@ -97,6 +97,220 @@ func TestRuntimeOrchestrator_CreatesServiceDeploymentAndPublishesEndpoint(t *tes
 	}
 }
 
+func TestRuntimeOrchestrator_ShardLabeledBindingCreatesShardWorkloadName(t *testing.T) {
+	ctx := context.Background()
+
+	scheme := runtime.NewScheme()
+	if err := clientgoscheme.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme(client-go): %v", err)
+	}
+	if err := gamev1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme(game): %v", err)
+	}
+	if err := appsv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme(apps): %v", err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme(core): %v", err)
+	}
+
+	world := &gamev1alpha1.WorldInstance{
+		TypeMeta:   metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "WorldInstance"},
+		ObjectMeta: metav1.ObjectMeta{Name: "anvil-sample-world", Namespace: "anvil-demo", UID: types.UID("world-uid")},
+		Spec:       gamev1alpha1.WorldInstanceSpec{GameRef: gamev1alpha1.ObjectRef{Name: "anvil-sample"}, WorldID: "world-001", Region: "us-test-1", ShardCount: 2},
+	}
+
+	shardName := stableWorldShardName(world.Name, 0)
+	shard := &gamev1alpha1.WorldShard{
+		TypeMeta:   metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "WorldShard"},
+		ObjectMeta: metav1.ObjectMeta{Name: shardName, Namespace: "anvil-demo", Labels: map[string]string{labelWorldName: world.Name}},
+		Spec:       gamev1alpha1.WorldShardSpec{WorldRef: gamev1alpha1.ObjectRef{Name: world.Name}, ShardID: 0},
+	}
+
+	provider := &gamev1alpha1.ModuleManifest{
+		TypeMeta: metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "ModuleManifest"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "core-physics-engine",
+			Namespace: "anvil-demo",
+			Annotations: map[string]string{
+				annRuntimeImage: "alpine:3.20",
+				annRuntimePort:  "50051",
+			},
+		},
+		Spec: gamev1alpha1.ModuleManifestSpec{Module: gamev1alpha1.ModuleIdentity{ID: "core.physics", Version: "1.3.0"}},
+	}
+
+	binding := &gamev1alpha1.CapabilityBinding{
+		TypeMeta: metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "CapabilityBinding"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "binding-1",
+			Namespace: "anvil-demo",
+			Labels: map[string]string{
+				labelShardID: "0",
+			},
+		},
+		Spec: gamev1alpha1.CapabilityBindingSpec{
+			CapabilityID: "physics.engine",
+			Scope:        gamev1alpha1.CapabilityScopeWorldShard,
+			Multiplicity: gamev1alpha1.MultiplicityOne,
+			WorldRef:     &gamev1alpha1.WorldRef{Name: world.Name},
+			Consumer:     gamev1alpha1.ConsumerRef{ModuleManifestName: "core-interaction-engine"},
+			Provider:     gamev1alpha1.ProviderRef{ModuleManifestName: provider.Name, CapabilityVersion: "1.2.0"},
+		},
+	}
+
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(world, shard, provider, binding).WithStatusSubresource(binding).Build()
+
+	r := &RuntimeOrchestratorReconciler{Client: cl, Scheme: scheme}
+	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: "anvil-demo", Name: binding.Name}})
+	if err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	workloadName := rtNameWithShard(world.Name, "0", provider.Name)
+
+	var svc corev1.Service
+	if err := cl.Get(ctx, types.NamespacedName{Namespace: "anvil-demo", Name: workloadName}, &svc); err != nil {
+		t.Fatalf("expected service: %v", err)
+	}
+
+	var dep appsv1.Deployment
+	if err := cl.Get(ctx, types.NamespacedName{Namespace: "anvil-demo", Name: workloadName}, &dep); err != nil {
+		t.Fatalf("expected deployment: %v", err)
+	}
+
+	var got gamev1alpha1.CapabilityBinding
+	if err := cl.Get(ctx, types.NamespacedName{Namespace: "anvil-demo", Name: binding.Name}, &got); err != nil {
+		t.Fatalf("get binding: %v", err)
+	}
+	if got.Status.Provider == nil || got.Status.Provider.Endpoint == nil {
+		t.Fatalf("expected endpoint to be set")
+	}
+	if got.Status.Provider.Endpoint.Value != workloadName {
+		t.Fatalf("expected endpoint to reference shard workload name")
+	}
+}
+
+func TestRuntimeOrchestrator_ServerStorageCreatesClaimAndMount(t *testing.T) {
+	ctx := context.Background()
+
+	scheme := runtime.NewScheme()
+	if err := clientgoscheme.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme(client-go): %v", err)
+	}
+	if err := gamev1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme(game): %v", err)
+	}
+	if err := appsv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme(apps): %v", err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme(core): %v", err)
+	}
+
+	world := &gamev1alpha1.WorldInstance{
+		TypeMeta:   metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "WorldInstance"},
+		ObjectMeta: metav1.ObjectMeta{Name: "anvil-sample-world", Namespace: "anvil-demo", UID: types.UID("world-uid")},
+		Spec:       gamev1alpha1.WorldInstanceSpec{GameRef: gamev1alpha1.ObjectRef{Name: "anvil-sample"}, WorldID: "world-001", Region: "us-test-1", ShardCount: 2},
+	}
+
+	shardName := stableWorldShardName(world.Name, 0)
+	shard := &gamev1alpha1.WorldShard{
+		TypeMeta:   metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "WorldShard"},
+		ObjectMeta: metav1.ObjectMeta{Name: shardName, Namespace: "anvil-demo", Labels: map[string]string{labelWorldName: world.Name}},
+		Spec:       gamev1alpha1.WorldShardSpec{WorldRef: gamev1alpha1.ObjectRef{Name: world.Name}, ShardID: 0},
+	}
+
+	provider := &gamev1alpha1.ModuleManifest{
+		TypeMeta: metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "ModuleManifest"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "core-physics-engine",
+			Namespace: "anvil-demo",
+			Annotations: map[string]string{
+				annRuntimeImage:       "alpine:3.20",
+				annRuntimePort:        "50051",
+				annStorageTier:        "server-low-latency",
+				annStorageScope:       "world-shard",
+				annStorageSize:        "2Gi",
+				annStorageMountPath:   "/data",
+				annStorageAccessModes: "ReadWriteOnce",
+			},
+		},
+		Spec: gamev1alpha1.ModuleManifestSpec{Module: gamev1alpha1.ModuleIdentity{ID: "core.physics", Version: "1.3.0"}},
+	}
+
+	binding := &gamev1alpha1.CapabilityBinding{
+		TypeMeta: metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "CapabilityBinding"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "binding-1",
+			Namespace: "anvil-demo",
+			Labels: map[string]string{
+				labelShardID: "0",
+			},
+		},
+		Spec: gamev1alpha1.CapabilityBindingSpec{
+			CapabilityID: "physics.engine",
+			Scope:        gamev1alpha1.CapabilityScopeWorldShard,
+			Multiplicity: gamev1alpha1.MultiplicityOne,
+			WorldRef:     &gamev1alpha1.WorldRef{Name: world.Name},
+			Consumer:     gamev1alpha1.ConsumerRef{ModuleManifestName: "core-interaction-engine"},
+			Provider:     gamev1alpha1.ProviderRef{ModuleManifestName: provider.Name, CapabilityVersion: "1.2.0"},
+		},
+	}
+
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(world, shard, provider, binding).WithStatusSubresource(binding).Build()
+
+	r := &RuntimeOrchestratorReconciler{Client: cl, Scheme: scheme}
+	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: "anvil-demo", Name: binding.Name}})
+	if err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	claimName := stableWSCName(world.Name, shardName, "server-low-latency")
+	var claim gamev1alpha1.WorldStorageClaim
+	if err := cl.Get(ctx, types.NamespacedName{Namespace: "anvil-demo", Name: claimName}, &claim); err != nil {
+		t.Fatalf("expected WorldStorageClaim: %v", err)
+	}
+	if claim.Spec.Scope != gamev1alpha1.WorldStorageScopeWorldShard {
+		t.Fatalf("unexpected claim scope: %s", claim.Spec.Scope)
+	}
+	if claim.Spec.ShardRef == nil || claim.Spec.ShardRef.Name != shardName {
+		t.Fatalf("expected shardRef to be set")
+	}
+
+	workloadName := rtNameWithShard(world.Name, "0", provider.Name)
+	var dep appsv1.Deployment
+	if err := cl.Get(ctx, types.NamespacedName{Namespace: "anvil-demo", Name: workloadName}, &dep); err != nil {
+		t.Fatalf("expected deployment: %v", err)
+	}
+
+	expectedPVC := stablePVCName(world.Name, shardName, "server-low-latency")
+	foundVolume := false
+	for _, v := range dep.Spec.Template.Spec.Volumes {
+		if v.Name == "anvil-state" && v.PersistentVolumeClaim != nil && v.PersistentVolumeClaim.ClaimName == expectedPVC {
+			foundVolume = true
+			break
+		}
+	}
+	if !foundVolume {
+		t.Fatalf("expected anvil-state volume with pvc %q", expectedPVC)
+	}
+
+	if len(dep.Spec.Template.Spec.Containers) != 1 {
+		t.Fatalf("expected 1 container")
+	}
+	foundMount := false
+	for _, m := range dep.Spec.Template.Spec.Containers[0].VolumeMounts {
+		if m.Name == "anvil-state" && m.MountPath == "/data" {
+			foundMount = true
+			break
+		}
+	}
+	if !foundMount {
+		t.Fatalf("expected anvil-state mount at /data")
+	}
+}
+
 func TestRuntimeOrchestrator_SkipsWhenNoWorldRef(t *testing.T) {
 	ctx := context.Background()
 

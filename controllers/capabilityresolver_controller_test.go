@@ -88,7 +88,18 @@ func TestCapabilityResolverReconcile_CreatesManagedBinding(t *testing.T) {
 		},
 	}
 
-	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(world, game, physics, interaction).Build()
+	shard0 := &v1alpha1.WorldShard{
+		TypeMeta:   metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "WorldShard"},
+		ObjectMeta: metav1.ObjectMeta{Name: stableWorldShardName(world.Name, 0), Namespace: "anvil-demo", Labels: map[string]string{labelWorldName: world.Name}},
+		Spec:       v1alpha1.WorldShardSpec{WorldRef: v1alpha1.ObjectRef{Name: world.Name}, ShardID: 0},
+	}
+	shard1 := &v1alpha1.WorldShard{
+		TypeMeta:   metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "WorldShard"},
+		ObjectMeta: metav1.ObjectMeta{Name: stableWorldShardName(world.Name, 1), Namespace: "anvil-demo", Labels: map[string]string{labelWorldName: world.Name}},
+		Spec:       v1alpha1.WorldShardSpec{WorldRef: v1alpha1.ObjectRef{Name: world.Name}, ShardID: 1},
+	}
+
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(world, game, physics, interaction, shard0, shard1).Build()
 
 	r := &CapabilityResolverReconciler{Client: cl, Scheme: scheme, Resolver: resolver.NewDefault()}
 	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: "anvil-demo", Name: "anvil-sample-world"}})
@@ -98,24 +109,29 @@ func TestCapabilityResolverReconcile_CreatesManagedBinding(t *testing.T) {
 		t.Fatalf("Reconcile: %v", err)
 	}
 
-	bindingName := stableBindingName("anvil-sample-world", "core-interaction-engine", "physics.engine", v1alpha1.CapabilityScopeWorldShard, v1alpha1.MultiplicityOne)
-	var binding v1alpha1.CapabilityBinding
-	if err := cl.Get(ctx, types.NamespacedName{Namespace: "anvil-demo", Name: bindingName}, &binding); err != nil {
-		t.Fatalf("expected binding to be created: %v", err)
-	}
-	if binding.Spec.Consumer.ModuleManifestName != "core-interaction-engine" {
-		t.Fatalf("unexpected consumer: %s", binding.Spec.Consumer.ModuleManifestName)
-	}
-	if binding.Spec.Provider.ModuleManifestName != "core-physics-engine" {
-		t.Fatalf("unexpected provider: %s", binding.Spec.Provider.ModuleManifestName)
-	}
-	if binding.Labels[labelManagedBy] != managedByCapabilityResolver {
-		t.Fatalf("expected managed-by label")
-	}
-	if binding.Labels[labelWorldName] != "anvil-sample-world" {
-		t.Fatalf("expected world label")
-	}
-	if len(binding.OwnerReferences) != 1 {
-		t.Fatalf("expected ownerRef to be set")
+	for _, shardID := range []int32{0, 1} {
+		bindingName := stableShardBindingName("anvil-sample-world", shardID, "core-interaction-engine", "physics.engine", v1alpha1.CapabilityScopeWorldShard, v1alpha1.MultiplicityOne)
+		var binding v1alpha1.CapabilityBinding
+		if err := cl.Get(ctx, types.NamespacedName{Namespace: "anvil-demo", Name: bindingName}, &binding); err != nil {
+			t.Fatalf("expected binding to be created (shard %d): %v", shardID, err)
+		}
+		if binding.Spec.Consumer.ModuleManifestName != "core-interaction-engine" {
+			t.Fatalf("unexpected consumer: %s", binding.Spec.Consumer.ModuleManifestName)
+		}
+		if binding.Spec.Provider.ModuleManifestName != "core-physics-engine" {
+			t.Fatalf("unexpected provider: %s", binding.Spec.Provider.ModuleManifestName)
+		}
+		if binding.Labels[labelManagedBy] != managedByCapabilityResolver {
+			t.Fatalf("expected managed-by label")
+		}
+		if binding.Labels[labelWorldName] != "anvil-sample-world" {
+			t.Fatalf("expected world label")
+		}
+		if binding.Labels[labelShardID] == "" {
+			t.Fatalf("expected shard label")
+		}
+		if len(binding.OwnerReferences) != 1 {
+			t.Fatalf("expected ownerRef to be set")
+		}
 	}
 }

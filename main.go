@@ -58,16 +58,36 @@ func main() {
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Resolver: resolver.NewDefault(),
+		Recorder: mgr.GetEventRecorderFor("CapabilityResolver"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CapabilityResolver")
 		os.Exit(1)
 	}
 
 	if err := (&controllers.RuntimeOrchestratorReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("RuntimeOrchestrator"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "RuntimeOrchestrator")
+		os.Exit(1)
+	}
+
+	if err := (&controllers.WorldShardReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("WorldShard"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "WorldShard")
+		os.Exit(1)
+	}
+
+	if err := (&controllers.StorageOrchestratorReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("StorageOrchestrator"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "StorageOrchestrator")
 		os.Exit(1)
 	}
 

@@ -18,11 +18,15 @@ test:
 
 ENVTEST_K8S_VERSION ?= 1.31.0
 
+# Absolute path to Go-installed binaries (respects GOBIN if set).
+GO_BIN_DIR := $(shell sh -c 'gobin=$$(go env GOBIN); if [ -n "$$gobin" ]; then echo "$$gobin"; else echo "$$(go env GOPATH)/bin"; fi')
+SETUP_ENVTEST := $(GO_BIN_DIR)/setup-envtest
+
 envtest:
 	go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
 test-integration: envtest
-	ANVIL_INTEGRATION=1 KUBEBUILDER_ASSETS="$$(setup-envtest use -p path $(ENVTEST_K8S_VERSION))" go test ./... -run Integration
+	ANVIL_INTEGRATION=1 KUBEBUILDER_ASSETS="$$("$(SETUP_ENVTEST)" use -p path $(ENVTEST_K8S_VERSION))" go test ./... -run Integration
 
 tidy:
 	go mod tidy

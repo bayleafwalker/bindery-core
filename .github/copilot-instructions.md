@@ -26,6 +26,14 @@
   - down: `./k8s/dev/kind-down.sh`
 - Run controller manager locally (uses current kubeconfig context): `go run .`
 
+## Debugging & logs
+- Prefer structured logs (controller-runtime zap) with stable fields so issues are searchable.
+- When changing reconcile behavior, include enough context in logs to understand the decision:
+  - `namespace`, `world`, `binding`, `consumerModule`, `providerModule`, `capabilityId`
+  - counts/choices: `candidateCount`, `chosenProvider`, `chosenVersion`
+- For local debugging, run with verbose logs: `go run . --zap-log-level=debug`
+- When proposing a fix, include a minimal repro command sequence (unit test, integration test, or `kubectl` inspection).
+
 ## Test-driven development (TDD)
 - Default to tests-first for new behavior: write or update a failing test, then implement until green.
 - Any non-trivial change should include:

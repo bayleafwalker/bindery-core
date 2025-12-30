@@ -6,6 +6,10 @@ metadata:
   annotations:
     anvil.dev/runtime-image: alpine:3.20
     anvil.dev/runtime-port: "50051"
+    anvil.dev/storage-tier: server-low-latency
+    anvil.dev/storage-scope: world-shard
+    anvil.dev/storage-size: "10Gi"
+    anvil.dev/storage-mount-path: /var/anvil/state
 spec:
   module:
     id: core.physics

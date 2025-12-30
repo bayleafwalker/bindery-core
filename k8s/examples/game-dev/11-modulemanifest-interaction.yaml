@@ -3,6 +3,10 @@ kind: ModuleManifest
 metadata:
   name: core-interaction-engine
   namespace: anvil-demo
+  annotations:
+    anvil.dev/storage-tier: client-low-latency
+    anvil.dev/storage-scope: world-shard
+    anvil.dev/storage-size: "1Gi"
 spec:
   module:
     id: core.interaction

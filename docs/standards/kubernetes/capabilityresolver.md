@@ -10,6 +10,7 @@ This document defines a Kubernetes controller named **CapabilityResolver**.
 - `ModuleManifest` (namespaced)
 - `GameDefinition` (namespaced)
 - `WorldInstance` (namespaced)
+- `WorldShard` (namespaced)
 
 **Produces (primary outputs):**
 - `CapabilityBinding` (namespaced)
@@ -39,6 +40,10 @@ The resolver enforces:
 2) **Scope compatibility**
 - `ModuleManifest.spec.requires[].scope` must match `ModuleManifest.spec.provides[].scope`.
 - `CapabilityBinding.spec.scope` must equal that scope.
+
+Shard-scoped behavior:
+- If `scope` is `world-shard`, the resolver expands the requirement across shards by producing one `CapabilityBinding` per `WorldShard` belonging to the `WorldInstance`.
+- Each shard-scoped binding is labeled with the shard identifier so downstream controllers can create shard-specific workloads.
 
 3) **Multiplicity compatibility**
 - If the requirement multiplicity is `"1"`, the resolver produces **exactly one** `CapabilityBinding` for that requirement.

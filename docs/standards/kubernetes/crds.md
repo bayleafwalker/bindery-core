@@ -372,6 +372,9 @@ spec:
                       status:
                         type: string
                         enum: ["True", "False", "Unknown"]
+                      observedGeneration:
+                        type: integer
+                        minimum: 0
                       reason:
                         type: string
                       message:
@@ -514,6 +517,9 @@ spec:
                       status:
                         type: string
                         enum: ["True", "False", "Unknown"]
+                      observedGeneration:
+                        type: integer
+                        minimum: 0
                       reason:
                         type: string
                       message:
@@ -774,7 +780,34 @@ spec:
                         format: date-time
 ```
 
-## 5) CapabilityBinding CRD
+## 5) WorldShard CRD
+
+**Purpose:** Declares a concrete shard of a `WorldInstance`.
+
+`WorldShard` objects are controller-managed. They exist to make shard topology explicit and to provide a stable object for shard-scoped ownership (for example, shard-scoped runtime workloads).
+
+**File:** `k8s/crds/worldshards.game.platform.yaml`
+
+Key fields:
+- `spec.worldRef.name`: owning world instance.
+- `spec.shardId`: shard identifier (integer).
+
+## 6) WorldStorageClaim CRD
+
+**Purpose:** Declares a storage requirement for a world or world-shard, as an intermediate resource that can be translated into concrete PVCs (server-side tiers) or an external reference (client-side tiers).
+
+`WorldStorageClaim` objects are typically created by controllers based on module/runtime requirements.
+
+**File:** `k8s/crds/worldstorageclaims.game.platform.yaml`
+
+Key fields:
+- `spec.worldRef.name`: owning world instance.
+- `spec.scope`: `world` or `world-shard`.
+- `spec.shardRef.name`: required when `scope=world-shard`.
+- `spec.tier`: storage tier (for example, `server-low-latency` or `client-low-latency`).
+- `status.phase`: controller-owned phase (for example, provisioned vs external).
+
+## 7) CapabilityBinding CRD
 
 **Purpose:** Declares an explicit binding from a consumer requirement to a provider (optionally scoped to a world).
 

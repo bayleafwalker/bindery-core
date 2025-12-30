@@ -5,6 +5,7 @@
 package v1alpha1
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -158,6 +159,10 @@ func (in *WorldInstance) DeepCopyInto(out *WorldInstance) {
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	out.Spec = in.Spec
 	out.Status = in.Status
+	if in.Status.Conditions != nil {
+		out.Status.Conditions = make([]metav1.Condition, len(in.Status.Conditions))
+		copy(out.Status.Conditions, in.Status.Conditions)
+	}
 }
 
 func (in *WorldInstance) DeepCopy() *WorldInstance {
@@ -255,6 +260,13 @@ func (in *CapabilityBindingStatus) DeepCopyInto(out *CapabilityBindingStatus) {
 		out.Provider = new(ProviderStatus)
 		in.Provider.DeepCopyInto(out.Provider)
 	}
+	if in.LastResolvedTime != nil {
+		out.LastResolvedTime = in.LastResolvedTime.DeepCopy()
+	}
+	if in.Conditions != nil {
+		out.Conditions = make([]metav1.Condition, len(in.Conditions))
+		copy(out.Conditions, in.Conditions)
+	}
 }
 
 func (in *ProviderStatus) DeepCopyInto(out *ProviderStatus) {
@@ -290,6 +302,122 @@ func (in *CapabilityBindingList) DeepCopy() *CapabilityBindingList {
 }
 
 func (in *CapabilityBindingList) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	}
+	return nil
+}
+
+func (in *WorldShard) DeepCopyInto(out *WorldShard) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+	out.Spec = in.Spec
+	out.Status = in.Status
+}
+
+func (in *WorldShard) DeepCopy() *WorldShard {
+	if in == nil {
+		return nil
+	}
+	out := new(WorldShard)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *WorldShard) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	}
+	return nil
+}
+
+func (in *WorldShardList) DeepCopyInto(out *WorldShardList) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
+	if in.Items != nil {
+		out.Items = make([]WorldShard, len(in.Items))
+		for i := range in.Items {
+			in.Items[i].DeepCopyInto(&out.Items[i])
+		}
+	}
+}
+
+func (in *WorldShardList) DeepCopy() *WorldShardList {
+	if in == nil {
+		return nil
+	}
+	out := new(WorldShardList)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *WorldShardList) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	}
+	return nil
+}
+
+func (in *WorldStorageClaim) DeepCopyInto(out *WorldStorageClaim) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+	in.Spec.DeepCopyInto(&out.Spec)
+	out.Status = in.Status
+}
+
+func (in *WorldStorageClaim) DeepCopy() *WorldStorageClaim {
+	if in == nil {
+		return nil
+	}
+	out := new(WorldStorageClaim)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *WorldStorageClaim) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	}
+	return nil
+}
+
+func (in *WorldStorageClaimSpec) DeepCopyInto(out *WorldStorageClaimSpec) {
+	*out = *in
+	out.WorldRef = in.WorldRef
+	if in.ShardRef != nil {
+		out.ShardRef = &ObjectRef{Name: in.ShardRef.Name}
+	}
+	if in.AccessModes != nil {
+		out.AccessModes = make([]string, len(in.AccessModes))
+		copy(out.AccessModes, in.AccessModes)
+	}
+}
+
+func (in *WorldStorageClaimList) DeepCopyInto(out *WorldStorageClaimList) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
+	if in.Items != nil {
+		out.Items = make([]WorldStorageClaim, len(in.Items))
+		for i := range in.Items {
+			in.Items[i].DeepCopyInto(&out.Items[i])
+		}
+	}
+}
+
+func (in *WorldStorageClaimList) DeepCopy() *WorldStorageClaimList {
+	if in == nil {
+		return nil
+	}
+	out := new(WorldStorageClaimList)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *WorldStorageClaimList) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}

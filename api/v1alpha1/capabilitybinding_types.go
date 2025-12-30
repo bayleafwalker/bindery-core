@@ -50,9 +50,13 @@ type ProviderRef struct {
 }
 
 type CapabilityBindingStatus struct {
-	Phase    string          `json:"phase,omitempty"`
-	Message  string          `json:"message,omitempty"`
-	Provider *ProviderStatus `json:"provider,omitempty"`
+	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
+	Phase              string             `json:"phase,omitempty"`
+	Message            string             `json:"message,omitempty"`
+	Provider           *ProviderStatus    `json:"provider,omitempty"`
+	ResolvedEndpoint   string             `json:"resolvedEndpoint,omitempty"`
+	LastResolvedTime   *metav1.Time       `json:"lastResolvedTime,omitempty"`
+	Conditions         []metav1.Condition `json:"conditions,omitempty"`
 }
 
 type ProviderStatus struct {
