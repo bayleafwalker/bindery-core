@@ -1,0 +1,24 @@
+# Go
+/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go workspace / tooling
+/vendor/
+
+# Editors / OS
+.DS_Store
+.vscode/
+.idea/
+
+# Local scratch
+/tmp/
+*.log
+
+# Kind / Kubernetes local artifacts (if any are generated)
+.kube/

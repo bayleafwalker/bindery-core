@@ -1,0 +1,252 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "game.platform/v0.1/CapabilityContract.schema.json",
+  "title": "CapabilityContract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": { "type": "string", "const": "game.platform/v0.1" },
+    "kind": { "type": "string", "const": "CapabilityContract" },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "labels": { "type": "object", "additionalProperties": { "type": "string" } }
+      }
+    },
+    "spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capabilityId",
+        "version",
+        "owner",
+        "status",
+        "purpose",
+        "semantics",
+        "scope",
+        "multiplicity",
+        "features",
+        "nfrDefaults",
+        "interfaces"
+      ],
+      "properties": {
+        "capabilityId": { "type": "string", "minLength": 1 },
+        "version": { "$ref": "#/$defs/semver" },
+        "owner": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "enum": ["active", "deprecated", "retired"] },
+        "purpose": { "type": "string", "minLength": 1 },
+        "semantics": { "$ref": "#/$defs/semantics" },
+        "scope": { "$ref": "#/$defs/scopeRules" },
+        "multiplicity": { "$ref": "#/$defs/multiplicityRules" },
+        "features": { "$ref": "#/$defs/features" },
+        "nfrDefaults": { "$ref": "#/$defs/nfrDefaults" },
+        "interfaces": { "$ref": "#/$defs/interfaces" },
+        "deprecations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/deprecation" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
+    },
+    "scope": { "type": "string", "enum": ["cluster", "region", "world", "world-shard", "session"] },
+    "constraintLevel": { "type": "string", "enum": ["hard", "soft"] },
+    "multiplicity": { "type": "string", "enum": ["1", "many"] },
+
+    "semantics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["invariants", "authoritativeSource", "failureBehavior", "ordering"],
+      "properties": {
+        "invariants": { "type": "array", "items": { "type": "string" } },
+        "authoritativeSource": { "type": "string" },
+        "failureBehavior": { "type": "array", "items": { "type": "string" } },
+        "ordering": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["guarantees"],
+          "properties": {
+            "guarantees": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    },
+
+    "scopeRules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed", "recommended"],
+      "properties": {
+        "allowed": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/scope" }
+        },
+        "recommended": { "$ref": "#/$defs/scope" }
+      }
+    },
+
+    "multiplicityRules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recommended"],
+      "properties": {
+        "recommended": { "$ref": "#/$defs/multiplicity" }
+      }
+    },
+
+    "features": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["defined"],
+      "properties": {
+        "defined": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "description", "stability"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "description": { "type": "string" },
+              "stability": { "type": "string", "enum": ["experimental", "stable", "deprecated"] }
+            }
+          }
+        }
+      }
+    },
+
+    "nfrDefaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tickRateHz", "latency", "determinism"],
+      "properties": {
+        "tickRateHz": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value", "constraint"],
+          "properties": {
+            "value": { "type": "number", "minimum": 0 },
+            "constraint": { "$ref": "#/$defs/constraintLevel" }
+          }
+        },
+        "latency": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["p95Ms"],
+          "properties": {
+            "p95Ms": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["value", "constraint"],
+              "properties": {
+                "value": { "type": "number", "minimum": 0 },
+                "constraint": { "$ref": "#/$defs/constraintLevel" }
+              }
+            }
+          }
+        },
+        "determinism": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value", "constraint"],
+          "properties": {
+            "value": { "type": "string", "enum": ["required", "best-effort", "none"] },
+            "constraint": { "$ref": "#/$defs/constraintLevel" }
+          }
+        }
+      }
+    },
+
+    "interfaces": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["grpc", "events"],
+      "properties": {
+        "grpc": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/grpcInterface" }
+        },
+        "events": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/eventInterface" }
+        }
+      }
+    },
+
+    "grpcInterface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["package", "service", "protoRef"],
+      "properties": {
+        "package": { "type": "string" },
+        "service": { "type": "string" },
+        "protoRef": { "type": "string" },
+        "compatibility": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "additiveUntil": { "$ref": "#/$defs/semver" }
+          }
+        }
+      }
+    },
+
+    "eventInterface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stream", "schema", "orderingKey"],
+      "properties": {
+        "stream": { "type": "string" },
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "version", "format", "schemaRef"],
+          "properties": {
+            "id": { "type": "string" },
+            "version": { "$ref": "#/$defs/semver" },
+            "format": { "type": "string", "enum": ["protobuf", "json", "avro"] },
+            "schemaRef": { "type": "string" }
+          }
+        },
+        "orderingKey": { "type": "string" }
+      }
+    },
+
+    "deprecation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["appliesTo", "deprecatedOn", "replacement", "notes"],
+      "properties": {
+        "appliesTo": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["contractVersionRange"],
+          "properties": {
+            "contractVersionRange": { "type": "string", "minLength": 1 }
+          }
+        },
+        "deprecatedOn": { "type": "string", "minLength": 1 },
+        "retiresOn": { "type": "string" },
+        "replacement": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["capabilityId", "versionRange"],
+          "properties": {
+            "capabilityId": { "type": "string" },
+            "versionRange": { "type": "string" }
+          }
+        },
+        "notes": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

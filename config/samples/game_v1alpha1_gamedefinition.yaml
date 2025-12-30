@@ -1,0 +1,11 @@
+apiVersion: game.platform/v1alpha1
+kind: GameDefinition
+metadata:
+  name: anvil-sample
+  namespace: default
+spec:
+  gameId: anvil.sample
+  version: 1.0.0
+  modules:
+    - name: core-physics-engine
+      required: true

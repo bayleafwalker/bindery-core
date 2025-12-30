@@ -1,0 +1,70 @@
+apiVersion: game.platform/v0.1
+kind: CapabilityContract
+metadata:
+  name: physics.engine@1.2.0
+  labels:
+    domain: physics
+spec:
+  capabilityId: physics.engine
+  version: "1.2.0"
+  owner: platform-sim@studio.example
+  status: active
+
+  purpose: "Authoritative physics simulation step per world shard."
+
+  semantics:
+    invariants:
+      - "Given the same initial state and ordered inputs, results are deterministic within a shard (when deterministic-step is used)."
+      - "Physics state evolution is authoritative for the shard domain."
+    authoritativeSource: "Shard-local physics state + ordered inputs"
+    failureBehavior:
+      - "If unavailable, authoritative simulation must not advance."
+    ordering:
+      guarantees:
+        - "Inputs are processed in shard order (worldShardId orderingKey)."
+
+  scope:
+    allowed: [world-shard]
+    recommended: world-shard
+
+  multiplicity:
+    recommended: "1"
+
+  features:
+    defined:
+      - name: deterministic-step
+        description: "Guarantees deterministic stepping given ordered inputs."
+        stability: stable
+      - name: continuous-collision
+        description: "Continuous collision detection support."
+        stability: stable
+
+  nfrDefaults:
+    tickRateHz:
+      value: 60
+      constraint: hard
+    latency:
+      p95Ms:
+        value: 10
+        constraint: hard
+    determinism:
+      value: required
+      constraint: hard
+
+  interfaces:
+    grpc:
+      - package: game.physics.v1
+        service: PhysicsEngine
+        protoRef: registry://protos/game.physics.v1
+        compatibility:
+          additiveUntil: "2.0.0"
+    events:
+      - stream: physics.state.v1
+        schema:
+          id: game.physics.state
+          version: "1.0.0"
+          format: protobuf
+          schemaRef: registry://schemas/game.physics.state/1.0.0
+        orderingKey: worldShardId
+
+  deprecations: []

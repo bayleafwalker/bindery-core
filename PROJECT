@@ -1,0 +1,20 @@
+# This file is included to follow kubebuilder layout conventions.
+# It is not currently used by any generator in this repo.
+
+version: "3"
+domain: "platform"
+repo: "github.com/anvil-platform/anvil"
+
+resources:
+  - group: game
+    version: v1alpha1
+    kind: ModuleManifest
+  - group: game
+    version: v1alpha1
+    kind: GameDefinition
+  - group: game
+    version: v1alpha1
+    kind: WorldInstance
+  - group: game
+    version: v1alpha1
+    kind: CapabilityBinding

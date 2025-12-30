@@ -1,0 +1,22 @@
+apiVersion: game.platform/v1alpha1
+kind: CapabilityDefinition
+metadata:
+  name: physics-engine
+spec:
+  capabilityId: physics.engine
+  latestVersion: "1.2.0"
+  versions: ["1.2.0"]
+  scopes: [world-shard]
+  multiplicity: "1"
+  features:
+    defined:
+      - name: deterministic-step
+        stability: stable
+        description: Deterministic stepping given ordered inputs.
+      - name: continuous-collision
+        stability: stable
+        description: Continuous collision detection support.
+  nfrDefaults:
+    tickRateHz: 60
+    latencyP95Ms: 10
+    determinism: required

@@ -1,0 +1,22 @@
+apiVersion: game.platform/v1alpha1
+kind: GameDefinition
+metadata:
+  name: anvil-sample
+  namespace: anvil-demo
+spec:
+  gameId: anvil.sample
+  version: "0.1.0"
+  description: Minimal demo game composed of physics + interaction modules.
+
+  modules:
+    - name: core-physics-engine
+      required: true
+      desiredScope: world-shard
+    - name: core-interaction-engine
+      required: true
+      desiredScope: world-shard
+
+  defaults:
+    region: us-test-1
+    shardCount: 2
+    tickRateHz: 60

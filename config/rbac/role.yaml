@@ -1,0 +1,16 @@
+# NOTE: This is a convenience manifest for local/dev use.
+# In a full kubebuilder project, RBAC is typically generated from controller markers.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: capabilityresolver
+rules:
+  - apiGroups: ["game.platform"]
+    resources: ["modulemanifests", "gamedefinitions", "worldinstances"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["game.platform"]
+    resources: ["capabilitybindings"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["game.platform"]
+    resources: ["capabilitybindings/status", "worldinstances/status"]
+    verbs: ["get", "update", "patch"]

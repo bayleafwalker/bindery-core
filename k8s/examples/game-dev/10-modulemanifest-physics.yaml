@@ -1,0 +1,58 @@
+apiVersion: game.platform/v1alpha1
+kind: ModuleManifest
+metadata:
+  name: core-physics-engine
+  namespace: anvil-demo
+spec:
+  module:
+    id: core.physics
+    version: "1.3.0"
+    description: Authoritative physics simulation per world shard.
+    owners: ["platform-sim@studio.example"]
+    repo: https://example.invalid/repos/core-physics
+
+  provides:
+    - capabilityId: physics.engine
+      version: "1.2.0"
+      scope: world-shard
+      multiplicity: "1"
+      features:
+        supported: ["deterministic-step", "continuous-collision"]
+      nfr:
+        latency:
+          p95Ms: { value: 10, constraint: hard }
+        tickRateHz: { value: 60, constraint: hard }
+        determinism: { value: required, constraint: hard }
+      interfaces:
+        grpc:
+          - package: game.physics.v1
+            service: PhysicsEngine
+            protoRef: registry://protos/game.physics.v1
+            methods:
+              - name: Step
+                request: StepRequest
+                response: StepResponse
+        events:
+          - name: physics.state.v1
+            direction: publish
+            schema:
+              id: game.physics.state
+              version: "1.0.0"
+              format: protobuf
+              schemaRef: registry://schemas/game.physics.state/1.0.0
+            orderingKey: worldShardId
+
+  requires: []
+
+  scaling:
+    defaultScope: world-shard
+    statefulness: stateful
+    sharding:
+      strategy: world-shard
+      key: worldShardId
+    autoscaling:
+      minReplicas: 1
+      maxReplicas: 1
+      metricHints:
+        - type: tick-lag
+          target: p95<5ms

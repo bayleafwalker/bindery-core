@@ -1,0 +1,68 @@
+apiVersion: game.platform/v1alpha1
+kind: ModuleManifest
+metadata:
+  name: core-interaction-engine
+  namespace: anvil-demo
+spec:
+  module:
+    id: core.interaction
+    version: "0.9.0"
+    description: Interaction rules and action processing per shard.
+    owners: ["platform-gameplay@studio.example"]
+
+  provides:
+    - capabilityId: interaction.engine
+      version: "0.9.0"
+      scope: world-shard
+      multiplicity: "1"
+      features:
+        supported: ["server-authoritative"]
+      nfr:
+        latency:
+          p95Ms: { value: 15, constraint: soft }
+        tickRateHz: { value: 60, constraint: hard }
+      interfaces:
+        grpc:
+          - package: game.interaction.v1
+            service: InteractionEngine
+            protoRef: registry://protos/game.interaction.v1
+            methods:
+              - name: SubmitAction
+                request: SubmitActionRequest
+                response: SubmitActionResponse
+        events:
+          - name: interaction.events.v1
+            direction: publish
+            schema:
+              id: game.interaction.event
+              version: "1.0.0"
+              format: protobuf
+              schemaRef: registry://schemas/game.interaction.event/1.0.0
+            orderingKey: worldShardId
+
+  requires:
+    - capabilityId: physics.engine
+      versionConstraint: ^1.2.0
+      scope: world-shard
+      multiplicity: "1"
+      dependencyMode: required
+      features:
+        required: ["deterministic-step"]
+        preferred: ["continuous-collision"]
+      nfr:
+        latency:
+          p95Ms: { value: 12, constraint: hard }
+        tickRateHz: { value: 60, constraint: hard }
+
+  scaling:
+    defaultScope: world-shard
+    statefulness: stateful
+    sharding:
+      strategy: world-shard
+      key: worldShardId
+    autoscaling:
+      minReplicas: 1
+      maxReplicas: 1
+      metricHints:
+        - type: tick-lag
+          target: p95<7ms

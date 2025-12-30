@@ -1,0 +1,308 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "game.platform/v0.1/ModuleManifest.schema.json",
+  "title": "ModuleManifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "const": "game.platform/v0.1"
+    },
+    "kind": {
+      "type": "string",
+      "const": "ModuleManifest"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["module", "provides", "requires", "scaling"],
+      "properties": {
+        "module": { "$ref": "#/$defs/moduleIdentity" },
+        "provides": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/providedCapability" }
+        },
+        "requires": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/requiredCapability" }
+        },
+        "scaling": { "$ref": "#/$defs/scaling" }
+      }
+    }
+  },
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
+    },
+    "scope": {
+      "type": "string",
+      "enum": ["cluster", "region", "world", "world-shard", "session"]
+    },
+    "multiplicity": {
+      "type": "string",
+      "enum": ["1", "many"]
+    },
+    "constraintLevel": {
+      "type": "string",
+      "enum": ["hard", "soft"]
+    },
+    "moduleIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "description", "owners"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "version": { "$ref": "#/$defs/semver" },
+        "description": { "type": "string" },
+        "owners": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "repo": { "type": "string" },
+        "license": { "type": "string" }
+      }
+    },
+    "featuresProvided": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "supported": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "featuresRequired": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "required": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "preferred": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "latencyTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "constraint"],
+      "properties": {
+        "value": { "type": "number", "minimum": 0 },
+        "constraint": { "$ref": "#/$defs/constraintLevel" }
+      }
+    },
+    "nfrProvided": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "latency": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "p95Ms": { "$ref": "#/$defs/latencyTarget" }
+          }
+        },
+        "tickRateHz": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value", "constraint"],
+          "properties": {
+            "value": { "type": "number", "minimum": 0 },
+            "constraint": { "$ref": "#/$defs/constraintLevel" }
+          }
+        },
+        "determinism": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value", "constraint"],
+          "properties": {
+            "value": { "type": "string", "enum": ["required", "best-effort", "none"] },
+            "constraint": { "$ref": "#/$defs/constraintLevel" }
+          }
+        }
+      }
+    },
+    "nfrRequired": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "latency": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "p95Ms": { "$ref": "#/$defs/latencyTarget" }
+          }
+        },
+        "tickRateHz": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value", "constraint"],
+          "properties": {
+            "value": { "type": "number", "minimum": 0 },
+            "constraint": { "$ref": "#/$defs/constraintLevel" }
+          }
+        }
+      }
+    },
+    "grpcMethod": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "request", "response"],
+      "properties": {
+        "name": { "type": "string" },
+        "request": { "type": "string" },
+        "response": { "type": "string" }
+      }
+    },
+    "grpcService": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["package", "service", "protoRef", "methods"],
+      "properties": {
+        "package": { "type": "string" },
+        "service": { "type": "string" },
+        "protoRef": { "type": "string" },
+        "methods": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/grpcMethod" }
+        }
+      }
+    },
+    "eventSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "format", "schemaRef"],
+      "properties": {
+        "id": { "type": "string" },
+        "version": { "$ref": "#/$defs/semver" },
+        "format": { "type": "string", "enum": ["protobuf", "json", "avro"] },
+        "schemaRef": { "type": "string" }
+      }
+    },
+    "eventStream": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "direction", "schema"],
+      "properties": {
+        "name": { "type": "string" },
+        "direction": { "type": "string", "enum": ["publish", "subscribe", "both"] },
+        "schema": { "$ref": "#/$defs/eventSchema" },
+        "orderingKey": { "type": "string" }
+      }
+    },
+    "interfaces": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "grpc": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/grpcService" }
+        },
+        "events": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/eventStream" }
+        }
+      }
+    },
+    "providedCapability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capabilityId", "version", "scope", "multiplicity"],
+      "properties": {
+        "capabilityId": { "type": "string", "minLength": 1 },
+        "version": { "$ref": "#/$defs/semver" },
+        "scope": { "$ref": "#/$defs/scope" },
+        "multiplicity": { "$ref": "#/$defs/multiplicity" },
+        "features": { "$ref": "#/$defs/featuresProvided" },
+        "nfr": { "$ref": "#/$defs/nfrProvided" },
+        "interfaces": { "$ref": "#/$defs/interfaces" }
+      }
+    },
+    "requiredCapability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capabilityId",
+        "versionConstraint",
+        "scope",
+        "multiplicity",
+        "dependencyMode"
+      ],
+      "properties": {
+        "capabilityId": { "type": "string", "minLength": 1 },
+        "versionConstraint": { "type": "string", "minLength": 1 },
+        "scope": { "$ref": "#/$defs/scope" },
+        "multiplicity": { "$ref": "#/$defs/multiplicity" },
+        "dependencyMode": { "type": "string", "enum": ["required", "optional"] },
+        "features": { "$ref": "#/$defs/featuresRequired" },
+        "nfr": { "$ref": "#/$defs/nfrRequired" }
+      }
+    },
+    "scaling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["defaultScope", "statefulness", "sharding", "autoscaling"],
+      "properties": {
+        "defaultScope": { "$ref": "#/$defs/scope" },
+        "statefulness": { "type": "string", "enum": ["stateless", "stateful"] },
+        "sharding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["strategy", "key"],
+          "properties": {
+            "strategy": { "type": "string", "enum": ["none", "world", "world-shard", "session", "custom"] },
+            "key": { "type": "string" }
+          }
+        },
+        "autoscaling": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["minReplicas", "maxReplicas", "metricHints"],
+          "properties": {
+            "minReplicas": { "type": "integer", "minimum": 0 },
+            "maxReplicas": { "type": "integer", "minimum": 0 },
+            "metricHints": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["type", "target"],
+                "properties": {
+                  "type": { "type": "string", "enum": ["cpu", "memory", "rps", "tick-lag", "custom"] },
+                  "target": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

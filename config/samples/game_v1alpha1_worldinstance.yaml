@@ -1,0 +1,12 @@
+apiVersion: game.platform/v1alpha1
+kind: WorldInstance
+metadata:
+  name: anvil-sample-world
+  namespace: default
+spec:
+  gameRef:
+    name: anvil-sample
+  worldId: world-001
+  region: local
+  shardCount: 1
+  desiredState: Running

@@ -1,0 +1,439 @@
+syntax = "proto3";
+
+// Core engine RPC contract.
+//
+// Versioning:
+// - Package name includes the major API version: game.engine.v1
+// - Fields are assigned once and never reused.
+// - New fields should use new numbers; deprecated fields should be reserved.
+package game.engine.v1;
+
+option go_package = "github.com/anvil-platform/anvil/proto/game/engine/v1;enginev1";
+
+// EngineModule defines the minimal RPC surface area required for a generic
+// game engine module.
+service EngineModule {
+  // InitializeWorld creates or resets engine-managed state for a world.
+  rpc InitializeWorld(InitializeWorldRequest) returns (InitializeWorldResponse);
+
+  // ApplyCommand applies a player/system command. Commands are generic and
+  // extensible via oneof.
+  rpc ApplyCommand(ApplyCommandRequest) returns (ApplyCommandResponse);
+
+  // Tick advances the simulation.
+  rpc Tick(TickRequest) returns (TickResponse);
+
+  // GetStateSnapshot returns a point-in-time snapshot of world state.
+  rpc GetStateSnapshot(GetStateSnapshotRequest) returns (GetStateSnapshotResponse);
+}
+
+// --- Common result / error primitives ---
+
+// StatusCode is a stable, minimal set of result categories.
+enum StatusCode {
+  STATUS_CODE_UNSPECIFIED = 0;
+  STATUS_CODE_OK = 1;
+  STATUS_CODE_INVALID_ARGUMENT = 2;
+  STATUS_CODE_NOT_FOUND = 3;
+  STATUS_CODE_FAILED_PRECONDITION = 4;
+  STATUS_CODE_CONFLICT = 5;
+  STATUS_CODE_INTERNAL = 6;
+  STATUS_CODE_UNAVAILABLE = 7;
+}
+
+// Error conveys failure information in a forward-compatible way.
+message Error {
+  // A coarse category for programmatic handling.
+  StatusCode code = 1;
+
+  // Human-readable message suitable for logs and operator tools.
+  string message = 2;
+
+  // Machine-readable details (e.g. JSON, protobuf Any, etc.).
+  // Kept as bytes to avoid locking this API into a specific details scheme.
+  bytes details = 3;
+
+  // Reserved for future structured diagnostics.
+  reserved 4 to 9;
+}
+
+// --- World initialization ---
+
+// InitializeWorldRequest requests engine initialization for a world.
+message InitializeWorldRequest {
+  // Unique identifier of the world instance.
+  string world_id = 1;
+
+  // Idempotency key. Repeating the same request_id should be safe.
+  string request_id = 2;
+
+  // World configuration (game-specific), encoded as structured key/value.
+  WorldConfig config = 3;
+
+  // Reserved for future routing / tenancy information.
+  reserved 10 to 19;
+}
+
+// InitializeWorldResponse returns initialization outcome.
+message InitializeWorldResponse {
+  oneof result {
+    // Initialization succeeded.
+    InitializeWorldOk ok = 1;
+    // Initialization failed.
+    Error error = 2;
+  }
+
+  // Reserved for additional metadata.
+  reserved 10 to 19;
+}
+
+// InitializeWorldOk carries a minimal success payload.
+message InitializeWorldOk {
+  // The world tick after initialization (typically 0).
+  int64 initial_tick = 1;
+
+  // Opaque engine-specific metadata.
+  map<string, string> metadata = 2;
+
+  reserved 10 to 19;
+}
+
+// WorldConfig is an extensible configuration envelope.
+message WorldConfig {
+  // Key/value configuration intended for simple settings.
+  map<string, string> values = 1;
+
+  // Extensible typed configuration.
+  oneof config {
+    // Opaque config payload for game-specific schemas.
+    bytes opaque_config = 2;
+  }
+
+  reserved 10 to 19;
+}
+
+// --- Commands ---
+
+// ApplyCommandRequest applies a command to a world.
+message ApplyCommandRequest {
+  // Unique identifier of the world instance.
+  string world_id = 1;
+
+  // Idempotency key for the command application.
+  string request_id = 2;
+
+  // The command to apply.
+  Command command = 3;
+
+  // If true, the engine should validate but not mutate state.
+  bool dry_run = 4;
+
+  // Reserved for auth, routing, and tracing extensions.
+  reserved 10 to 19;
+}
+
+// ApplyCommandResponse returns command application outcome.
+message ApplyCommandResponse {
+  oneof result {
+    // Command was accepted/applied.
+    ApplyCommandOk ok = 1;
+    // Command was rejected/failed.
+    Error error = 2;
+  }
+
+  reserved 10 to 19;
+}
+
+// ApplyCommandOk carries a minimal success payload.
+message ApplyCommandOk {
+  // The tick at which the command was applied (may be current tick).
+  int64 applied_tick = 1;
+
+  // Optional engine-generated events.
+  repeated Event events = 2;
+
+  reserved 10 to 19;
+}
+
+// Command is an extensible command envelope.
+message Command {
+  // Stable command identifier (unique within a world).
+  string command_id = 1;
+
+  // Actor initiating the command (e.g., player id, system module id).
+  string actor_id = 2;
+
+  // When the command was issued (unix epoch millis), for ordering/debugging.
+  int64 issued_at_unix_millis = 3;
+
+  // Extensible command payload.
+  oneof payload {
+    MoveCommand move = 10;
+    SpawnEntityCommand spawn_entity = 11;
+    DespawnEntityCommand despawn_entity = 12;
+
+    // Opaque fallback for custom commands.
+    OpaqueCommand opaque = 19;
+  }
+
+  // Reserved for future common command fields.
+  reserved 4 to 9;
+  reserved 20 to 29;
+}
+
+// MoveCommand requests moving an entity.
+message MoveCommand {
+  // Target entity.
+  string entity_id = 1;
+
+  // Desired position.
+  Vec3 position = 2;
+
+  // Optional desired velocity.
+  Vec3 velocity = 3;
+
+  reserved 10 to 19;
+}
+
+// SpawnEntityCommand requests creating a new entity.
+message SpawnEntityCommand {
+  // Suggested entity id; if empty, the engine may generate one.
+  string entity_id = 1;
+
+  // Optional initial components.
+  repeated Component components = 2;
+
+  reserved 10 to 19;
+}
+
+// DespawnEntityCommand requests removing an entity.
+message DespawnEntityCommand {
+  // Entity to remove.
+  string entity_id = 1;
+
+  reserved 10 to 19;
+}
+
+// OpaqueCommand enables forward-compatible custom commands.
+message OpaqueCommand {
+  // Application-defined type identifier (e.g. "chat.send").
+  string type = 1;
+
+  // Opaque payload (e.g. JSON, msgpack, nested protobuf).
+  bytes data = 2;
+
+  reserved 10 to 19;
+}
+
+// --- Tick / simulation advance ---
+
+// TickRequest advances simulation for a world.
+message TickRequest {
+  // Unique identifier of the world instance.
+  string world_id = 1;
+
+  // Idempotency key for the tick operation.
+  string request_id = 2;
+
+  // The expected current tick (optional). If set, the engine may reject the
+  // request if its current tick differs.
+  int64 expected_current_tick = 3;
+
+  // Requested delta time in milliseconds.
+  int64 delta_millis = 4;
+
+  // Optional target tick (for catch-up). If set, engine may run multiple
+  // internal steps until reaching target_tick.
+  int64 target_tick = 5;
+
+  // Reserved for clock model extensions.
+  oneof clock {
+    // Opaque clock payload for advanced timing schemes.
+    bytes opaque_clock = 10;
+  }
+
+  reserved 20 to 29;
+}
+
+// TickResponse returns tick outcome.
+message TickResponse {
+  oneof result {
+    TickOk ok = 1;
+    Error error = 2;
+  }
+
+  reserved 10 to 19;
+}
+
+// TickOk carries tick results.
+message TickOk {
+  // The tick after advancement.
+  int64 new_tick = 1;
+
+  // Optional engine-generated events.
+  repeated Event events = 2;
+
+  reserved 10 to 19;
+}
+
+// --- State snapshots ---
+
+// GetStateSnapshotRequest requests a point-in-time state view.
+message GetStateSnapshotRequest {
+  // Unique identifier of the world instance.
+  string world_id = 1;
+
+  // Idempotency key for the snapshot operation.
+  string request_id = 2;
+
+  // Snapshot selector.
+  oneof selector {
+    // Return the latest committed state.
+    SnapshotLatest latest = 10;
+    // Return state at a specific tick.
+    SnapshotAtTick at_tick = 11;
+  }
+
+  // If non-empty, only include entities in this allowlist.
+  repeated string entity_ids = 20;
+
+  // If true, include component payloads in returned entities.
+  bool include_components = 21;
+
+  reserved 30 to 39;
+}
+
+// GetStateSnapshotResponse returns snapshot outcome.
+message GetStateSnapshotResponse {
+  oneof result {
+    GetStateSnapshotOk ok = 1;
+    Error error = 2;
+  }
+
+  reserved 10 to 19;
+}
+
+// GetStateSnapshotOk contains the world snapshot.
+message GetStateSnapshotOk {
+  // Snapshot data.
+  WorldState world_state = 1;
+
+  // Opaque metadata (e.g., compression, schema hints).
+  map<string, string> metadata = 2;
+
+  reserved 10 to 19;
+}
+
+// SnapshotLatest selects the latest committed state.
+message SnapshotLatest {
+  reserved 1 to 9;
+}
+
+// SnapshotAtTick selects state at a specific tick.
+message SnapshotAtTick {
+  // The tick to snapshot.
+  int64 tick = 1;
+
+  reserved 10 to 19;
+}
+
+// --- Core state model: WorldState / Entities ---
+
+// WorldState is a generic representation of world state at a given tick.
+message WorldState {
+  // World identifier.
+  string world_id = 1;
+
+  // Tick of this snapshot.
+  int64 tick = 2;
+
+  // Entities included in this snapshot.
+  repeated Entity entities = 3;
+
+  // Extensible metadata (e.g., region, shard, schema version).
+  map<string, string> metadata = 4;
+
+  // Extensible state payload.
+  oneof extension {
+    // Opaque extension payload for game-specific world data.
+    bytes opaque_extension = 10;
+  }
+
+  reserved 20 to 29;
+}
+
+// Entity is a generic, component-based entity.
+message Entity {
+  // Stable entity identifier.
+  string entity_id = 1;
+
+  // Optional entity kind/type label.
+  string type = 2;
+
+  // Component set for the entity.
+  repeated Component components = 3;
+
+  // Extensible metadata.
+  map<string, string> metadata = 4;
+
+  reserved 20 to 29;
+}
+
+// Component is an extensible component envelope.
+message Component {
+  // Application-defined component type identifier.
+  string type = 1;
+
+  // Extensible component payload.
+  oneof payload {
+    TransformComponent transform = 10;
+    HealthComponent health = 11;
+
+    // Opaque component payload for custom schemas.
+    bytes opaque = 19;
+  }
+
+  reserved 2 to 9;
+  reserved 20 to 29;
+}
+
+// TransformComponent describes position/orientation.
+message TransformComponent {
+  Vec3 position = 1;
+  Vec3 rotation_euler = 2;
+  Vec3 scale = 3;
+
+  reserved 10 to 19;
+}
+
+// HealthComponent describes a health-like value.
+message HealthComponent {
+  int32 current = 1;
+  int32 max = 2;
+
+  reserved 10 to 19;
+}
+
+// Vec3 is a basic 3D vector.
+message Vec3 {
+  double x = 1;
+  double y = 2;
+  double z = 3;
+}
+
+// Event is an extensible engine event envelope.
+message Event {
+  // Event type identifier.
+  string type = 1;
+
+  // Tick at which the event occurred.
+  int64 tick = 2;
+
+  // Extensible event payload.
+  oneof payload {
+    bytes opaque = 10;
+  }
+
+  reserved 3 to 9;
+  reserved 20 to 29;
+}

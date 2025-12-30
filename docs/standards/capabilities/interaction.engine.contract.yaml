@@ -1,0 +1,67 @@
+apiVersion: game.platform/v0.1
+kind: CapabilityContract
+metadata:
+  name: interaction.engine@0.9.0
+  labels:
+    domain: interaction
+spec:
+  capabilityId: interaction.engine
+  version: "0.9.0"
+  owner: platform-gameplay@studio.example
+  status: active
+
+  purpose: "Authoritative interaction processing and gameplay action interpretation per shard."
+
+  semantics:
+    invariants:
+      - "Interaction outcomes are authoritative within the shard domain."
+      - "Action acceptance/rejection is deterministic given ordered inputs and referenced shard state."
+    authoritativeSource: "Shard-local interaction state + ordered actions"
+    failureBehavior:
+      - "If unavailable, action submission must fail fast or be queued according to shard/session policy."
+    ordering:
+      guarantees:
+        - "Actions are processed in shard order (worldShardId orderingKey)."
+
+  scope:
+    allowed: [world-shard]
+    recommended: world-shard
+
+  multiplicity:
+    recommended: "1"
+
+  features:
+    defined:
+      - name: server-authoritative
+        description: "Provider enforces authoritative validation, ordering, and state transitions."
+        stability: stable
+
+  nfrDefaults:
+    tickRateHz:
+      value: 60
+      constraint: hard
+    latency:
+      p95Ms:
+        value: 15
+        constraint: soft
+    determinism:
+      value: best-effort
+      constraint: soft
+
+  interfaces:
+    grpc:
+      - package: game.interaction.v1
+        service: InteractionEngine
+        protoRef: registry://protos/game.interaction.v1
+        compatibility:
+          additiveUntil: "1.0.0"
+    events:
+      - stream: interaction.events.v1
+        schema:
+          id: game.interaction.event
+          version: "1.0.0"
+          format: protobuf
+          schemaRef: registry://schemas/game.interaction.event/1.0.0
+        orderingKey: worldShardId
+
+  deprecations: []

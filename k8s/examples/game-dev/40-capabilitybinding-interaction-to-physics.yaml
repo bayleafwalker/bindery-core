@@ -1,0 +1,32 @@
+apiVersion: game.platform/v1alpha1
+kind: CapabilityBinding
+metadata:
+  name: cb-anvil-sample-world-core-interaction-engine-physics-engine-world-shard-1
+  namespace: anvil-demo
+  labels:
+    game.platform/managed-by: capabilityresolver
+    game.platform/world: anvil-sample-world
+    game.platform/game: anvil-sample
+spec:
+  capabilityId: physics.engine
+  scope: world-shard
+  multiplicity: "1"
+
+  worldRef:
+    name: anvil-sample-world
+
+  consumer:
+    moduleManifestName: core-interaction-engine
+    requirement:
+      versionConstraint: ^1.2.0
+      dependencyMode: required
+      requiredFeatures: ["deterministic-step"]
+      preferredFeatures: ["continuous-collision"]
+
+  provider:
+    moduleManifestName: core-physics-engine
+    capabilityVersion: "1.2.0"
+    endpoint:
+      type: kubernetesService
+      value: core-physics-engine
+      port: 50051

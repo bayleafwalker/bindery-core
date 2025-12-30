@@ -1,0 +1,19 @@
+apiVersion: game.platform/v1alpha1
+kind: CapabilityDefinition
+metadata:
+  name: interaction-engine
+spec:
+  capabilityId: interaction.engine
+  latestVersion: "0.9.0"
+  versions: ["0.9.0"]
+  scopes: [world-shard]
+  multiplicity: "1"
+  features:
+    defined:
+      - name: server-authoritative
+        stability: stable
+        description: Provider enforces authoritative validation and ordering.
+  nfrDefaults:
+    tickRateHz: 60
+    latencyP95Ms: 15
+    determinism: best-effort
