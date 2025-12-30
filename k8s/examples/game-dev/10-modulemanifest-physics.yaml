@@ -3,6 +3,9 @@ kind: ModuleManifest
 metadata:
   name: core-physics-engine
   namespace: anvil-demo
+  annotations:
+    anvil.dev/runtime-image: alpine:3.20
+    anvil.dev/runtime-port: "50051"
 spec:
   module:
     id: core.physics

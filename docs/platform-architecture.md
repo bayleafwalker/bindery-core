@@ -77,6 +77,10 @@ In this repo, Kubernetes-native resources represent platform intent:
 
 A controller (CapabilityResolver) reconciles these resources into stable `CapabilityBinding`s and (in later iterations) can drive the creation/update of runtime workloads.
 
+In the current MVP direction, runtime workload creation is handled by a separate controller (RuntimeOrchestrator) that materializes `Deployment`/`Service` for **server-owned** provider modules and publishes the reachable endpoint back onto `CapabilityBinding.status.provider.endpoint`.
+
+Convention (MVP): a provider module is considered server-owned/orchestrated if its `ModuleManifest` includes runtime annotations (e.g. `anvil.dev/runtime-image`, optional `anvil.dev/runtime-port`).
+
 ## Capability model
 
 ### provides / requires

@@ -30,3 +30,9 @@ type WorldRef struct {
 type ObjectRef struct {
 	Name string `json:"name"`
 }
+
+type EndpointRef struct {
+	Type  string `json:"type,omitempty"`
+	Value string `json:"value,omitempty"`
+	Port  int32  `json:"port,omitempty"`
+}

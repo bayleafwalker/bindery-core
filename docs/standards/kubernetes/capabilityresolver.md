@@ -238,9 +238,9 @@ Recommended mechanics:
   - `type: ModulesResolved` (`True/False`)
 
 **CapabilityBinding.status** (recommended):
-- `phase`: `Pending` until provider endpoint is known, then `Bound`
+- `phase`: `Pending` until a runtime controller publishes an endpoint, then `Bound`
 - `message`: last resolution decision, errors
-- `resolvedEndpoint`: a concrete endpoint string if/when available
+- `provider.endpoint`: a structured endpoint ref (type/value/port) published by a runtime controller (e.g. RuntimeOrchestrator)
 
 ### Kubernetes Events
 
@@ -312,7 +312,7 @@ metadata:
   namespace: anvil-demo
 spec:
   capabilityId: physics.engine
-  scope: world
+  scope: world-shard
   multiplicity: "1"
   worldRef:
     name: anvil-sample-world
@@ -323,5 +323,5 @@ spec:
       dependencyMode: required
   provider:
     moduleManifestName: core-physics-engine
-    capabilityVersion: "1.0.0"
+    capabilityVersion: "1.2.0"
 ```

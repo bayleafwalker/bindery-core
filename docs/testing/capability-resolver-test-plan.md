@@ -13,7 +13,7 @@ Scope: declarative inputs (`ModuleManifest`, `GameDefinition`, `WorldInstance`) 
 
 ## Non-goals (for now)
 
-- Validating runtime “endpoint resolution” (not implemented yet).
+- Validating runtime workload materialization / endpoint publication (owned by RuntimeOrchestrator).
 - Performance tuning of a production-scale control plane.
 - Game-specific physics/interaction correctness.
 

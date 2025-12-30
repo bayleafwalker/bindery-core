@@ -871,6 +871,20 @@ spec:
                     capabilityVersion:
                       type: string
                       pattern: "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
+            status:
+              type: object
+              properties:
+                observedGeneration:
+                  type: integer
+                  minimum: 0
+                phase:
+                  type: string
+                  enum: [Pending, Bound, Error]
+                message:
+                  type: string
+                provider:
+                  type: object
+                  properties:
                     endpoint:
                       type: object
                       properties:
@@ -883,17 +897,6 @@ spec:
                           type: integer
                           minimum: 1
                           maximum: 65535
-            status:
-              type: object
-              properties:
-                observedGeneration:
-                  type: integer
-                  minimum: 0
-                phase:
-                  type: string
-                  enum: [Pending, Bound, Error]
-                message:
-                  type: string
                 resolvedEndpoint:
                   type: string
                 lastResolvedTime:

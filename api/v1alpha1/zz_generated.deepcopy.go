@@ -209,7 +209,7 @@ func (in *CapabilityBinding) DeepCopyInto(out *CapabilityBinding) {
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	in.Spec.DeepCopyInto(&out.Spec)
-	out.Status = in.Status
+	in.Status.DeepCopyInto(&out.Status)
 }
 
 func (in *CapabilityBinding) DeepCopy() *CapabilityBinding {
@@ -247,6 +247,25 @@ func (in *CapabilityBindingSpec) DeepCopyInto(out *CapabilityBindingSpec) {
 		}
 	}
 	out.Provider = in.Provider
+}
+
+func (in *CapabilityBindingStatus) DeepCopyInto(out *CapabilityBindingStatus) {
+	*out = *in
+	if in.Provider != nil {
+		out.Provider = new(ProviderStatus)
+		in.Provider.DeepCopyInto(out.Provider)
+	}
+}
+
+func (in *ProviderStatus) DeepCopyInto(out *ProviderStatus) {
+	*out = *in
+	if in.Endpoint != nil {
+		out.Endpoint = &EndpointRef{
+			Type:  in.Endpoint.Type,
+			Value: in.Endpoint.Value,
+			Port:  in.Endpoint.Port,
+		}
+	}
 }
 
 func (in *CapabilityBindingList) DeepCopyInto(out *CapabilityBindingList) {

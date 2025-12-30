@@ -47,12 +47,16 @@ type RequirementHint struct {
 type ProviderRef struct {
 	ModuleManifestName string `json:"moduleManifestName"`
 	CapabilityVersion  string `json:"capabilityVersion,omitempty"`
-	// Endpoint is intentionally omitted in this skeleton; add later when endpoint resolution exists.
 }
 
 type CapabilityBindingStatus struct {
-	Phase   string `json:"phase,omitempty"`
-	Message string `json:"message,omitempty"`
+	Phase    string          `json:"phase,omitempty"`
+	Message  string          `json:"message,omitempty"`
+	Provider *ProviderStatus `json:"provider,omitempty"`
+}
+
+type ProviderStatus struct {
+	Endpoint *EndpointRef `json:"endpoint,omitempty"`
 }
 
 // +kubebuilder:object:root=true
