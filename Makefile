@@ -1,10 +1,11 @@
 SHELL := /usr/bin/env bash
 
-.PHONY: help test tidy fmt proto kind-demo kind-down run-controller
+.PHONY: help test test-integration envtest tidy fmt proto kind-demo kind-down run-controller
 
 help:
 	@echo "Targets:"
 	@echo "  make test           Run Go tests"
+	@echo "  make test-integration Run envtest integration tests"
 	@echo "  make tidy           Run go mod tidy"
 	@echo "  make fmt            Run gofmt on the repo"
 	@echo "  make proto          Regenerate protobuf stubs (requires protoc + plugins)"
@@ -14,6 +15,14 @@ help:
 
 test:
 	go test ./...
+
+ENVTEST_K8S_VERSION ?= 1.31.0
+
+envtest:
+	go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+
+test-integration: envtest
+	ANVIL_INTEGRATION=1 KUBEBUILDER_ASSETS="$$(setup-envtest use -p path $(ENVTEST_K8S_VERSION))" go test ./... -run Integration
 
 tidy:
 	go mod tidy

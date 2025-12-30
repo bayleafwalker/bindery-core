@@ -36,7 +36,7 @@ func TestCapabilityResolverReconcile_CreatesManagedBinding(t *testing.T) {
 	}
 
 	world := &v1alpha1.WorldInstance{
-		TypeMeta: metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "WorldInstance"},
+		TypeMeta:   metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "WorldInstance"},
 		ObjectMeta: metav1.ObjectMeta{Name: "anvil-sample-world", Namespace: "anvil-demo", UID: types.UID("world-uid")},
 		Spec: v1alpha1.WorldInstanceSpec{
 			GameRef:      v1alpha1.ObjectRef{Name: "anvil-sample"},
@@ -48,7 +48,7 @@ func TestCapabilityResolverReconcile_CreatesManagedBinding(t *testing.T) {
 	}
 
 	game := &v1alpha1.GameDefinition{
-		TypeMeta: metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "GameDefinition"},
+		TypeMeta:   metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "GameDefinition"},
 		ObjectMeta: metav1.ObjectMeta{Name: "anvil-sample", Namespace: "anvil-demo"},
 		Spec: v1alpha1.GameDefinitionSpec{
 			GameID:  "anvil.sample",
@@ -61,7 +61,7 @@ func TestCapabilityResolverReconcile_CreatesManagedBinding(t *testing.T) {
 	}
 
 	physics := &v1alpha1.ModuleManifest{
-		TypeMeta: metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "ModuleManifest"},
+		TypeMeta:   metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "ModuleManifest"},
 		ObjectMeta: metav1.ObjectMeta{Name: "core-physics-engine", Namespace: "anvil-demo"},
 		Spec: v1alpha1.ModuleManifestSpec{
 			Module: v1alpha1.ModuleIdentity{ID: "core.physics", Version: "1.3.0"},
@@ -74,7 +74,7 @@ func TestCapabilityResolverReconcile_CreatesManagedBinding(t *testing.T) {
 	}
 
 	interaction := &v1alpha1.ModuleManifest{
-		TypeMeta: metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "ModuleManifest"},
+		TypeMeta:   metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "ModuleManifest"},
 		ObjectMeta: metav1.ObjectMeta{Name: "core-interaction-engine", Namespace: "anvil-demo"},
 		Spec: v1alpha1.ModuleManifestSpec{
 			Module: v1alpha1.ModuleIdentity{ID: "core.interaction", Version: "0.9.0"},

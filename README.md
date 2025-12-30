@@ -27,6 +27,17 @@ Baseline docs live under `docs/`.
 
 - CapabilityResolver test plan: `docs/testing/capability-resolver-test-plan.md`
 
+### Developer workflow (TDD)
+
+Most changes should be developed tests-first:
+
+- Unit tests (fast): `go test ./...`
+- Integration tests (envtest, real apiserver semantics): `make test-integration` (or `ANVIL_INTEGRATION=1 go test ./... -run Integration` with `KUBEBUILDER_ASSETS` configured)
+
+Use Kind for end-to-end smoke validation (controllers + real cluster):
+- up + apply: `./k8s/dev/kind-demo.sh`
+- down: `./k8s/dev/kind-down.sh`
+
 ## Agent Entrypoints
 
 - Agent prompt entrypoints (including strict mode): `docs/agent/entrypoints.md`
