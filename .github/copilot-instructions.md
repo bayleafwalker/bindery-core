@@ -46,6 +46,26 @@
   - Covers real apiserver behavior without requiring Kind.
   - Use Kind only for smoke/real-cluster validation.
 
+## Full Development Lifecycle
+When executing a task, follow this lifecycle to ensure quality and consistency:
+
+1. **Plan**: Analyze the request, identify affected files, and outline the changes.
+2. **Test & Implement**:
+   - Create or update tests first (TDD).
+   - Implement the changes to pass the tests.
+3. **Document**:
+   - Update relevant documentation in `docs/` to reflect new features or behavior.
+   - Refactor existing docs and remove obsolete entries to keep information clean.
+4. **Verify**:
+   - Run local tests: `go test ./...`
+   - Run integration tests: `make test-integration`
+   - Ensure CI pipelines pass (check via `gh run list` or `gh run view`).
+5. **Refine Guidelines**: If the task reveals a gap in these instructions, update `.github/copilot-instructions.md`.
+6. **Commit & Push**:
+   - Commit with clear, conventional messages (e.g., `feat: ...`, `fix: ...`).
+   - Push to the feature branch.
+   - Ensure CI passes on the remote before considering the task done.
+
 ## Protobuf / gRPC
 - Source of truth: `proto/game/engine/v1/engine.proto`
 - Generated Go code is checked in under `proto/game/engine/v1/`.
