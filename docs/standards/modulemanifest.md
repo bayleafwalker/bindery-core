@@ -142,7 +142,33 @@ Recommended schemes:
 
 ---
 
-## 4) Examples
+## 4) Runtime Environment (Service Discovery)
+
+When a module is deployed by the RuntimeOrchestrator, resolved dependencies are injected as environment variables. This allows the module to discover and connect to its providers without manual configuration.
+
+### Environment Variables
+
+For each required capability, the following variables are injected:
+
+| Variable | Description | Example |
+| :--- | :--- | :--- |
+| `ANVIL_CAPABILITY_<ID>_ENDPOINT` | Full address (host:port) | `physics-svc:8080` |
+| `ANVIL_CAPABILITY_<ID>_HOST` | Hostname or IP | `physics-svc` |
+| `ANVIL_CAPABILITY_<ID>_PORT` | Port number | `8080` |
+
+**Naming Convention:**
+- `<ID>` is the Capability ID transformed to **UPPER_SNAKE_CASE**.
+- Dots (`.`) are replaced with underscores (`_`).
+- Example: `physics.engine` becomes `PHYSICS_ENGINE`.
+
+### Example Usage
+
+If your module requires `physics.engine`, it can read:
+- `ANVIL_CAPABILITY_PHYSICS_ENGINE_ENDPOINT` to get the gRPC target.
+
+---
+
+## 5) Examples
 
 Worked examples are maintained as separate files:
 
