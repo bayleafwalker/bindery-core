@@ -39,7 +39,7 @@ func TestCapabilityResolverReconcile_CreatesManagedBinding(t *testing.T) {
 		TypeMeta:   metav1.TypeMeta{APIVersion: "bindery.platform/v1alpha1", Kind: "WorldInstance"},
 		ObjectMeta: metav1.ObjectMeta{Name: "bindery-sample-world", Namespace: "bindery-demo", UID: types.UID("world-uid")},
 		Spec: v1alpha1.WorldInstanceSpec{
-			BookletRef:   v1alpha1.ObjectRef{Name: "bindery-sample"},
+			GameRef:      v1alpha1.ObjectRef{Name: "bindery-sample"},
 			WorldID:      "world-001",
 			Region:       "us-test-1",
 			ShardCount:   2,
@@ -51,8 +51,8 @@ func TestCapabilityResolverReconcile_CreatesManagedBinding(t *testing.T) {
 		TypeMeta:   metav1.TypeMeta{APIVersion: "bindery.platform/v1alpha1", Kind: "Booklet"},
 		ObjectMeta: metav1.ObjectMeta{Name: "bindery-sample", Namespace: "bindery-demo"},
 		Spec: v1alpha1.BookletSpec{
-			BookletID: "bindery.sample",
-			Version:   "0.1.0",
+			GameID:  "bindery.sample",
+			Version: "0.1.0",
 			Modules: []v1alpha1.BookletModuleRef{
 				{Name: "core-physics-engine", Required: true},
 				{Name: "core-interaction-engine", Required: true},

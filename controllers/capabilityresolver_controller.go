@@ -79,7 +79,7 @@ func (r *CapabilityResolverReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	logger = logger.WithValues(
 		"worldId", world.Spec.WorldID,
-		"game", world.Spec.BookletRef.Name,
+		"game", world.Spec.GameRef.Name,
 	)
 	logger.Info("reconciling world")
 
@@ -90,14 +90,14 @@ func (r *CapabilityResolverReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	// 2) Load referenced Booklet
 	var game binderyv1alpha1.Booklet
-	if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: world.Spec.BookletRef.Name}, &game); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: world.Spec.GameRef.Name}, &game); err != nil {
 		if apierrors.IsNotFound(err) {
 			if perr := r.patchWorldStatus(ctx, &world, "Error", "BookletNotFound",
 				metav1.Condition{
 					Type:    WorldConditionModulesResolved,
 					Status:  metav1.ConditionFalse,
 					Reason:  "BookletNotFound",
-					Message: fmt.Sprintf("Booklet %q not found", world.Spec.BookletRef.Name),
+					Message: fmt.Sprintf("Booklet %q not found", world.Spec.GameRef.Name),
 				},
 				metav1.Condition{
 					Type:    WorldConditionBindingsResolved,
@@ -109,11 +109,11 @@ func (r *CapabilityResolverReconciler) Reconcile(ctx context.Context, req ctrl.R
 				logger.Error(perr, "failed to patch world status")
 			}
 			logger.Info("game definition not found; marking world error")
-			r.recordEventf(&world, "Warning", "BookletNotFound", "Booklet %q not found", world.Spec.BookletRef.Name)
+			r.recordEventf(&world, "Warning", "BookletNotFound", "Booklet %q not found", world.Spec.GameRef.Name)
 			return ctrl.Result{}, nil
 		}
 		logger.Error(err, "failed to load game definition")
-		r.recordEventf(&world, "Warning", "GetBookletFailed", "Failed to get Booklet %q: %v", world.Spec.BookletRef.Name, err)
+		r.recordEventf(&world, "Warning", "GetBookletFailed", "Failed to get Booklet %q: %v", world.Spec.GameRef.Name, err)
 		binderyControllerReconcileErrorTotal.WithLabelValues("CapabilityResolver").Inc()
 		return ctrl.Result{}, err
 	}
@@ -418,15 +418,15 @@ func (r *CapabilityResolverReconciler) recordEventf(obj client.Object, eventType
 
 func (r *CapabilityResolverReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Field indexers for efficient fan-out.
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &binderyv1alpha1.WorldInstance{}, ".spec.bookletRef.name", func(obj client.Object) []string {
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &binderyv1alpha1.WorldInstance{}, ".spec.gameRef.name", func(obj client.Object) []string {
 		w, ok := obj.(*binderyv1alpha1.WorldInstance)
 		if !ok {
 			return nil
 		}
-		if w.Spec.BookletRef.Name == "" {
+		if w.Spec.GameRef.Name == "" {
 			return nil
 		}
-		return []string{w.Spec.BookletRef.Name}
+		return []string{w.Spec.GameRef.Name}
 	}); err != nil {
 		return err
 	}
@@ -494,7 +494,7 @@ func enqueueWorldsForGame(c client.Client) handler.EventHandler {
 		var worlds binderyv1alpha1.WorldInstanceList
 		if err := c.List(ctx, &worlds,
 			client.InNamespace(game.Namespace),
-			client.MatchingFields{".spec.bookletRef.name": game.Name},
+			client.MatchingFields{".spec.gameRef.name": game.Name},
 		); err != nil {
 			return nil
 		}
@@ -532,7 +532,7 @@ func enqueueWorldsForModule(c client.Client) handler.EventHandler {
 			var worlds binderyv1alpha1.WorldInstanceList
 			if err := c.List(ctx, &worlds,
 				client.InNamespace(mm.Namespace),
-				client.MatchingFields{".spec.bookletRef.name": g.Name},
+				client.MatchingFields{".spec.gameRef.name": g.Name},
 			); err != nil {
 				continue
 			}

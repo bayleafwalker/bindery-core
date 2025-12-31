@@ -163,10 +163,9 @@ func TestIntegration_RealmArchitecture(t *testing.T) {
 	booklet := &binderyv1alpha1.Booklet{
 		ObjectMeta: metav1.ObjectMeta{Name: "mmo-game", Namespace: ns.Name},
 		Spec: binderyv1alpha1.BookletSpec{
-			BookletID: "mmo-game",
-			Version:   "1.0.0",
-			Modules:   []binderyv1alpha1.BookletModuleRef{{Name: "game-server"}},
-			GameID:    "mmo-game-id", // Added required field
+			GameID:  "mmo-game",
+			Version: "1.0.0",
+			Modules: []binderyv1alpha1.BookletModuleRef{{Name: "game-server"}},
 		},
 	}
 	if err := k8sClient.Create(ctx, booklet); err != nil {
@@ -177,12 +176,11 @@ func TestIntegration_RealmArchitecture(t *testing.T) {
 	world := &binderyv1alpha1.WorldInstance{
 		ObjectMeta: metav1.ObjectMeta{Name: "world-alpha", Namespace: ns.Name},
 		Spec: binderyv1alpha1.WorldInstanceSpec{
-			BookletRef: binderyv1alpha1.ObjectRef{Name: "mmo-game"},
+			GameRef:    binderyv1alpha1.ObjectRef{Name: "mmo-game"},
 			RealmRef:   &binderyv1alpha1.ObjectRef{Name: "eu-west"},
 			WorldID:    "w-1",
 			Region:     "eu-west-1",
 			ShardCount: 1,
-			GameRef:    &binderyv1alpha1.ObjectRef{Name: "mmo-game"}, // Added required field
 		},
 	}
 	if err := k8sClient.Create(ctx, world); err != nil {

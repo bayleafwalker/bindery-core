@@ -11,7 +11,7 @@ import (
 // +kubebuilder:resource:scope=Namespaced,shortName=world
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`
 // +kubebuilder:printcolumn:name="WorldID",type=string,JSONPath=`.spec.worldId`
-// +kubebuilder:printcolumn:name="Game",type=string,JSONPath=`.spec.bookletRef.name`
+// +kubebuilder:printcolumn:name="Game",type=string,JSONPath=`.spec.gameRef.name`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 //
 // NOTE: This skeleton defines only a subset of fields.
@@ -24,7 +24,7 @@ type WorldInstance struct {
 }
 
 type WorldInstanceSpec struct {
-	BookletRef ObjectRef `json:"bookletRef"`
+	GameRef ObjectRef `json:"gameRef"`
 	// RealmRef identifies the Realm this world belongs to.
 	// If not specified, the world is considered standalone or part of a default realm.
 	RealmRef     *ObjectRef `json:"realmRef,omitempty"`

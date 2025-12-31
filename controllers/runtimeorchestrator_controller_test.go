@@ -37,7 +37,7 @@ func TestRuntimeOrchestrator_CreatesServiceDeploymentAndPublishesEndpoint(t *tes
 	world := &binderyv1alpha1.WorldInstance{
 		TypeMeta:   metav1.TypeMeta{APIVersion: "bindery.platform/v1alpha1", Kind: "WorldInstance"},
 		ObjectMeta: metav1.ObjectMeta{Name: "bindery-sample-world", Namespace: "bindery-demo", UID: types.UID("world-uid")},
-		Spec:       binderyv1alpha1.WorldInstanceSpec{BookletRef: binderyv1alpha1.ObjectRef{Name: "bindery-sample"}, WorldID: "world-001", Region: "us-test-1", ShardCount: 1},
+		Spec:       binderyv1alpha1.WorldInstanceSpec{GameRef: binderyv1alpha1.ObjectRef{Name: "bindery-sample"}, WorldID: "world-001", Region: "us-test-1", ShardCount: 1},
 	}
 
 	provider := &binderyv1alpha1.ModuleManifest{
@@ -118,7 +118,7 @@ func TestRuntimeOrchestrator_ShardLabeledBindingCreatesShardWorkloadName(t *test
 	world := &binderyv1alpha1.WorldInstance{
 		TypeMeta:   metav1.TypeMeta{APIVersion: "bindery.platform/v1alpha1", Kind: "WorldInstance"},
 		ObjectMeta: metav1.ObjectMeta{Name: "bindery-sample-world", Namespace: "bindery-demo", UID: types.UID("world-uid")},
-		Spec:       binderyv1alpha1.WorldInstanceSpec{BookletRef: binderyv1alpha1.ObjectRef{Name: "bindery-sample"}, WorldID: "world-001", Region: "us-test-1", ShardCount: 2},
+		Spec:       binderyv1alpha1.WorldInstanceSpec{GameRef: binderyv1alpha1.ObjectRef{Name: "bindery-sample"}, WorldID: "world-001", Region: "us-test-1", ShardCount: 2},
 	}
 
 	shardName := stableWorldShardName(world.Name, 0)
@@ -212,7 +212,7 @@ func TestRuntimeOrchestrator_ServerStorageCreatesClaimAndMount(t *testing.T) {
 	world := &binderyv1alpha1.WorldInstance{
 		TypeMeta:   metav1.TypeMeta{APIVersion: "bindery.platform/v1alpha1", Kind: "WorldInstance"},
 		ObjectMeta: metav1.ObjectMeta{Name: "bindery-sample-world", Namespace: "bindery-demo", UID: types.UID("world-uid")},
-		Spec:       binderyv1alpha1.WorldInstanceSpec{BookletRef: binderyv1alpha1.ObjectRef{Name: "bindery-sample"}, WorldID: "world-001", Region: "us-test-1", ShardCount: 2},
+		Spec:       binderyv1alpha1.WorldInstanceSpec{GameRef: binderyv1alpha1.ObjectRef{Name: "bindery-sample"}, WorldID: "world-001", Region: "us-test-1", ShardCount: 2},
 	}
 
 	shardName := stableWorldShardName(world.Name, 0)
@@ -378,7 +378,7 @@ func TestRuntimeOrchestrator_SkipsWhenNoRuntimeImageAnnotation(t *testing.T) {
 	world := &binderyv1alpha1.WorldInstance{
 		TypeMeta:   metav1.TypeMeta{APIVersion: "bindery.platform/v1alpha1", Kind: "WorldInstance"},
 		ObjectMeta: metav1.ObjectMeta{Name: "bindery-sample-world", Namespace: "bindery-demo", UID: types.UID("world-uid")},
-		Spec:       binderyv1alpha1.WorldInstanceSpec{BookletRef: binderyv1alpha1.ObjectRef{Name: "bindery-sample"}, WorldID: "world-001", Region: "us-test-1", ShardCount: 1},
+		Spec:       binderyv1alpha1.WorldInstanceSpec{GameRef: binderyv1alpha1.ObjectRef{Name: "bindery-sample"}, WorldID: "world-001", Region: "us-test-1", ShardCount: 1},
 	}
 
 	provider := &binderyv1alpha1.ModuleManifest{
@@ -446,7 +446,7 @@ func TestRuntimeOrchestrator_InvalidRuntimePortFallsBackToDefault(t *testing.T) 
 	world := &binderyv1alpha1.WorldInstance{
 		TypeMeta:   metav1.TypeMeta{APIVersion: "bindery.platform/v1alpha1", Kind: "WorldInstance"},
 		ObjectMeta: metav1.ObjectMeta{Name: "bindery-sample-world", Namespace: "bindery-demo", UID: types.UID("world-uid")},
-		Spec:       binderyv1alpha1.WorldInstanceSpec{BookletRef: binderyv1alpha1.ObjectRef{Name: "bindery-sample"}, WorldID: "world-001", Region: "us-test-1", ShardCount: 1},
+		Spec:       binderyv1alpha1.WorldInstanceSpec{GameRef: binderyv1alpha1.ObjectRef{Name: "bindery-sample"}, WorldID: "world-001", Region: "us-test-1", ShardCount: 1},
 	}
 
 	provider := &binderyv1alpha1.ModuleManifest{

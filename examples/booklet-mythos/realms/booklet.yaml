@@ -4,7 +4,7 @@ metadata:
   name: mythos
   namespace: default
 spec:
-  bookletId: "mythos-v1"
+  gameId: "mythos-v1"
   version: "1.0.0"
   modules:
     - name: physics-engine

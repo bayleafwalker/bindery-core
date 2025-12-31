@@ -140,8 +140,8 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 	// Load Booklet for colocation logic
 	var booklet binderyv1alpha1.Booklet
 	if !isGlobal {
-		if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: world.Spec.BookletRef.Name}, &booklet); err != nil {
-			logger.V(1).Info("game definition not found; proceeding without colocation logic", "game", world.Spec.BookletRef.Name)
+		if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: world.Spec.GameRef.Name}, &booklet); err != nil {
+			logger.V(1).Info("game definition not found; proceeding without colocation logic", "game", world.Spec.GameRef.Name)
 		}
 	}
 

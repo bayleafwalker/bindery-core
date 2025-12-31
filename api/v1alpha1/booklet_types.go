@@ -10,7 +10,7 @@ import (
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,shortName=bk
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`
-// +kubebuilder:printcolumn:name="BookletID",type=string,JSONPath=`.spec.bookletId`
+// +kubebuilder:printcolumn:name="GameID",type=string,JSONPath=`.spec.gameId`
 // +kubebuilder:printcolumn:name="Version",type=string,JSONPath=`.spec.version`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 //
@@ -24,7 +24,7 @@ type Booklet struct {
 }
 
 type BookletSpec struct {
-	BookletID  string             `json:"bookletId"`
+	GameID     string             `json:"gameId"`
 	Version    string             `json:"version"`
 	Modules    []BookletModuleRef `json:"modules"`
 	Colocation []ColocationGroup  `json:"colocation,omitempty"`

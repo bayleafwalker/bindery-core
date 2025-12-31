@@ -81,7 +81,7 @@ func (r *WorldShardReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 					Labels: map[string]string{
 						labelManagedBy: managedByWorldShardController,
 						labelWorldName: world.Name,
-						labelGameName:  world.Spec.BookletRef.Name,
+						labelGameName:  world.Spec.GameRef.Name,
 						labelShardID:   fmt.Sprintf("%d", id),
 					},
 				},

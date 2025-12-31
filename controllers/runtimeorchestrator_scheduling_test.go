@@ -28,7 +28,7 @@ func TestRuntimeOrchestrator_PropagatesSchedulingConstraints(t *testing.T) {
 	world := &binderyv1alpha1.WorldInstance{
 		TypeMeta:   metav1.TypeMeta{APIVersion: "bindery.platform/v1alpha1", Kind: "WorldInstance"},
 		ObjectMeta: metav1.ObjectMeta{Name: "sched-world", Namespace: "bindery-sched"},
-		Spec:       binderyv1alpha1.WorldInstanceSpec{BookletRef: binderyv1alpha1.ObjectRef{Name: "sched-game"}, WorldID: "world-sched", Region: "us-sched", ShardCount: 1},
+		Spec:       binderyv1alpha1.WorldInstanceSpec{GameRef: binderyv1alpha1.ObjectRef{Name: "sched-game"}, WorldID: "world-sched", Region: "us-sched", ShardCount: 1},
 	}
 
 	priorityClass := "high-priority-game"

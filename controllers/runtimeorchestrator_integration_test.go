@@ -17,6 +17,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	binderyv1alpha1 "github.com/bayleafwalker/bindery-core/api/v1alpha1"
 )
@@ -75,12 +76,11 @@ func TestIntegration_RuntimeOrchestrator_PublishesEndpointToStatus(t *testing.T)
 		TypeMeta:   metav1.TypeMeta{APIVersion: "bindery.platform/v1alpha1", Kind: "WorldInstance"},
 		ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: ns.Name},
 		Spec: binderyv1alpha1.WorldInstanceSpec{
-			BookletRef:   binderyv1alpha1.ObjectRef{Name: "game-1"},
+			GameRef:      binderyv1alpha1.ObjectRef{Name: "game-1"},
 			WorldID:      "world-001",
 			Region:       "test-1",
 			ShardCount:   1,
 			DesiredState: "Running",
-			GameRef:      &binderyv1alpha1.ObjectRef{Name: "game-1"}, // Added required field
 		},
 	}
 	if err := k8sClient.Create(ctx, world); err != nil {
@@ -212,12 +212,11 @@ func TestIntegration_RuntimeOrchestrator_ShardStorage_CreatesClaimMountAndPVC(t 
 		TypeMeta:   metav1.TypeMeta{APIVersion: "bindery.platform/v1alpha1", Kind: "WorldInstance"},
 		ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: ns.Name},
 		Spec: binderyv1alpha1.WorldInstanceSpec{
-			BookletRef:   binderyv1alpha1.ObjectRef{Name: "game-1"},
+			GameRef:      binderyv1alpha1.ObjectRef{Name: "game-1"},
 			WorldID:      "world-001",
 			Region:       "test-1",
 			ShardCount:   2,
 			DesiredState: "Running",
-			GameRef:      &binderyv1alpha1.ObjectRef{Name: "game-1"}, // Added required field
 		},
 	}
 	if err := k8sClient.Create(ctx, world); err != nil {
@@ -410,7 +409,7 @@ func TestIntegration_RuntimeOrchestrator_InjectsEndpoints(t *testing.T) {
 
 	// Setup Manager to run the controller (needed for Watches/Indexing)
 	// Only register the controller once per test run to avoid duplicate errors
-	mgr, err := ctrl.NewManager(cfg, ctrl.Options{Scheme: scheme, MetricsBindAddress: "0"})
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{Scheme: scheme, Metrics: metricsserver.Options{BindAddress: "0"}})
 	if err != nil {
 		t.Fatalf("new manager: %v", err)
 	}
@@ -437,9 +436,8 @@ func TestIntegration_RuntimeOrchestrator_InjectsEndpoints(t *testing.T) {
 	world := &binderyv1alpha1.WorldInstance{
 		ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: ns.Name},
 		Spec: binderyv1alpha1.WorldInstanceSpec{
-			BookletRef: binderyv1alpha1.ObjectRef{Name: "game-1"},
-			WorldID:    "world-001",
-			GameRef:    &binderyv1alpha1.ObjectRef{Name: "game-1"}, // Added required field
+			GameRef: binderyv1alpha1.ObjectRef{Name: "game-1"},
+			WorldID: "world-001",
 		},
 	}
 	if err := k8sClient.Create(ctx, world); err != nil {
