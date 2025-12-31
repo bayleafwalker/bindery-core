@@ -578,7 +578,7 @@ func TestRuntimeOrchestrator_InjectsDependencyEndpoints(t *testing.T) {
 	// Check Deployment
 	var dep appsv1.Deployment
 	// Name is rtName(world, provider) -> "rt-world-1-game-mod"
-	depName := "rt-world-1-game-mod"
+	depName := rtName("world-1", "game-mod")
 	if err := cl.Get(ctx, types.NamespacedName{Namespace: "default", Name: depName}, &dep); err != nil {
 		t.Fatalf("Deployment not found: %v", err)
 	}
@@ -597,3 +597,4 @@ func TestRuntimeOrchestrator_InjectsDependencyEndpoints(t *testing.T) {
 		t.Error("ANVIL_CAPABILITY_PHYSICS_ENGINE_ENDPOINT env var not found")
 	}
 }
+

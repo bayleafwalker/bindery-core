@@ -443,6 +443,39 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 			}
 		}
 
+		// Inject dependency endpoints (Service Discovery)
+		var myDependencies gamev1alpha1.CapabilityBindingList
+		if err := r.List(ctx, &myDependencies, client.InNamespace(req.Namespace), client.MatchingFields{idxBindingConsumer: providerName}); err == nil {
+			for _, dep := range myDependencies.Items {
+				// Filter by world to ensure we only inject dependencies for THIS world instance
+				if dep.Spec.WorldRef == nil || dep.Spec.WorldRef.Name != world.Name {
+					continue
+				}
+
+				// If the dependency has an endpoint published, inject it.
+				if dep.Status.Provider != nil && dep.Status.Provider.Endpoint != nil {
+					ep := dep.Status.Provider.Endpoint
+					capID := strings.ToUpper(strings.ReplaceAll(dep.Spec.CapabilityID, ".", "_"))
+
+					// ANVIL_CAPABILITY_<ID>_ENDPOINT = host:port
+					container.Env = append(container.Env, corev1.EnvVar{
+						Name:  fmt.Sprintf("ANVIL_CAPABILITY_%s_ENDPOINT", capID),
+						Value: fmt.Sprintf("%s:%d", ep.Value, ep.Port),
+					})
+					// ANVIL_CAPABILITY_<ID>_HOST = host
+					container.Env = append(container.Env, corev1.EnvVar{
+						Name:  fmt.Sprintf("ANVIL_CAPABILITY_%s_HOST", capID),
+						Value: ep.Value,
+					})
+					// ANVIL_CAPABILITY_<ID>_PORT = port
+					container.Env = append(container.Env, corev1.EnvVar{
+						Name:  fmt.Sprintf("ANVIL_CAPABILITY_%s_PORT", capID),
+						Value: fmt.Sprintf("%d", ep.Port),
+					})
+				}
+			}
+		}
+
 		// Add/Update container in list
 		found := false
 		for i, c := range deployment.Spec.Template.Spec.Containers {

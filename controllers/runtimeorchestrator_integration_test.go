@@ -371,3 +371,172 @@ func TestIntegration_RuntimeOrchestrator_ShardStorage_CreatesClaimMountAndPVC(t 
 		t.Fatalf("wait for pvc: %v", err)
 	}
 }
+
+func TestIntegration_RuntimeOrchestrator_InjectsEndpoints(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in -short")
+	}
+	if os.Getenv("ANVIL_INTEGRATION") != "1" {
+		t.Skip("set ANVIL_INTEGRATION=1 (or run `make test-integration`) to enable envtest integration tests")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	crdDir := filepath.Join("..", "k8s", "crds")
+	testEnv := &envtest.Environment{
+		CRDDirectoryPaths:     []string{crdDir},
+		ErrorIfCRDPathMissing: true,
+	}
+
+	cfg, err := testEnv.Start()
+	if err != nil {
+		t.Fatalf("start envtest: %v", err)
+	}
+	defer func() { _ = testEnv.Stop() }()
+
+	scheme := runtime.NewScheme()
+	_ = clientgoscheme.AddToScheme(scheme)
+	_ = gamev1alpha1.AddToScheme(scheme)
+	_ = appsv1.AddToScheme(scheme)
+	_ = corev1.AddToScheme(scheme)
+
+	k8sClient, err := client.New(cfg, client.Options{Scheme: scheme})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	// Setup Manager to run the controller (needed for Watches/Indexing)
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{Scheme: scheme})
+	if err != nil {
+		t.Fatalf("new manager: %v", err)
+	}
+
+	r := &RuntimeOrchestratorReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("runtimeorchestrator"),
+	}
+	if err := r.SetupWithManager(mgr); err != nil {
+		t.Fatalf("setup with manager: %v", err)
+	}
+
+	go func() {
+		if err := mgr.Start(ctx); err != nil {
+			// t.Logf("manager stopped: %v", err)
+		}
+	}()
+
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "anvil-integration-inject"}}
+	if err := k8sClient.Create(ctx, ns); err != nil {
+		t.Fatalf("create namespace: %v", err)
+	}
+
+	world := &gamev1alpha1.WorldInstance{
+		ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: ns.Name},
+		Spec: gamev1alpha1.WorldInstanceSpec{
+			GameRef: gamev1alpha1.ObjectRef{Name: "game-1"},
+			WorldID: "world-001",
+		},
+	}
+	if err := k8sClient.Create(ctx, world); err != nil {
+		t.Fatalf("create world: %v", err)
+	}
+
+	// 1. Create Provider (Physics)
+	physicsMM := &gamev1alpha1.ModuleManifest{
+		ObjectMeta: metav1.ObjectMeta{Name: "physics-mod", Namespace: ns.Name},
+		Spec: gamev1alpha1.ModuleManifestSpec{
+			Module: gamev1alpha1.ModuleIdentity{ID: "core.physics", Version: "1.0.0"},
+		},
+	}
+	if err := k8sClient.Create(ctx, physicsMM); err != nil {
+		t.Fatalf("create physics MM: %v", err)
+	}
+
+	// 2. Create Consumer (Game)
+	gameMM := &gamev1alpha1.ModuleManifest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "game-mod",
+			Namespace: ns.Name,
+			Annotations: map[string]string{
+				annRuntimeImage: "game:latest",
+			},
+		},
+		Spec: gamev1alpha1.ModuleManifestSpec{
+			Module: gamev1alpha1.ModuleIdentity{ID: "game.logic", Version: "1.0.0"},
+		},
+	}
+	if err := k8sClient.Create(ctx, gameMM); err != nil {
+		t.Fatalf("create game MM: %v", err)
+	}
+
+	// 3. Create Binding for Physics (Dependency)
+	// Initially NO endpoint.
+	bindingDep := &gamev1alpha1.CapabilityBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "binding-dep", Namespace: ns.Name},
+		Spec: gamev1alpha1.CapabilityBindingSpec{
+			CapabilityID: "physics.engine",
+			WorldRef:     &gamev1alpha1.WorldRef{Name: world.Name},
+			Consumer:     gamev1alpha1.ConsumerRef{ModuleManifestName: "game-mod"},
+			Provider:     gamev1alpha1.ProviderRef{ModuleManifestName: "physics-mod"},
+		},
+	}
+	if err := k8sClient.Create(ctx, bindingDep); err != nil {
+		t.Fatalf("create binding dep: %v", err)
+	}
+
+	// 4. Create Binding for Game (Consumer)
+	bindingGame := &gamev1alpha1.CapabilityBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "binding-game", Namespace: ns.Name},
+		Spec: gamev1alpha1.CapabilityBindingSpec{
+			CapabilityID: "game.logic",
+			WorldRef:     &gamev1alpha1.WorldRef{Name: world.Name},
+			Provider:     gamev1alpha1.ProviderRef{ModuleManifestName: "game-mod"},
+		},
+	}
+	if err := k8sClient.Create(ctx, bindingGame); err != nil {
+		t.Fatalf("create binding game: %v", err)
+	}
+
+	// Wait for Game Deployment to be created (initially without env var)
+	depName := rtName(world.Name, "game-mod")
+	if err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 10*time.Second, true, func(ctx context.Context) (bool, error) {
+		var dep appsv1.Deployment
+		if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: ns.Name, Name: depName}, &dep); err != nil {
+			return false, client.IgnoreNotFound(err)
+		}
+		return true, nil
+	}); err != nil {
+		t.Fatalf("wait for game deployment: %v", err)
+	}
+
+	// 5. Update Physics Binding with Endpoint
+	// This should trigger the watch -> reconcile Game -> update Deployment
+	bindingDep.Status.Provider = &gamev1alpha1.ProviderStatus{
+		Endpoint: &gamev1alpha1.EndpointRef{
+			Type:  "kubernetesService",
+			Value: "physics-svc",
+			Port:  8080,
+		},
+	}
+	if err := k8sClient.Status().Update(ctx, bindingDep); err != nil {
+		t.Fatalf("update binding dep status: %v", err)
+	}
+
+	// 6. Verify Game Deployment gets the Env Var
+	if err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 10*time.Second, true, func(ctx context.Context) (bool, error) {
+		var dep appsv1.Deployment
+		if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: ns.Name, Name: depName}, &dep); err != nil {
+			return false, client.IgnoreNotFound(err)
+		}
+		for _, env := range dep.Spec.Template.Spec.Containers[0].Env {
+			if env.Name == "ANVIL_CAPABILITY_PHYSICS_ENGINE_ENDPOINT" && env.Value == "physics-svc:8080" {
+				return true, nil
+			}
+		}
+		return false, nil
+	}); err != nil {
+		t.Fatalf("timed out waiting for env var injection: %v", err)
+	}
+}
