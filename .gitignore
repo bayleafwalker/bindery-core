@@ -22,3 +22,5 @@
 
 # Kind / Kubernetes local artifacts (if any are generated)
 .kube/
+engine-module-client
+engine-module-server
