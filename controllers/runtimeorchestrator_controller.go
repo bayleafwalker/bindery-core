@@ -21,7 +21,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	gamev1alpha1 "github.com/anvil-platform/anvil/api/v1alpha1"
 )
@@ -32,6 +34,9 @@ const (
 	rtLabelModule    = "game.platform/module"
 
 	rtManagedBy = "runtimeorchestrator"
+
+	idxBindingConsumer = "spec.consumer.moduleManifestName"
+	idxBindingProvider = "spec.provider.moduleManifestName"
 
 	annRuntimeImage = "anvil.dev/runtime-image"
 	annRuntimePort  = "anvil.dev/runtime-port"
@@ -400,6 +405,44 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 			}
 		}
 
+		// Service Discovery Injection
+		// Find all bindings where this module is the consumer
+		var dependencyBindings gamev1alpha1.CapabilityBindingList
+		if err := r.List(ctx, &dependencyBindings, client.MatchingFields{idxBindingConsumer: providerName}, client.InNamespace(req.Namespace)); err != nil {
+			logger.Error(err, "failed to list dependency bindings for injection")
+		} else {
+			for _, b := range dependencyBindings.Items {
+				// Ensure it's for the same world
+				if b.Spec.WorldRef == nil || b.Spec.WorldRef.Name != world.Name {
+					continue
+				}
+
+				// If endpoint is available, inject it
+				if b.Status.Provider != nil && b.Status.Provider.Endpoint != nil {
+					ep := b.Status.Provider.Endpoint
+					capID := strings.ToUpper(strings.ReplaceAll(b.Spec.CapabilityID, ".", "_"))
+
+					// ANVIL_CAPABILITY_<ID>_ENDPOINT
+					container.Env = append(container.Env, corev1.EnvVar{
+						Name:  fmt.Sprintf("ANVIL_CAPABILITY_%s_ENDPOINT", capID),
+						Value: fmt.Sprintf("%s:%d", ep.Value, ep.Port),
+					})
+
+					// ANVIL_CAPABILITY_<ID>_HOST
+					container.Env = append(container.Env, corev1.EnvVar{
+						Name:  fmt.Sprintf("ANVIL_CAPABILITY_%s_HOST", capID),
+						Value: ep.Value,
+					})
+
+					// ANVIL_CAPABILITY_<ID>_PORT
+					container.Env = append(container.Env, corev1.EnvVar{
+						Name:  fmt.Sprintf("ANVIL_CAPABILITY_%s_PORT", capID),
+						Value: fmt.Sprintf("%d", ep.Port),
+					})
+				}
+			}
+		}
+
 		// Add/Update container in list
 		found := false
 		for i, c := range deployment.Spec.Template.Spec.Containers {
@@ -594,11 +637,63 @@ func (r *RuntimeOrchestratorReconciler) recordEventf(obj client.Object, eventTyp
 	r.Recorder.Eventf(obj, eventType, reason, messageFmt, args...)
 }
 
+func (r *RuntimeOrchestratorReconciler) findConsumersForBinding(ctx context.Context, obj client.Object) []reconcile.Request {
+	binding, ok := obj.(*gamev1alpha1.CapabilityBinding)
+	if !ok {
+		return nil
+	}
+
+	// If this binding has a consumer, we want to find the binding that MANAGES that consumer (as a provider).
+	// Because that managing binding is responsible for the Deployment of the consumer.
+	consumerModule := binding.Spec.Consumer.ModuleManifestName
+	if consumerModule == "" {
+		return nil
+	}
+
+	// Find bindings where Provider == consumerModule
+	var bindings gamev1alpha1.CapabilityBindingList
+	if err := r.List(ctx, &bindings, client.MatchingFields{idxBindingProvider: consumerModule}, client.InNamespace(binding.Namespace)); err != nil {
+		return nil
+	}
+
+	var reqs []reconcile.Request
+	for _, b := range bindings.Items {
+		reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{Name: b.Name, Namespace: b.Namespace}})
+	}
+	return reqs
+}
+
 func (r *RuntimeOrchestratorReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Index spec.consumer.moduleManifestName
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gamev1alpha1.CapabilityBinding{}, idxBindingConsumer, func(rawObj client.Object) []string {
+		binding := rawObj.(*gamev1alpha1.CapabilityBinding)
+		if binding.Spec.Consumer.ModuleManifestName == "" {
+			return nil
+		}
+		return []string{binding.Spec.Consumer.ModuleManifestName}
+	}); err != nil {
+		return err
+	}
+
+	// Index spec.provider.moduleManifestName
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gamev1alpha1.CapabilityBinding{}, idxBindingProvider, func(rawObj client.Object) []string {
+		binding := rawObj.(*gamev1alpha1.CapabilityBinding)
+		if binding.Spec.Provider.ModuleManifestName == "" {
+			return nil
+		}
+		return []string{binding.Spec.Provider.ModuleManifestName}
+	}); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&gamev1alpha1.CapabilityBinding{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Service{}).
+		Watches(
+			&gamev1alpha1.CapabilityBinding{},
+			handler.EnqueueRequestsFromMapFunc(r.findConsumersForBinding),
+		).
 		Complete(r)
 }
 

@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	gamev1alpha1 "github.com/anvil-platform/anvil/api/v1alpha1"
@@ -491,5 +492,108 @@ func TestRuntimeOrchestrator_InvalidRuntimePortFallsBackToDefault(t *testing.T) 
 	}
 	if got.Status.Provider.Endpoint.Port != 50051 {
 		t.Fatalf("expected default port 50051, got %d", got.Status.Provider.Endpoint.Port)
+	}
+}
+
+func TestRuntimeOrchestrator_InjectsDependencyEndpoints(t *testing.T) {
+	ctx := context.Background()
+
+	scheme := runtime.NewScheme()
+	_ = clientgoscheme.AddToScheme(scheme)
+	_ = gamev1alpha1.AddToScheme(scheme)
+	_ = appsv1.AddToScheme(scheme)
+	_ = corev1.AddToScheme(scheme)
+
+	world := &gamev1alpha1.WorldInstance{
+		ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"},
+	}
+
+	// Physics Module (Provider)
+	physicsMM := &gamev1alpha1.ModuleManifest{
+		ObjectMeta: metav1.ObjectMeta{Name: "physics-mod", Namespace: "default"},
+	}
+
+	// Game Module (Consumer)
+	gameMM := &gamev1alpha1.ModuleManifest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "game-mod",
+			Namespace: "default",
+			Annotations: map[string]string{
+				annRuntimeImage: "game:latest",
+			},
+		},
+	}
+
+	// Binding 1: Dependency (Consumer=Game, Provider=Physics)
+	// This binding represents the resolved dependency. It has the endpoint.
+	bindingDep := &gamev1alpha1.CapabilityBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "binding-dep", Namespace: "default"},
+		Spec: gamev1alpha1.CapabilityBindingSpec{
+			CapabilityID: "physics.engine",
+			WorldRef:     &gamev1alpha1.WorldRef{Name: "world-1"},
+			Consumer:     gamev1alpha1.ConsumerRef{ModuleManifestName: "game-mod"},
+			Provider:     gamev1alpha1.ProviderRef{ModuleManifestName: "physics-mod"},
+		},
+		Status: gamev1alpha1.CapabilityBindingStatus{
+			Provider: &gamev1alpha1.ProviderStatus{
+				Endpoint: &gamev1alpha1.EndpointRef{
+					Type:  "kubernetesService",
+					Value: "physics-svc",
+					Port:  8080,
+				},
+			},
+		},
+	}
+
+	// Binding 2: Game Deployment (Provider=Game)
+	// This is the binding we reconcile to deploy Game.
+	bindingGame := &gamev1alpha1.CapabilityBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "binding-game", Namespace: "default"},
+		Spec: gamev1alpha1.CapabilityBindingSpec{
+			CapabilityID: "game.logic",
+			WorldRef:     &gamev1alpha1.WorldRef{Name: "world-1"},
+			Provider:     gamev1alpha1.ProviderRef{ModuleManifestName: "game-mod"},
+		},
+	}
+
+	cl := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithIndex(&gamev1alpha1.CapabilityBinding{}, idxBindingConsumer, func(rawObj client.Object) []string {
+			binding := rawObj.(*gamev1alpha1.CapabilityBinding)
+			if binding.Spec.Consumer.ModuleManifestName == "" {
+				return nil
+			}
+			return []string{binding.Spec.Consumer.ModuleManifestName}
+		}).
+		WithObjects(world, physicsMM, gameMM, bindingDep, bindingGame).
+		WithStatusSubresource(bindingGame).
+		Build()
+
+	r := &RuntimeOrchestratorReconciler{Client: cl, Scheme: scheme}
+	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: "default", Name: "binding-game"}})
+	if err != nil {
+		t.Fatalf("Reconcile failed: %v", err)
+	}
+
+	// Check Deployment
+	var dep appsv1.Deployment
+	// Name is rtName(world, provider) -> "rt-world-1-game-mod"
+	depName := "rt-world-1-game-mod"
+	if err := cl.Get(ctx, types.NamespacedName{Namespace: "default", Name: depName}, &dep); err != nil {
+		t.Fatalf("Deployment not found: %v", err)
+	}
+
+	// Check Env Vars
+	found := false
+	for _, env := range dep.Spec.Template.Spec.Containers[0].Env {
+		if env.Name == "ANVIL_CAPABILITY_PHYSICS_ENGINE_ENDPOINT" {
+			if env.Value != "physics-svc:8080" {
+				t.Errorf("Expected ANVIL_CAPABILITY_PHYSICS_ENGINE_ENDPOINT=physics-svc:8080, got %s", env.Value)
+			}
+			found = true
+		}
+	}
+	if !found {
+		t.Error("ANVIL_CAPABILITY_PHYSICS_ENGINE_ENDPOINT env var not found")
 	}
 }
