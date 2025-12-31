@@ -80,6 +80,7 @@ func TestIntegration_RuntimeOrchestrator_PublishesEndpointToStatus(t *testing.T)
 			Region:       "test-1",
 			ShardCount:   1,
 			DesiredState: "Running",
+			GameRef:      &binderyv1alpha1.ObjectRef{Name: "game-1"}, // Added required field
 		},
 	}
 	if err := k8sClient.Create(ctx, world); err != nil {
@@ -216,6 +217,7 @@ func TestIntegration_RuntimeOrchestrator_ShardStorage_CreatesClaimMountAndPVC(t 
 			Region:       "test-1",
 			ShardCount:   2,
 			DesiredState: "Running",
+			GameRef:      &binderyv1alpha1.ObjectRef{Name: "game-1"}, // Added required field
 		},
 	}
 	if err := k8sClient.Create(ctx, world); err != nil {
@@ -407,17 +409,17 @@ func TestIntegration_RuntimeOrchestrator_InjectsEndpoints(t *testing.T) {
 	}
 
 	// Setup Manager to run the controller (needed for Watches/Indexing)
-	mgr, err := ctrl.NewManager(cfg, ctrl.Options{Scheme: scheme})
+	// Only register the controller once per test run to avoid duplicate errors
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{Scheme: scheme, MetricsBindAddress: "0"})
 	if err != nil {
 		t.Fatalf("new manager: %v", err)
 	}
 
-	r := &RuntimeOrchestratorReconciler{
+	if err := (&RuntimeOrchestratorReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: mgr.GetEventRecorderFor("runtimeorchestrator"),
-	}
-	if err := r.SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr); err != nil {
 		t.Fatalf("setup with manager: %v", err)
 	}
 
@@ -437,6 +439,7 @@ func TestIntegration_RuntimeOrchestrator_InjectsEndpoints(t *testing.T) {
 		Spec: binderyv1alpha1.WorldInstanceSpec{
 			BookletRef: binderyv1alpha1.ObjectRef{Name: "game-1"},
 			WorldID:    "world-001",
+			GameRef:    &binderyv1alpha1.ObjectRef{Name: "game-1"}, // Added required field
 		},
 	}
 	if err := k8sClient.Create(ctx, world); err != nil {

@@ -166,6 +166,7 @@ func TestIntegration_RealmArchitecture(t *testing.T) {
 			BookletID: "mmo-game",
 			Version:   "1.0.0",
 			Modules:   []binderyv1alpha1.BookletModuleRef{{Name: "game-server"}},
+			GameID:    "mmo-game-id", // Added required field
 		},
 	}
 	if err := k8sClient.Create(ctx, booklet); err != nil {
@@ -181,6 +182,7 @@ func TestIntegration_RealmArchitecture(t *testing.T) {
 			WorldID:    "w-1",
 			Region:     "eu-west-1",
 			ShardCount: 1,
+			GameRef:    &binderyv1alpha1.ObjectRef{Name: "mmo-game"}, // Added required field
 		},
 	}
 	if err := k8sClient.Create(ctx, world); err != nil {
