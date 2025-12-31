@@ -5,6 +5,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -48,6 +49,7 @@ func (in *ModuleManifestSpec) DeepCopyInto(out *ModuleManifestSpec) {
 		copy(out.Requires, in.Requires)
 	}
 	out.Scaling = in.Scaling
+	in.Scheduling.DeepCopyInto(&out.Scheduling)
 	if in.ExtraSpec != nil {
 		out.ExtraSpec = make(map[string]any, len(in.ExtraSpec))
 		for k, v := range in.ExtraSpec {
@@ -116,6 +118,12 @@ func (in *GameDefinitionSpec) DeepCopyInto(out *GameDefinitionSpec) {
 	if in.Modules != nil {
 		out.Modules = make([]GameModuleRef, len(in.Modules))
 		copy(out.Modules, in.Modules)
+	}
+	if in.Colocation != nil {
+		out.Colocation = make([]ColocationGroup, len(in.Colocation))
+		for i := range in.Colocation {
+			in.Colocation[i].DeepCopyInto(&out.Colocation[i])
+		}
 	}
 	if in.Defaults != nil {
 		out.Defaults = make(map[string]string, len(in.Defaults))
@@ -422,4 +430,31 @@ func (in *WorldStorageClaimList) DeepCopyObject() runtime.Object {
 		return c
 	}
 	return nil
+}
+
+func (in *ModuleScheduling) DeepCopyInto(out *ModuleScheduling) {
+	*out = *in
+	if in.Affinity != nil {
+		in.Affinity = in.Affinity.DeepCopy()
+	}
+	if in.Tolerations != nil {
+		out.Tolerations = make([]corev1.Toleration, len(in.Tolerations))
+		for i := range in.Tolerations {
+			in.Tolerations[i].DeepCopyInto(&out.Tolerations[i])
+		}
+	}
+	if in.NodeSelector != nil {
+		out.NodeSelector = make(map[string]string, len(in.NodeSelector))
+		for k, v := range in.NodeSelector {
+			out.NodeSelector[k] = v
+		}
+	}
+}
+
+func (in *ColocationGroup) DeepCopyInto(out *ColocationGroup) {
+	*out = *in
+	if in.Modules != nil {
+		out.Modules = make([]string, len(in.Modules))
+		copy(out.Modules, in.Modules)
+	}
 }

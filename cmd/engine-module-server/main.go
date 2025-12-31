@@ -5,6 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
+	"strconv"
 
 	"google.golang.org/grpc"
 
@@ -126,13 +129,46 @@ func main() {
 	flag.StringVar(&listenAddr, "listen", ":50051", "address to listen on")
 	flag.Parse()
 
+	// gRPC Options
+	var opts []grpc.ServerOption
+	if s := os.Getenv("ANVIL_GRPC_INITIAL_WINDOW_SIZE"); s != "" {
+		if v, err := strconv.Atoi(s); err == nil {
+			opts = append(opts, grpc.InitialWindowSize(int32(v)))
+		}
+	}
+	if s := os.Getenv("ANVIL_GRPC_INITIAL_CONN_WINDOW_SIZE"); s != "" {
+		if v, err := strconv.Atoi(s); err == nil {
+			opts = append(opts, grpc.InitialConnWindowSize(int32(v)))
+		}
+	}
+
+	grpcServer := grpc.NewServer(opts...)
+	enginev1.RegisterEngineModuleServer(grpcServer, &server{})
+
+	// UDS Listener
+	udsDir := os.Getenv("ANVIL_UDS_DIR")
+	moduleName := os.Getenv("ANVIL_MODULE_NAME")
+	if udsDir != "" && moduleName != "" {
+		socketPath := filepath.Join(udsDir, moduleName+".sock")
+		_ = os.Remove(socketPath)
+		udsLis, err := net.Listen("unix", socketPath)
+		if err != nil {
+			fmt.Printf("Failed to listen on UDS %s: %v\n", socketPath, err)
+		} else {
+			fmt.Printf("Listening on UDS %s\n", socketPath)
+			go func() {
+				if err := grpcServer.Serve(udsLis); err != nil {
+					fmt.Printf("UDS serve error: %v\n", err)
+				}
+			}()
+		}
+	}
+
 	lis, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		panic(fmt.Errorf("listen %s: %w", listenAddr, err))
 	}
-
-	grpcServer := grpc.NewServer()
-	enginev1.RegisterEngineModuleServer(grpcServer, &server{})
+	fmt.Printf("Listening on TCP %s\n", listenAddr)
 
 	if err := grpcServer.Serve(lis); err != nil {
 		panic(fmt.Errorf("grpc serve: %w", err))

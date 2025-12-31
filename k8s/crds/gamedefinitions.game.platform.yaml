@@ -69,6 +69,27 @@ spec:
                         type: object
                         additionalProperties:
                           type: string
+                colocation:
+                  type: array
+                  description: Groups of modules to be co-located.
+                  items:
+                    type: object
+                    required:
+                      - name
+                      - modules
+                      - strategy
+                    properties:
+                      name:
+                        type: string
+                      modules:
+                        type: array
+                        items:
+                          type: string
+                      strategy:
+                        type: string
+                        enum:
+                          - Node
+                          - Pod
                 defaults:
                   type: object
                   properties:

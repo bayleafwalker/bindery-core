@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -29,7 +30,14 @@ type ModuleManifestSpec struct {
 	Provides  []ProvidedCapability `json:"provides"`
 	Requires  []RequiredCapability `json:"requires"`
 	Scaling   ModuleScaling        `json:"scaling"`
+	Scheduling ModuleScheduling    `json:"scheduling,omitempty"`
 	ExtraSpec map[string]any       `json:"-"` // TODO: expand spec per CRD
+}
+
+type ModuleScheduling struct {
+	Affinity     *corev1.Affinity    `json:"affinity,omitempty"`
+	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
+	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
 }
 
 type ModuleIdentity struct {

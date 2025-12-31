@@ -81,6 +81,15 @@ In the current MVP direction, runtime workload creation is handled by a separate
 
 Convention (MVP): a provider module is considered server-owned/orchestrated if its `ModuleManifest` includes runtime annotations (e.g. `anvil.dev/runtime-image`, optional `anvil.dev/runtime-port`).
 
+### Co-location and Latency Optimization
+
+To support high-frequency real-time games, the platform supports explicit co-location of modules to minimize inter-module latency.
+
+- **Node Co-location**: Modules can be scheduled on the same node using `GameDefinition.spec.colocation` with `strategy: Node`. This leverages Kubernetes Pod Affinity.
+- **Pod Co-location**: Modules can be merged into a single Pod (sidecar pattern) using `strategy: Pod`. This enables communication via Unix Domain Sockets (UDS) or localhost.
+- **UDS Support**: The platform automatically injects shared volumes and environment variables (`ANVIL_UDS_DIR`, `ANVIL_UDS_<CAPABILITY>`) for Pod-co-located modules, allowing them to bypass the TCP stack.
+- **gRPC Tuning**: Modules can be configured with custom gRPC window sizes via `ModuleManifest` annotations or environment variables to optimize throughput.
+
 ## Capability model
 
 ### provides / requires

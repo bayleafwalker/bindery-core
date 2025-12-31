@@ -123,6 +123,12 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, err
 	}
 
+	// Load GameDefinition for colocation logic
+	var gameDef gamev1alpha1.GameDefinition
+	if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: world.Spec.GameRef.Name}, &gameDef); err != nil {
+		logger.V(1).Info("game definition not found; proceeding without colocation logic", "game", world.Spec.GameRef.Name)
+	}
+
 	var shardObj *gamev1alpha1.WorldShard
 	shardName := ""
 	if shardLabel != "" {
@@ -190,15 +196,41 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 		}
 	}
 
+	// Determine colocation
+	colocGroup := getColocationGroup(&gameDef, providerName)
+	isColocPod := colocGroup != nil && colocGroup.Strategy == "Pod"
+
 	// Stable names shared by Service and Deployment.
-	workloadName := rtNameWithShard(world.Name, shardLabel, providerName)
+	// For Service, we always use the module-specific name.
+	serviceName := rtNameWithShard(world.Name, shardLabel, providerName)
+
+	// For Deployment, we might use a shared name.
+	deploymentName := rtNameWithShard(world.Name, shardLabel, providerName)
+	if isColocPod {
+		deploymentName = rtNameWithShard(world.Name, shardLabel, "coloc-"+colocGroup.Name)
+	}
+
 	labels := map[string]string{
 		rtLabelManagedBy: rtManagedBy,
 		rtLabelWorldName: world.Name,
-		rtLabelModule:    providerName,
 	}
 	if shardLabel != "" {
 		labels[labelShardID] = shardLabel
+	}
+
+	// Service labels
+	serviceLabels := mergeLabels(nil, labels)
+	serviceLabels[rtLabelModule] = providerName
+	if isColocPod {
+		serviceLabels["game.platform/coloc-group"] = colocGroup.Name
+	}
+
+	// Deployment labels
+	deploymentLabels := mergeLabels(nil, labels)
+	if isColocPod {
+		deploymentLabels["game.platform/coloc-group"] = colocGroup.Name
+	} else {
+		deploymentLabels[rtLabelModule] = providerName
 	}
 
 	// Optional persistent storage request driven by ModuleManifest annotations.
@@ -248,10 +280,25 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 
 	// 1) Ensure Service
-	service := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: workloadName, Namespace: req.Namespace}}
+	service := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: req.Namespace}}
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, service, func() error {
-		service.Labels = mergeLabels(service.Labels, labels)
-		service.Spec.Selector = mergeLabels(service.Spec.Selector, labels)
+		service.Labels = mergeLabels(service.Labels, serviceLabels)
+
+		// Selector logic
+		selector := map[string]string{
+			rtLabelManagedBy: rtManagedBy,
+			rtLabelWorldName: world.Name,
+		}
+		if shardLabel != "" {
+			selector[labelShardID] = shardLabel
+		}
+		if isColocPod {
+			selector["game.platform/coloc-group"] = colocGroup.Name
+		} else {
+			selector[rtLabelModule] = providerName
+		}
+		service.Spec.Selector = selector
+
 		service.Spec.Type = corev1.ServiceTypeClusterIP
 		service.Spec.Ports = []corev1.ServicePort{{
 			Name:       "grpc",
@@ -265,39 +312,165 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 		return controllerutil.SetControllerReference(&world, service, r.Scheme)
 	})
 	if err != nil {
-		logger.Error(err, "failed to ensure service", "service", workloadName)
-		r.recordEventf(&binding, "Warning", "EnsureServiceFailed", "Failed to ensure Service %q: %v", workloadName, err)
+		logger.Error(err, "failed to ensure service", "service", serviceName)
+		r.recordEventf(&binding, "Warning", "EnsureServiceFailed", "Failed to ensure Service %q: %v", serviceName, err)
 		anvilControllerReconcileErrorTotal.WithLabelValues("RuntimeOrchestrator").Inc()
 		return ctrl.Result{}, err
 	}
 
 	// 2) Ensure Deployment
-	deployment := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: workloadName, Namespace: req.Namespace}}
+	deployment := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: deploymentName, Namespace: req.Namespace}}
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
-		deployment.Labels = mergeLabels(deployment.Labels, labels)
-		deployment.Spec.Selector = &metav1.LabelSelector{MatchLabels: labels}
+		deployment.Labels = mergeLabels(deployment.Labels, deploymentLabels)
+		deployment.Spec.Selector = &metav1.LabelSelector{MatchLabels: deploymentLabels}
 		deployment.Spec.Replicas = int32Ptr(1)
-		deployment.Spec.Template.ObjectMeta.Labels = mergeLabels(deployment.Spec.Template.ObjectMeta.Labels, labels)
-		deployment.Spec.Template.Spec.Volumes = nil
+		deployment.Spec.Template.ObjectMeta.Labels = mergeLabels(deployment.Spec.Template.ObjectMeta.Labels, deploymentLabels)
+
+		// Container logic
+		containerName := "module"
+		if isColocPod {
+			containerName = providerName
+		}
+
 		container := corev1.Container{
-			Name:  "module",
+			Name:  containerName,
 			Image: image,
 			Args:  []string{"sleep", "365d"},
 			Ports: []corev1.ContainerPort{{ContainerPort: port, Name: "grpc"}},
 		}
 		if volumeToMount != nil && mountToUse != nil {
-			deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, *volumeToMount)
 			container.VolumeMounts = append(container.VolumeMounts, *mountToUse)
 		}
-		deployment.Spec.Template.Spec.Containers = []corev1.Container{container}
+
+		// UDS Logic
+		if isColocPod {
+			// Add shared volume if not present
+			hasSharedVol := false
+			for _, v := range deployment.Spec.Template.Spec.Volumes {
+				if v.Name == "shared-socket" {
+					hasSharedVol = true
+					break
+				}
+			}
+			if !hasSharedVol {
+				deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, corev1.Volume{
+					Name: "shared-socket",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				})
+			}
+
+			// Mount volume in container
+			container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+				Name:      "shared-socket",
+				MountPath: "/var/run/anvil",
+			})
+
+			// Set Env Vars
+			container.Env = append(container.Env, corev1.EnvVar{
+				Name:  "ANVIL_UDS_DIR",
+				Value: "/var/run/anvil",
+			})
+			container.Env = append(container.Env, corev1.EnvVar{
+				Name:  "ANVIL_MODULE_NAME",
+				Value: providerName,
+			})
+
+			// Inject UDS paths for dependencies if co-located
+			if isColocPod {
+				var allBindings gamev1alpha1.CapabilityBindingList
+				if err := r.List(ctx, &allBindings, client.InNamespace(req.Namespace)); err == nil {
+					for _, b := range allBindings.Items {
+						if b.Spec.Consumer.ModuleManifestName == providerName &&
+							b.Spec.WorldRef != nil && b.Spec.WorldRef.Name == world.Name {
+
+							depProvider := b.Spec.Provider.ModuleManifestName
+							depGroup := getColocationGroup(&gameDef, depProvider)
+							if depGroup != nil && depGroup.Name == colocGroup.Name && depGroup.Strategy == "Pod" {
+								envName := fmt.Sprintf("ANVIL_UDS_%s", strings.ToUpper(strings.ReplaceAll(b.Spec.CapabilityID, ".", "_")))
+								container.Env = append(container.Env, corev1.EnvVar{
+									Name:  envName,
+									Value: fmt.Sprintf("/var/run/anvil/%s.sock", depProvider),
+								})
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// Add/Update container in list
+		found := false
+		for i, c := range deployment.Spec.Template.Spec.Containers {
+			if c.Name == containerName {
+				deployment.Spec.Template.Spec.Containers[i] = container
+				found = true
+				break
+			}
+		}
+		if !found {
+			deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, container)
+		}
+
+		// Handle volumes for this container (non-UDS)
+		if volumeToMount != nil {
+			// Check if volume already exists in deployment spec
+			volFound := false
+			for _, v := range deployment.Spec.Template.Spec.Volumes {
+				if v.Name == volumeToMount.Name {
+					volFound = true
+					break
+				}
+			}
+			if !volFound {
+				deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, *volumeToMount)
+			}
+		}
+
+		// Scheduling
+		if providerMM.Spec.Scheduling.Affinity != nil {
+			deployment.Spec.Template.Spec.Affinity = providerMM.Spec.Scheduling.Affinity
+		}
+		if len(providerMM.Spec.Scheduling.Tolerations) > 0 {
+			deployment.Spec.Template.Spec.Tolerations = providerMM.Spec.Scheduling.Tolerations
+		}
+		if len(providerMM.Spec.Scheduling.NodeSelector) > 0 {
+			deployment.Spec.Template.Spec.NodeSelector = providerMM.Spec.Scheduling.NodeSelector
+		}
+
+		// Node Strategy PodAffinity
+		if colocGroup != nil && colocGroup.Strategy == "Node" {
+			if deployment.Spec.Template.Spec.Affinity == nil {
+				deployment.Spec.Template.Spec.Affinity = &corev1.Affinity{}
+			}
+			if deployment.Spec.Template.Spec.Affinity.PodAffinity == nil {
+				deployment.Spec.Template.Spec.Affinity.PodAffinity = &corev1.PodAffinity{}
+			}
+			term := corev1.PodAffinityTerm{
+				LabelSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"game.platform/coloc-group": colocGroup.Name,
+						rtLabelWorldName:            world.Name,
+					},
+				},
+				TopologyKey: "kubernetes.io/hostname",
+			}
+			deployment.Spec.Template.Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution = append(deployment.Spec.Template.Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution, term)
+
+			// Ensure labels
+			deployment.Labels["game.platform/coloc-group"] = colocGroup.Name
+			deployment.Spec.Template.ObjectMeta.Labels["game.platform/coloc-group"] = colocGroup.Name
+		}
+
 		if shardObj != nil {
 			return controllerutil.SetControllerReference(shardObj, deployment, r.Scheme)
 		}
 		return controllerutil.SetControllerReference(&world, deployment, r.Scheme)
 	})
 	if err != nil {
-		logger.Error(err, "failed to ensure deployment", "deployment", workloadName)
-		r.recordEventf(&binding, "Warning", "EnsureDeploymentFailed", "Failed to ensure Deployment %q: %v", workloadName, err)
+		logger.Error(err, "failed to ensure deployment", "deployment", deploymentName)
+		r.recordEventf(&binding, "Warning", "EnsureDeploymentFailed", "Failed to ensure Deployment %q: %v", deploymentName, err)
 		anvilControllerReconcileErrorTotal.WithLabelValues("RuntimeOrchestrator").Inc()
 		return ctrl.Result{}, err
 	}
@@ -305,7 +478,7 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 	// 3) Publish the endpoint back onto the binding status.
 	desiredEndpoint := &gamev1alpha1.EndpointRef{
 		Type:  "kubernetesService",
-		Value: workloadName,
+		Value: serviceName,
 		Port:  port,
 	}
 	cond := meta.FindStatusCondition(binding.Status.Conditions, BindingConditionRuntimeReady)
@@ -325,7 +498,7 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 			Message: fmt.Sprintf("Endpoint published: %s/%s:%d", desiredEndpoint.Type, desiredEndpoint.Value, desiredEndpoint.Port),
 		})
 		if err := r.Status().Patch(ctx, &binding, client.MergeFrom(before)); err != nil {
-			logger.Error(err, "failed to publish endpoint to binding status", "service", workloadName, "port", port)
+			logger.Error(err, "failed to publish endpoint to binding status", "service", serviceName, "port", port)
 			r.recordEventf(&binding, "Warning", "PublishEndpointFailed", "Failed to publish endpoint to binding status: %v", err)
 			anvilControllerReconcileErrorTotal.WithLabelValues("RuntimeOrchestrator").Inc()
 			return ctrl.Result{}, err
@@ -339,7 +512,7 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 		logger.Error(err, "failed to update world RuntimeReady condition")
 	}
 
-	logger.Info("ensured runtime", "service", workloadName, "image", image, "port", port)
+	logger.Info("ensured runtime", "service", serviceName, "image", image, "port", port)
 	return ctrl.Result{}, nil
 }
 
@@ -564,4 +737,18 @@ func (r *RuntimeOrchestratorReconciler) ensureWorldStorageClaim(
 		return controllerutil.SetControllerReference(world, claim, r.Scheme)
 	})
 	return err
+}
+
+func getColocationGroup(game *gamev1alpha1.GameDefinition, moduleName string) *gamev1alpha1.ColocationGroup {
+	if game == nil {
+		return nil
+	}
+	for _, group := range game.Spec.Colocation {
+		for _, m := range group.Modules {
+			if m == moduleName {
+				return &group
+			}
+		}
+	}
+	return nil
 }

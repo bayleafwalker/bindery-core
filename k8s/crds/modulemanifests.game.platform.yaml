@@ -285,6 +285,10 @@ spec:
                                 enum: [cpu, memory, rps, tick-lag, custom]
                               target:
                                 type: string
+                scheduling:
+                  type: object
+                  description: Kubernetes scheduling constraints (affinity, tolerations, nodeSelector).
+                  x-kubernetes-preserve-unknown-fields: true
             status:
               type: object
               properties:

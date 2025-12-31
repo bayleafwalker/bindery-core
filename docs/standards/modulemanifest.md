@@ -23,6 +23,7 @@ A `ModuleManifest` is a declarative contract document.
 - `spec.module` identifies the module artifact.
 - `spec.provides[]` and `spec.requires[]` declare capability contracts.
 - `spec.scaling` declares intended scaling/sharding semantics.
+- `spec.scheduling` declares Kubernetes scheduling constraints (affinity, tolerations).
 
 ---
 
@@ -119,6 +120,11 @@ spec:
       metricHints:
         - type: enum(cpu|memory|rps|tick-lag|custom)
           target: string
+
+  scheduling:
+    affinity: object            # Kubernetes Affinity
+    tolerations: array          # Kubernetes Tolerations
+    nodeSelector: object        # Kubernetes NodeSelector
 ```
 
 ---

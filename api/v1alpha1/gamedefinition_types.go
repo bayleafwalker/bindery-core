@@ -24,10 +24,17 @@ type GameDefinition struct {
 }
 
 type GameDefinitionSpec struct {
-	GameID   string            `json:"gameId"`
-	Version  string            `json:"version"`
-	Modules  []GameModuleRef   `json:"modules"`
-	Defaults map[string]string `json:"-"` // TODO: expand
+	GameID     string            `json:"gameId"`
+	Version    string            `json:"version"`
+	Modules    []GameModuleRef   `json:"modules"`
+	Colocation []ColocationGroup `json:"colocation,omitempty"`
+	Defaults   map[string]string `json:"-"` // TODO: expand
+}
+
+type ColocationGroup struct {
+	Name     string   `json:"name"`
+	Modules  []string `json:"modules"`
+	Strategy string   `json:"strategy"` // "Node" or "Pod"
 }
 
 type GameModuleRef struct {
