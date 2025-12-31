@@ -17,9 +17,11 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	binderyv1alpha1 "github.com/bayleafwalker/bindery-core/api/v1alpha1"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 func TestIntegration_RuntimeOrchestrator_PublishesEndpointToStatus(t *testing.T) {
@@ -409,6 +411,7 @@ func TestIntegration_RuntimeOrchestrator_InjectsEndpoints(t *testing.T) {
 
 	// Setup Manager to run the controller (needed for Watches/Indexing)
 	// Only register the controller once per test run to avoid duplicate errors
+	metrics.Registry = prometheus.NewRegistry()
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{Scheme: scheme, Metrics: metricsserver.Options{BindAddress: "0"}})
 	if err != nil {
 		t.Fatalf("new manager: %v", err)
@@ -418,6 +421,7 @@ func TestIntegration_RuntimeOrchestrator_InjectsEndpoints(t *testing.T) {
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: mgr.GetEventRecorderFor("runtimeorchestrator"),
+		Name:     "runtimeorchestrator-inject",
 	}).SetupWithManager(mgr); err != nil {
 		t.Fatalf("setup with manager: %v", err)
 	}
@@ -436,8 +440,10 @@ func TestIntegration_RuntimeOrchestrator_InjectsEndpoints(t *testing.T) {
 	world := &binderyv1alpha1.WorldInstance{
 		ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: ns.Name},
 		Spec: binderyv1alpha1.WorldInstanceSpec{
-			GameRef: binderyv1alpha1.ObjectRef{Name: "game-1"},
-			WorldID: "world-001",
+			GameRef:    binderyv1alpha1.ObjectRef{Name: "game-1"},
+			WorldID:    "world-001",
+			Region:     "test-1",
+			ShardCount: 1,
 		},
 	}
 	if err := k8sClient.Create(ctx, world); err != nil {
@@ -448,7 +454,10 @@ func TestIntegration_RuntimeOrchestrator_InjectsEndpoints(t *testing.T) {
 	physicsMM := &binderyv1alpha1.ModuleManifest{
 		ObjectMeta: metav1.ObjectMeta{Name: "physics-mod", Namespace: ns.Name},
 		Spec: binderyv1alpha1.ModuleManifestSpec{
-			Module: binderyv1alpha1.ModuleIdentity{ID: "core.physics", Version: "1.0.0"},
+			Module:   binderyv1alpha1.ModuleIdentity{ID: "core.physics", Version: "1.0.0"},
+			Provides: []binderyv1alpha1.ProvidedCapability{},
+			Requires: []binderyv1alpha1.RequiredCapability{},
+			Scaling:  binderyv1alpha1.ModuleScaling{DefaultScope: binderyv1alpha1.CapabilityScopeWorld, Statefulness: "stateless"},
 		},
 	}
 	if err := k8sClient.Create(ctx, physicsMM); err != nil {
@@ -465,7 +474,10 @@ func TestIntegration_RuntimeOrchestrator_InjectsEndpoints(t *testing.T) {
 			},
 		},
 		Spec: binderyv1alpha1.ModuleManifestSpec{
-			Module: binderyv1alpha1.ModuleIdentity{ID: "game.logic", Version: "1.0.0"},
+			Module:   binderyv1alpha1.ModuleIdentity{ID: "game.logic", Version: "1.0.0"},
+			Provides: []binderyv1alpha1.ProvidedCapability{},
+			Requires: []binderyv1alpha1.RequiredCapability{},
+			Scaling:  binderyv1alpha1.ModuleScaling{DefaultScope: binderyv1alpha1.CapabilityScopeWorld, Statefulness: "stateless"},
 		},
 	}
 	if err := k8sClient.Create(ctx, gameMM); err != nil {
@@ -478,6 +490,8 @@ func TestIntegration_RuntimeOrchestrator_InjectsEndpoints(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "binding-dep", Namespace: ns.Name},
 		Spec: binderyv1alpha1.CapabilityBindingSpec{
 			CapabilityID: "physics.engine",
+			Scope:        binderyv1alpha1.CapabilityScopeWorld,
+			Multiplicity: binderyv1alpha1.MultiplicityOne,
 			WorldRef:     &binderyv1alpha1.WorldRef{Name: world.Name},
 			Consumer:     binderyv1alpha1.ConsumerRef{ModuleManifestName: "game-mod"},
 			Provider:     binderyv1alpha1.ProviderRef{ModuleManifestName: "physics-mod"},
@@ -492,6 +506,9 @@ func TestIntegration_RuntimeOrchestrator_InjectsEndpoints(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "binding-game", Namespace: ns.Name},
 		Spec: binderyv1alpha1.CapabilityBindingSpec{
 			CapabilityID: "game.logic",
+			Scope:        binderyv1alpha1.CapabilityScopeWorld,
+			Multiplicity: binderyv1alpha1.MultiplicityOne,
+			Consumer:     binderyv1alpha1.ConsumerRef{ModuleManifestName: "game-mod"},
 			WorldRef:     &binderyv1alpha1.WorldRef{Name: world.Name},
 			Provider:     binderyv1alpha1.ProviderRef{ModuleManifestName: "game-mod"},
 		},
@@ -514,14 +531,18 @@ func TestIntegration_RuntimeOrchestrator_InjectsEndpoints(t *testing.T) {
 
 	// 5. Update Physics Binding with Endpoint
 	// This should trigger the watch -> reconcile Game -> update Deployment
-	bindingDep.Status.Provider = &binderyv1alpha1.ProviderStatus{
+	var latestDep binderyv1alpha1.CapabilityBinding
+	if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: ns.Name, Name: bindingDep.Name}, &latestDep); err != nil {
+		t.Fatalf("get binding dep: %v", err)
+	}
+	latestDep.Status.Provider = &binderyv1alpha1.ProviderStatus{
 		Endpoint: &binderyv1alpha1.EndpointRef{
 			Type:  "kubernetesService",
 			Value: "physics-svc",
 			Port:  8080,
 		},
 	}
-	if err := k8sClient.Status().Update(ctx, bindingDep); err != nil {
+	if err := k8sClient.Status().Update(ctx, &latestDep); err != nil {
 		t.Fatalf("update binding dep status: %v", err)
 	}
 

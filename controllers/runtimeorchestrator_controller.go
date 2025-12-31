@@ -78,6 +78,8 @@ type RuntimeOrchestratorReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme
 	Recorder record.EventRecorder
+	// Name allows overriding the controller name (useful for tests to avoid global collisions).
+	Name string
 }
 
 func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -306,7 +308,14 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	// 1) Ensure Service
 	service := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: req.Namespace}}
+	serviceOwner := controllerOwner(shardObj, &world, &binding, isGlobal)
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, service, func() error {
+		existingOwner := metav1.GetControllerOf(service)
+		if existingOwner != nil && (serviceOwner == nil || !metav1.IsControlledBy(service, serviceOwner)) {
+			logger.V(1).Info("service already owned by another controller; reusing", "service", serviceName, "owner", fmt.Sprintf("%s/%s", existingOwner.Kind, existingOwner.Name))
+			return nil
+		}
+
 		service.Labels = mergeLabels(service.Labels, serviceLabels)
 
 		// Selector logic
@@ -333,13 +342,10 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 			TargetPort: intstrFromInt32(port),
 			Protocol:   corev1.ProtocolTCP,
 		}}
-		if shardObj != nil {
-			return controllerutil.SetControllerReference(shardObj, service, r.Scheme)
+		if serviceOwner != nil {
+			return controllerutil.SetControllerReference(serviceOwner, service, r.Scheme)
 		}
-		if !isGlobal {
-			return controllerutil.SetControllerReference(&world, service, r.Scheme)
-		}
-		return controllerutil.SetControllerReference(&binding, service, r.Scheme)
+		return nil
 	})
 	if err != nil {
 		logger.Error(err, "failed to ensure service", "service", serviceName)
@@ -360,7 +366,14 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 	preStopCommand := strings.TrimSpace(providerMM.Annotations[annPreStopCommand])
 
 	deployment := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: deploymentName, Namespace: req.Namespace}}
+	deploymentOwner := controllerOwner(shardObj, &world, &binding, isGlobal)
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
+		existingOwner := metav1.GetControllerOf(deployment)
+		if existingOwner != nil && (deploymentOwner == nil || !metav1.IsControlledBy(deployment, deploymentOwner)) {
+			logger.V(1).Info("deployment already owned by another controller; reusing", "deployment", deploymentName, "owner", fmt.Sprintf("%s/%s", existingOwner.Kind, existingOwner.Name))
+			return nil
+		}
+
 		deployment.Labels = mergeLabels(deployment.Labels, deploymentLabels)
 		deployment.Spec.Selector = &metav1.LabelSelector{MatchLabels: deploymentLabels}
 		deployment.Spec.Replicas = int32Ptr(1)
@@ -647,13 +660,10 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 			deployment.Spec.Template.ObjectMeta.Labels["bindery.platform/coloc-group"] = colocGroup.Name
 		}
 
-		if shardObj != nil {
-			return controllerutil.SetControllerReference(shardObj, deployment, r.Scheme)
+		if deploymentOwner != nil {
+			return controllerutil.SetControllerReference(deploymentOwner, deployment, r.Scheme)
 		}
-		if !isGlobal {
-			return controllerutil.SetControllerReference(&world, deployment, r.Scheme)
-		}
-		return controllerutil.SetControllerReference(&binding, deployment, r.Scheme)
+		return nil
 	})
 	runtimeOrchestratorDeploymentDuration.Observe(time.Since(startDep).Seconds())
 	if err != nil {
@@ -831,7 +841,12 @@ func (r *RuntimeOrchestratorReconciler) SetupWithManager(mgr ctrl.Manager) error
 		return err
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	builder := ctrl.NewControllerManagedBy(mgr)
+	if r.Name != "" {
+		builder = builder.Named(r.Name)
+	}
+
+	return builder.
 		For(&binderyv1alpha1.CapabilityBinding{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Service{}).
@@ -850,6 +865,16 @@ func mergeLabels(dst, src map[string]string) map[string]string {
 		dst[k] = v
 	}
 	return dst
+}
+
+func controllerOwner(shard *binderyv1alpha1.WorldShard, world *binderyv1alpha1.WorldInstance, binding *binderyv1alpha1.CapabilityBinding, isGlobal bool) client.Object {
+	if shard != nil {
+		return shard
+	}
+	if !isGlobal {
+		return world
+	}
+	return binding
 }
 
 func int32Ptr(v int32) *int32 { return &v }

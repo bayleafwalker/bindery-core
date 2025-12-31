@@ -17,9 +17,12 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	binderyv1alpha1 "github.com/bayleafwalker/bindery-core/api/v1alpha1"
 	"github.com/bayleafwalker/bindery-core/internal/resolver"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 func TestIntegration_RealmArchitecture(t *testing.T) {
@@ -56,7 +59,8 @@ func TestIntegration_RealmArchitecture(t *testing.T) {
 		t.Fatalf("new client: %v", err)
 	}
 
-	mgr, err := ctrl.NewManager(cfg, ctrl.Options{Scheme: scheme})
+	metrics.Registry = prometheus.NewRegistry()
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{Scheme: scheme, Metrics: metricsserver.Options{BindAddress: "0"}})
 	if err != nil {
 		t.Fatalf("new manager: %v", err)
 	}
@@ -75,6 +79,7 @@ func TestIntegration_RealmArchitecture(t *testing.T) {
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: mgr.GetEventRecorderFor("RuntimeOrchestrator"),
+		Name:     "runtimeorchestrator-realm",
 	}).SetupWithManager(mgr); err != nil {
 		t.Fatalf("setup orchestrator: %v", err)
 	}
