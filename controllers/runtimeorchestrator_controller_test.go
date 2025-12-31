@@ -597,4 +597,3 @@ func TestRuntimeOrchestrator_InjectsDependencyEndpoints(t *testing.T) {
 		t.Error("ANVIL_CAPABILITY_PHYSICS_ENGINE_ENDPOINT env var not found")
 	}
 }
-
