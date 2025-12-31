@@ -98,6 +98,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := (&controllers.RealmReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("Realm"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Realm")
+		os.Exit(1)
+	}
+
 	if err := (&controllers.ShardAutoscalerReconciler{
 		Client:        mgr.GetClient(),
 		Scheme:        mgr.GetScheme(),

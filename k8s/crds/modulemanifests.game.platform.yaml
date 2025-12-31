@@ -81,7 +81,7 @@ spec:
                         pattern: "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
                       scope:
                         type: string
-                        enum: [cluster, region, world, world-shard, session]
+                        enum: [cluster, region, realm, world, world-shard, session]
                       multiplicity:
                         type: string
                         enum: ["1", many]
@@ -203,7 +203,7 @@ spec:
                         description: SemVer range expression (e.g., ^1.2.0).
                       scope:
                         type: string
-                        enum: [cluster, region, world, world-shard, session]
+                        enum: [cluster, region, realm, world, world-shard, session]
                       multiplicity:
                         type: string
                         enum: ["1", many]
@@ -253,7 +253,7 @@ spec:
                   properties:
                     defaultScope:
                       type: string
-                      enum: [cluster, region, world, world-shard, session]
+                      enum: [cluster, region, realm, world, world-shard, session]
                     statefulness:
                       type: string
                       enum: [stateless, stateful]

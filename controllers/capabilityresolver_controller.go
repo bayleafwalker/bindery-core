@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -158,8 +159,37 @@ func (r *CapabilityResolverReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, nil
 	}
 
+	// 3b) Load Realm modules (External Modules)
+	var externalModules []gamev1alpha1.ModuleManifest
+	if world.Spec.RealmRef != nil && world.Spec.RealmRef.Name != "" {
+		var realm gamev1alpha1.Realm
+		if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: world.Spec.RealmRef.Name}, &realm); err != nil {
+			if apierrors.IsNotFound(err) {
+				logger.V(1).Info("realm not found; proceeding without realm modules", "realm", world.Spec.RealmRef.Name)
+			} else {
+				logger.Error(err, "failed to load realm")
+				return ctrl.Result{}, err
+			}
+		} else {
+			for _, mod := range realm.Spec.Modules {
+				var mm gamev1alpha1.ModuleManifest
+				if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: mod.Name}, &mm); err != nil {
+					if apierrors.IsNotFound(err) {
+						logger.V(1).Info("realm module not found; skipping", "module", mod.Name)
+						continue
+					}
+					logger.Error(err, "failed to load realm module", "module", mod.Name)
+					return ctrl.Result{}, err
+				}
+				externalModules = append(externalModules, mm)
+			}
+		}
+	}
+
 	// 4) Resolve bindings
-	plan, err := r.Resolver.Resolve(ctx, resolver.Input{World: world, Game: game, Modules: modules})
+	start := time.Now()
+	plan, err := r.Resolver.Resolve(ctx, resolver.Input{World: world, Game: game, Modules: modules, ExternalModules: externalModules})
+	capabilityResolverResolutionDuration.Observe(time.Since(start).Seconds())
 	if err != nil {
 		// Resolver errors are treated as config errors (schema-valid but semantically invalid).
 		msg := fmt.Sprintf("ResolveError: %v", err)

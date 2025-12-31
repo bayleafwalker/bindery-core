@@ -12,6 +12,7 @@ type DependencyMode string
 const (
 	CapabilityScopeCluster    CapabilityScope = "cluster"
 	CapabilityScopeRegion     CapabilityScope = "region"
+	CapabilityScopeRealm      CapabilityScope = "realm"
 	CapabilityScopeWorld      CapabilityScope = "world"
 	CapabilityScopeWorldShard CapabilityScope = "world-shard"
 	CapabilityScopeSession    CapabilityScope = "session"

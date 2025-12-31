@@ -1,0 +1,4 @@
+=== RUN   TestIntegration_RealmArchitecture
+    realm_integration_test.go:118: create chat mm: ModuleManifest.game.platform "global-chat" is invalid: [spec.provides[0].capabilityId: Invalid value: "chat": spec.provides[0].capabilityId in body should match '^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$', spec.scaling.statefulness: Unsupported value: "": supported values: "stateless", "stateful", spec.scaling.defaultScope: Unsupported value: "": supported values: "cluster", "region", "world", "world-shard", "session", spec.requires: Required value, <nil>: Invalid value: "null": some validation rules were not checked because the object was invalid; correct the existing errors to complete validation]
+signal: interrupt
+FAIL	github.com/anvil-platform/anvil/controllers	15.034s

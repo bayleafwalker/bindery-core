@@ -45,6 +45,13 @@ spec:
                       type: string
                       minLength: 1
                       description: Name of a GameDefinition in the same namespace.
+                realmRef:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      minLength: 1
+                      description: Optional Realm name to link this world to.
                 worldId:
                   type: string
                   minLength: 1

@@ -46,6 +46,22 @@ var (
 			Help: "Total number of CapabilityBindings deleted by CapabilityResolver.",
 		},
 	)
+
+	capabilityResolverResolutionDuration = prometheus.NewHistogram(
+		prometheus.HistogramOpts{
+			Name:    "anvil_capabilityresolver_resolution_duration_seconds",
+			Help:    "Time taken to resolve capabilities.",
+			Buckets: prometheus.DefBuckets,
+		},
+	)
+
+	runtimeOrchestratorDeploymentDuration = prometheus.NewHistogram(
+		prometheus.HistogramOpts{
+			Name:    "anvil_runtimeorchestrator_deployment_duration_seconds",
+			Help:    "Time taken to ensure deployment.",
+			Buckets: prometheus.DefBuckets,
+		},
+	)
 )
 
 func init() {
@@ -56,5 +72,7 @@ func init() {
 		capabilityResolverBindingsCreatedTotal,
 		capabilityResolverBindingsUpdatedTotal,
 		capabilityResolverBindingsDeletedTotal,
+		capabilityResolverResolutionDuration,
+		runtimeOrchestratorDeploymentDuration,
 	)
 }

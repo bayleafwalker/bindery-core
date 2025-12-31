@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -111,35 +112,42 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 		logger = logger.WithValues("shard", shardLabel)
 	}
 
-	// Only orchestrate bindings that are scoped to a world.
-	if binding.Spec.WorldRef == nil || binding.Spec.WorldRef.Name == "" {
+	// Only orchestrate bindings that are scoped to a world, unless they are global.
+	isGlobal := binding.Spec.Scope == gamev1alpha1.CapabilityScopeCluster || binding.Spec.Scope == gamev1alpha1.CapabilityScopeRegion || binding.Spec.Scope == gamev1alpha1.CapabilityScopeRealm
+	if !isGlobal && (binding.Spec.WorldRef == nil || binding.Spec.WorldRef.Name == "") {
 		logger.V(1).Info("skipping binding without world")
 		return ctrl.Result{}, nil
 	}
-	logger = logger.WithValues("world", binding.Spec.WorldRef.Name)
+	if !isGlobal {
+		logger = logger.WithValues("world", binding.Spec.WorldRef.Name)
+	}
 
 	// Load owning world (needed for ownerRefs/labels).
 	var world gamev1alpha1.WorldInstance
-	if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: binding.Spec.WorldRef.Name}, &world); err != nil {
-		if apierrors.IsNotFound(err) {
-			logger.V(1).Info("world not found; skipping")
-			return ctrl.Result{}, nil
+	if !isGlobal {
+		if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: binding.Spec.WorldRef.Name}, &world); err != nil {
+			if apierrors.IsNotFound(err) {
+				logger.V(1).Info("world not found; skipping")
+				return ctrl.Result{}, nil
+			}
+			logger.Error(err, "failed to load world")
+			r.recordEventf(&binding, "Warning", "GetWorldFailed", "Failed to get WorldInstance %q: %v", binding.Spec.WorldRef.Name, err)
+			anvilControllerReconcileErrorTotal.WithLabelValues("RuntimeOrchestrator").Inc()
+			return ctrl.Result{}, err
 		}
-		logger.Error(err, "failed to load world")
-		r.recordEventf(&binding, "Warning", "GetWorldFailed", "Failed to get WorldInstance %q: %v", binding.Spec.WorldRef.Name, err)
-		anvilControllerReconcileErrorTotal.WithLabelValues("RuntimeOrchestrator").Inc()
-		return ctrl.Result{}, err
 	}
 
 	// Load GameDefinition for colocation logic
 	var gameDef gamev1alpha1.GameDefinition
-	if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: world.Spec.GameRef.Name}, &gameDef); err != nil {
-		logger.V(1).Info("game definition not found; proceeding without colocation logic", "game", world.Spec.GameRef.Name)
+	if !isGlobal {
+		if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: world.Spec.GameRef.Name}, &gameDef); err != nil {
+			logger.V(1).Info("game definition not found; proceeding without colocation logic", "game", world.Spec.GameRef.Name)
+		}
 	}
 
 	var shardObj *gamev1alpha1.WorldShard
 	shardName := ""
-	if shardLabel != "" {
+	if !isGlobal && shardLabel != "" {
 		id, err := strconv.Atoi(shardLabel)
 		if err != nil || id < 0 {
 			logger.V(1).Info("invalid shard label; treating as non-sharded binding", "labelValue", shardLabel)
@@ -205,22 +213,31 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 
 	// Determine colocation
-	colocGroup := getColocationGroup(&gameDef, providerName)
+	var colocGroup *gamev1alpha1.ColocationGroup
+	if !isGlobal {
+		colocGroup = getColocationGroup(&gameDef, providerName)
+	}
 	isColocPod := colocGroup != nil && colocGroup.Strategy == "Pod"
 
 	// Stable names shared by Service and Deployment.
 	// For Service, we always use the module-specific name.
-	serviceName := rtNameWithShard(world.Name, shardLabel, providerName)
+	worldName := "global"
+	if !isGlobal {
+		worldName = world.Name
+	}
+	serviceName := rtNameWithShard(worldName, shardLabel, providerName)
 
 	// For Deployment, we might use a shared name.
-	deploymentName := rtNameWithShard(world.Name, shardLabel, providerName)
+	deploymentName := rtNameWithShard(worldName, shardLabel, providerName)
 	if isColocPod {
-		deploymentName = rtNameWithShard(world.Name, shardLabel, "coloc-"+colocGroup.Name)
+		deploymentName = rtNameWithShard(worldName, shardLabel, "coloc-"+colocGroup.Name)
 	}
 
 	labels := map[string]string{
 		rtLabelManagedBy: rtManagedBy,
-		rtLabelWorldName: world.Name,
+	}
+	if !isGlobal {
+		labels[rtLabelWorldName] = world.Name
 	}
 	if shardLabel != "" {
 		labels[labelShardID] = shardLabel
@@ -263,7 +280,7 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	var volumeToMount *corev1.Volume
 	var mountToUse *corev1.VolumeMount
-	if storageTierRaw != "" {
+	if !isGlobal && storageTierRaw != "" {
 		tier := gamev1alpha1.WorldStorageTier(storageTierRaw)
 		scope := gamev1alpha1.WorldStorageScope(storageScopeRaw)
 		if tier == gamev1alpha1.WorldStorageTierServerLowLatency || tier == gamev1alpha1.WorldStorageTierServerHighLatency {
@@ -295,7 +312,9 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 		// Selector logic
 		selector := map[string]string{
 			rtLabelManagedBy: rtManagedBy,
-			rtLabelWorldName: world.Name,
+		}
+		if !isGlobal {
+			selector[rtLabelWorldName] = world.Name
 		}
 		if shardLabel != "" {
 			selector[labelShardID] = shardLabel
@@ -317,7 +336,10 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 		if shardObj != nil {
 			return controllerutil.SetControllerReference(shardObj, service, r.Scheme)
 		}
-		return controllerutil.SetControllerReference(&world, service, r.Scheme)
+		if !isGlobal {
+			return controllerutil.SetControllerReference(&world, service, r.Scheme)
+		}
+		return controllerutil.SetControllerReference(&binding, service, r.Scheme)
 	})
 	if err != nil {
 		logger.Error(err, "failed to ensure service", "service", serviceName)
@@ -327,6 +349,7 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 
 	// 2) Ensure Deployment
+	startDep := time.Now()
 	// Graceful termination settings
 	var terminationGracePeriod *int64
 	if val := strings.TrimSpace(providerMM.Annotations[annTerminationGracePeriod]); val != "" {
@@ -469,11 +492,38 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 
 		// Inject dependency endpoints (Service Discovery)
 		var myDependencies gamev1alpha1.CapabilityBindingList
+		var waitList []string
 		if err := r.List(ctx, &myDependencies, client.InNamespace(req.Namespace), client.MatchingFields{idxBindingConsumer: providerName}); err == nil {
 			for _, dep := range myDependencies.Items {
 				// Filter by world to ensure we only inject dependencies for THIS world instance
-				if dep.Spec.WorldRef == nil || dep.Spec.WorldRef.Name != world.Name {
-					continue
+				if !isGlobal {
+					if dep.Spec.WorldRef == nil || dep.Spec.WorldRef.Name != world.Name {
+						continue
+					}
+				}
+
+				// Compute service name for wait list
+				depProvider := dep.Spec.Provider.ModuleManifestName
+				depShard := ""
+				if dep.Labels != nil {
+					depShard = dep.Labels[labelShardID]
+				}
+				depWorldName := "global"
+				if dep.Spec.WorldRef != nil && dep.Spec.WorldRef.Name != "" {
+					depWorldName = dep.Spec.WorldRef.Name
+				}
+				svcName := rtNameWithShard(depWorldName, depShard, depProvider)
+
+				// Fetch provider MM to get port
+				var depMM gamev1alpha1.ModuleManifest
+				if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: depProvider}, &depMM); err == nil {
+					port := int32(50051)
+					if raw := strings.TrimSpace(depMM.Annotations[annRuntimePort]); raw != "" {
+						if p, err := strconv.Atoi(raw); err == nil {
+							port = int32(p)
+						}
+					}
+					waitList = append(waitList, fmt.Sprintf("%s:%d", svcName, port))
 				}
 
 				// If the dependency has an endpoint published, inject it.
@@ -497,6 +547,31 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 						Value: fmt.Sprintf("%d", ep.Port),
 					})
 				}
+			}
+		}
+
+		// Add init container if there are dependencies
+		if len(waitList) > 0 {
+			cmd := "for target in " + strings.Join(waitList, " ") + "; do " +
+				"host=${target%%:*}; port=${target##*:}; " +
+				"until nc -z -v -w 2 $host $port; do echo waiting for $target; sleep 2; done; " +
+				"done"
+			initContainer := corev1.Container{
+				Name:    "wait-for-deps",
+				Image:   "busybox:1.36",
+				Command: []string{"sh", "-c", cmd},
+			}
+			// Add or update init container
+			foundInit := false
+			for i, c := range deployment.Spec.Template.Spec.InitContainers {
+				if c.Name == "wait-for-deps" {
+					deployment.Spec.Template.Spec.InitContainers[i] = initContainer
+					foundInit = true
+					break
+				}
+			}
+			if !foundInit {
+				deployment.Spec.Template.Spec.InitContainers = append(deployment.Spec.Template.Spec.InitContainers, initContainer)
 			}
 		}
 
@@ -572,8 +647,12 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 		if shardObj != nil {
 			return controllerutil.SetControllerReference(shardObj, deployment, r.Scheme)
 		}
-		return controllerutil.SetControllerReference(&world, deployment, r.Scheme)
+		if !isGlobal {
+			return controllerutil.SetControllerReference(&world, deployment, r.Scheme)
+		}
+		return controllerutil.SetControllerReference(&binding, deployment, r.Scheme)
 	})
+	runtimeOrchestratorDeploymentDuration.Observe(time.Since(startDep).Seconds())
 	if err != nil {
 		logger.Error(err, "failed to ensure deployment", "deployment", deploymentName)
 		r.recordEventf(&binding, "Warning", "EnsureDeploymentFailed", "Failed to ensure Deployment %q: %v", deploymentName, err)

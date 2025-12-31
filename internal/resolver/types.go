@@ -11,6 +11,9 @@ type Input struct {
 	World   gamev1alpha1.WorldInstance
 	Game    gamev1alpha1.GameDefinition
 	Modules []gamev1alpha1.ModuleManifest
+	// ExternalModules are modules available in the wider context (e.g. Realm/Cluster)
+	// that can satisfy requirements but are not part of the GameDefinition itself.
+	ExternalModules []gamev1alpha1.ModuleManifest
 }
 
 // Plan is the desired output of the resolver.

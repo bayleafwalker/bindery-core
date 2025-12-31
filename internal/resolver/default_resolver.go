@@ -31,23 +31,28 @@ func (r *DefaultResolver) Resolve(ctx context.Context, in Input) (Plan, error) {
 	_ = ctx
 
 	providers := make([]provider, 0)
-	for _, module := range in.Modules {
-		for _, provided := range module.Spec.Provides {
-			v, err := semver.ParseVersion(strings.TrimSpace(provided.Version))
-			if err != nil {
-				// Ignore invalid provider versions; they simply won't be considered.
-				continue
+	// Helper to add providers from a list of modules
+	addProviders := func(modules []gamev1alpha1.ModuleManifest) {
+		for _, module := range modules {
+			for _, provided := range module.Spec.Provides {
+				v, err := semver.ParseVersion(strings.TrimSpace(provided.Version))
+				if err != nil {
+					continue
+				}
+				providers = append(providers, provider{
+					moduleName:   module.Name,
+					capabilityID: provided.CapabilityID,
+					versionRaw:   strings.TrimSpace(provided.Version),
+					version:      v,
+					scope:        provided.Scope,
+					multiplicity: provided.Multiplicity,
+				})
 			}
-			providers = append(providers, provider{
-				moduleName:   module.Name,
-				capabilityID: provided.CapabilityID,
-				versionRaw:   strings.TrimSpace(provided.Version),
-				version:      v,
-				scope:        provided.Scope,
-				multiplicity: provided.Multiplicity,
-			})
 		}
 	}
+
+	addProviders(in.Modules)
+	addProviders(in.ExternalModules)
 
 	plan := Plan{}
 
@@ -111,6 +116,32 @@ func (r *DefaultResolver) Resolve(ctx context.Context, in Input) (Plan, error) {
 		}
 	}
 
+	// Ensure all modules in the GameDefinition are running.
+	// If a module is not a provider in any binding, create a synthetic "root" binding.
+	for _, module := range in.Modules {
+		if !isProvider(module.Name, plan.DesiredBindings) {
+			plan.DesiredBindings = append(plan.DesiredBindings, gamev1alpha1.CapabilityBinding{
+				Spec: gamev1alpha1.CapabilityBindingSpec{
+					CapabilityID: "system.root",
+					Scope:        gamev1alpha1.CapabilityScopeWorld,
+					Multiplicity: gamev1alpha1.MultiplicityOne,
+					WorldRef:     &gamev1alpha1.WorldRef{Name: in.World.Name},
+					Consumer: gamev1alpha1.ConsumerRef{
+						ModuleManifestName: in.World.Name,
+						Requirement: &gamev1alpha1.RequirementHint{
+							VersionConstraint: "*",
+							DependencyMode:    gamev1alpha1.DependencyModeRequired,
+						},
+					},
+					Provider: gamev1alpha1.ProviderRef{
+						ModuleManifestName: module.Name,
+						CapabilityVersion:  module.Spec.Module.Version,
+					},
+				},
+			})
+		}
+	}
+
 	sort.Slice(plan.DesiredBindings, func(i, j int) bool {
 		a := plan.DesiredBindings[i].Spec
 		b := plan.DesiredBindings[j].Spec
@@ -164,4 +195,13 @@ func selectProvidersDeterministic(multiplicity gamev1alpha1.CapabilityMultiplici
 		return candidates
 	}
 	return candidates[:1]
+}
+
+func isProvider(moduleName string, bindings []gamev1alpha1.CapabilityBinding) bool {
+	for _, b := range bindings {
+		if b.Spec.Provider.ModuleManifestName == moduleName {
+			return true
+		}
+	}
+	return false
 }

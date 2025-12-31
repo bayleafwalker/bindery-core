@@ -12,6 +12,9 @@ import (
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`
 // +kubebuilder:printcolumn:name="Capability",type=string,JSONPath=`.spec.capabilityId`
 // +kubebuilder:printcolumn:name="Scope",type=string,JSONPath=`.spec.scope`
+// +kubebuilder:printcolumn:name="Provider",type=string,JSONPath=`.spec.provider.moduleManifestName`
+// +kubebuilder:printcolumn:name="Consumer",type=string,JSONPath=`.spec.consumer.moduleManifestName`
+// +kubebuilder:printcolumn:name="World",type=string,JSONPath=`.spec.worldRef.name`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 //
 // NOTE: This skeleton defines only a subset of fields.

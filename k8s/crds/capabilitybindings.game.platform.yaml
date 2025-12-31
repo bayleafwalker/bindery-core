@@ -17,6 +17,28 @@ spec:
       storage: true
       subresources:
         status: {}
+      additionalPrinterColumns:
+      - name: Phase
+        type: string
+        jsonPath: .status.phase
+      - name: Capability
+        type: string
+        jsonPath: .spec.capabilityId
+      - name: Scope
+        type: string
+        jsonPath: .spec.scope
+      - name: Provider
+        type: string
+        jsonPath: .spec.provider.moduleManifestName
+      - name: Consumer
+        type: string
+        jsonPath: .spec.consumer.moduleManifestName
+      - name: World
+        type: string
+        jsonPath: .spec.worldRef.name
+      - name: Age
+        type: date
+        jsonPath: .metadata.creationTimestamp
       schema:
         openAPIV3Schema:
           type: object
@@ -43,7 +65,7 @@ spec:
                   pattern: "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+$"
                 scope:
                   type: string
-                  enum: [cluster, region, world, world-shard, session]
+                  enum: [cluster, region, realm, world, world-shard, session]
                 multiplicity:
                   type: string
                   enum: ["1", many]

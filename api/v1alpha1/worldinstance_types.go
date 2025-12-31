@@ -24,11 +24,14 @@ type WorldInstance struct {
 }
 
 type WorldInstanceSpec struct {
-	GameRef      ObjectRef `json:"gameRef"`
-	WorldID      string    `json:"worldId"`
-	Region       string    `json:"region"`
-	ShardCount   int32     `json:"shardCount"`
-	DesiredState string    `json:"desiredState,omitempty"`
+	GameRef ObjectRef `json:"gameRef"`
+	// RealmRef identifies the Realm this world belongs to.
+	// If not specified, the world is considered standalone or part of a default realm.
+	RealmRef     *ObjectRef `json:"realmRef,omitempty"`
+	WorldID      string     `json:"worldId"`
+	Region       string     `json:"region"`
+	ShardCount   int32      `json:"shardCount"`
+	DesiredState string     `json:"desiredState,omitempty"`
 }
 
 type WorldInstanceStatus struct {
