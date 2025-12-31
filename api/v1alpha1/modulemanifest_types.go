@@ -26,12 +26,12 @@ type ModuleManifest struct {
 }
 
 type ModuleManifestSpec struct {
-	Module    ModuleIdentity       `json:"module"`
-	Provides  []ProvidedCapability `json:"provides"`
-	Requires  []RequiredCapability `json:"requires"`
-	Scaling   ModuleScaling        `json:"scaling"`
-	Scheduling ModuleScheduling    `json:"scheduling,omitempty"`
-	ExtraSpec map[string]any       `json:"-"` // TODO: expand spec per CRD
+	Module     ModuleIdentity       `json:"module"`
+	Provides   []ProvidedCapability `json:"provides"`
+	Requires   []RequiredCapability `json:"requires"`
+	Scaling    ModuleScaling        `json:"scaling"`
+	Scheduling ModuleScheduling     `json:"scheduling,omitempty"`
+	ExtraSpec  map[string]any       `json:"-"` // TODO: expand spec per CRD
 }
 
 type ModuleScheduling struct {
