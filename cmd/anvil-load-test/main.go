@@ -37,7 +37,7 @@ func main() {
 		kubeconfig = os.Getenv("KUBECONFIG")
 	}
 	flag.StringVar(&kubeconfig, "kubeconfig", kubeconfig, "absolute path to the kubeconfig file")
-	
+
 	var numWorlds int
 	var namespace string
 	var gameDefName string
@@ -70,17 +70,17 @@ func main() {
 		go func(id int) {
 			defer wg.Done()
 			worldName := fmt.Sprintf("load-test-world-%d-%d", time.Now().Unix(), id)
-			
+
 			world := &gamev1alpha1.WorldInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      worldName,
 					Namespace: namespace,
 				},
 				Spec: gamev1alpha1.WorldInstanceSpec{
-					GameRef: gamev1alpha1.ObjectRef{Name: gameDefName},
-					RealmRef: &gamev1alpha1.ObjectRef{Name: realmName},
-					WorldID: worldName,
-					Region: "eu-west-1",
+					GameRef:    gamev1alpha1.ObjectRef{Name: gameDefName},
+					RealmRef:   &gamev1alpha1.ObjectRef{Name: realmName},
+					WorldID:    worldName,
+					Region:     "eu-west-1",
 					ShardCount: 1,
 				},
 			}
@@ -120,7 +120,7 @@ func main() {
 	wg.Wait()
 	close(latencies)
 	totalDuration := time.Since(start)
-	
+
 	var totalLatency time.Duration
 	count := 0
 	for l := range latencies {
