@@ -174,3 +174,17 @@ Worked examples are maintained as separate files:
 
 - `examples/physics-engine.modulemanifest.yaml`
 - `examples/interaction-engine.modulemanifest.yaml`
+
+---
+
+## 6) Runtime Configuration (Annotations)
+
+The RuntimeOrchestrator respects specific annotations on the `ModuleManifest` to control the deployment lifecycle.
+
+| Annotation | Description | Example |
+| :--- | :--- | :--- |
+| `anvil.dev/runtime-image` | Container image to deploy. | `my-registry/physics:v1.2` |
+| `anvil.dev/runtime-port` | Port exposed by the container. | `50051` |
+| `anvil.dev/termination-grace-period` | Seconds to wait before SIGKILL (default: 30). | `60` |
+| `anvil.dev/pre-stop-command` | Command to run before termination (PreStop hook). | `/bin/drain-connections.sh` |
+

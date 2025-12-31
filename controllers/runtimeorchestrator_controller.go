@@ -46,6 +46,9 @@ const (
 	annStorageScope       = "anvil.dev/storage-scope"
 	annStorageAccessModes = "anvil.dev/storage-access-modes"
 	annStorageMountPath   = "anvil.dev/storage-mount-path"
+
+	annTerminationGracePeriod = "anvil.dev/termination-grace-period"
+	annPreStopCommand         = "anvil.dev/pre-stop-command"
 )
 
 var rtNonDNS = regexp.MustCompile(`[^a-z0-9-]+`)
@@ -324,12 +327,25 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 
 	// 2) Ensure Deployment
+	// Graceful termination settings
+	var terminationGracePeriod *int64
+	if val := strings.TrimSpace(providerMM.Annotations[annTerminationGracePeriod]); val != "" {
+		if sec, err := strconv.ParseInt(val, 10, 64); err == nil && sec >= 0 {
+			terminationGracePeriod = &sec
+		}
+	}
+	preStopCommand := strings.TrimSpace(providerMM.Annotations[annPreStopCommand])
+
 	deployment := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: deploymentName, Namespace: req.Namespace}}
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
 		deployment.Labels = mergeLabels(deployment.Labels, deploymentLabels)
 		deployment.Spec.Selector = &metav1.LabelSelector{MatchLabels: deploymentLabels}
 		deployment.Spec.Replicas = int32Ptr(1)
 		deployment.Spec.Template.ObjectMeta.Labels = mergeLabels(deployment.Spec.Template.ObjectMeta.Labels, deploymentLabels)
+
+		if terminationGracePeriod != nil {
+			deployment.Spec.Template.Spec.TerminationGracePeriodSeconds = terminationGracePeriod
+		}
 
 		// Container logic
 		containerName := "module"
@@ -345,6 +361,14 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 		}
 		if volumeToMount != nil && mountToUse != nil {
 			container.VolumeMounts = append(container.VolumeMounts, *mountToUse)
+		}
+
+		if preStopCommand != "" {
+			container.Lifecycle = &corev1.Lifecycle{
+				PreStop: &corev1.LifecycleHandler{
+					Exec: &corev1.ExecAction{Command: []string{"/bin/sh", "-c", preStopCommand}},
+				},
+			}
 		}
 
 		// UDS Logic
@@ -523,12 +547,18 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 			if deployment.Spec.Template.Spec.Affinity.PodAffinity == nil {
 				deployment.Spec.Template.Spec.Affinity.PodAffinity = &corev1.PodAffinity{}
 			}
+
+			matchLabels := map[string]string{
+				"game.platform/coloc-group": colocGroup.Name,
+				rtLabelWorldName:            world.Name,
+			}
+			if shardLabel != "" {
+				matchLabels[labelShardID] = shardLabel
+			}
+
 			term := corev1.PodAffinityTerm{
 				LabelSelector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{
-						"game.platform/coloc-group": colocGroup.Name,
-						rtLabelWorldName:            world.Name,
-					},
+					MatchLabels: matchLabels,
 				},
 				TopologyKey: "kubernetes.io/hostname",
 			}
