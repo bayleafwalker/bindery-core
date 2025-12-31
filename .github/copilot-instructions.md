@@ -60,7 +60,8 @@ When executing a task, follow this lifecycle to ensure quality and consistency:
    - Run `make verify` to execute `fmt`, `tidy`, and `test` locally.
    - This ensures code style and dependencies are correct before pushing, preventing CI failures.
    - Run integration tests: `make test-integration`
-   - Ensure CI pipelines pass (check via `gh run list` or `gh run view`).
+   - Ensure CI pipelines pass (check via `gh run list`).
+   - **Do not use `gh run view`** as it may cause stability issues in the environment.
 5. **Refine Guidelines**: If the task reveals a gap in these instructions, update `.github/copilot-instructions.md`.
 6. **Commit & Push**:
    - Commit with clear, conventional messages (e.g., `feat: ...`, `fix: ...`).
