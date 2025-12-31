@@ -300,3 +300,129 @@ func TestDefaultResolver_VersionIncompatibleOptional(t *testing.T) {
 		t.Fatalf("expected 1 unresolved optional, got %d", len(plan.Diagnostics.UnresolvedOptional))
 	}
 }
+
+func TestDefaultResolver_IgnoresInvalidProviderVersion(t *testing.T) {
+r := NewDefault()
+
+in := Input{
+World: binderyv1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
+Modules: []binderyv1alpha1.ModuleManifest{
+mm("physics-bad", []binderyv1alpha1.ProvidedCapability{{
+CapabilityID: "cap.physics",
+Version:      "invalid-version",
+Scope:        binderyv1alpha1.CapabilityScopeWorld,
+Multiplicity: binderyv1alpha1.MultiplicityOne,
+}}, nil),
+mm("interaction", nil, []binderyv1alpha1.RequiredCapability{{
+CapabilityID:      "cap.physics",
+VersionConstraint: "*",
+Scope:             binderyv1alpha1.CapabilityScopeWorld,
+Multiplicity:      binderyv1alpha1.MultiplicityOne,
+DependencyMode:    binderyv1alpha1.DependencyModeRequired,
+}}),
+},
+}
+
+plan, err := r.Resolve(context.Background(), in)
+if err != nil {
+t.Fatalf("Resolve failed: %v", err)
+}
+
+	nonRoot := 0
+	for _, b := range plan.DesiredBindings {
+		if b.Spec.CapabilityID != "system.root" {
+			nonRoot++
+		}
+	}
+	if nonRoot != 0 {
+		t.Errorf("expected 0 non-root bindings, got %d", nonRoot)
+	}
+	if len(plan.Diagnostics.UnresolvedRequired) != 1 {
+		t.Errorf("expected 1 unresolved required, got %d", len(plan.Diagnostics.UnresolvedRequired))
+	}
+}
+
+func TestDefaultResolver_ReportsInvalidConstraint(t *testing.T) {
+r := NewDefault()
+
+in := Input{
+World: binderyv1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
+Modules: []binderyv1alpha1.ModuleManifest{
+mm("physics-a", []binderyv1alpha1.ProvidedCapability{{
+CapabilityID: "cap.physics",
+Version:      "1.0.0",
+Scope:        binderyv1alpha1.CapabilityScopeWorld,
+Multiplicity: binderyv1alpha1.MultiplicityOne,
+}}, nil),
+mm("interaction", nil, []binderyv1alpha1.RequiredCapability{{
+CapabilityID:      "cap.physics",
+VersionConstraint: "invalid-constraint",
+Scope:             binderyv1alpha1.CapabilityScopeWorld,
+Multiplicity:      binderyv1alpha1.MultiplicityOne,
+DependencyMode:    binderyv1alpha1.DependencyModeRequired,
+}}),
+},
+}
+
+plan, err := r.Resolve(context.Background(), in)
+if err != nil {
+t.Fatalf("Resolve failed: %v", err)
+}
+
+	nonRoot := 0
+	for _, b := range plan.DesiredBindings {
+		if b.Spec.CapabilityID != "system.root" {
+			nonRoot++
+		}
+	}
+	if nonRoot != 0 {
+		t.Errorf("expected 0 non-root bindings, got %d", nonRoot)
+	}
+	if len(plan.Diagnostics.UnresolvedRequired) != 1 {
+		t.Errorf("expected 1 unresolved required, got %d", len(plan.Diagnostics.UnresolvedRequired))
+	}
+	if plan.Diagnostics.UnresolvedRequired[0].Reason != "invalid versionConstraint" {
+		t.Errorf("expected reason 'invalid versionConstraint', got %q", plan.Diagnostics.UnresolvedRequired[0].Reason)
+	}
+}
+
+func TestDefaultResolver_FiltersByMultiplicity(t *testing.T) {
+r := NewDefault()
+
+in := Input{
+World: binderyv1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
+Modules: []binderyv1alpha1.ModuleManifest{
+mm("physics-one", []binderyv1alpha1.ProvidedCapability{{
+CapabilityID: "cap.physics",
+Version:      "1.0.0",
+Scope:        binderyv1alpha1.CapabilityScopeWorld,
+Multiplicity: binderyv1alpha1.MultiplicityOne,
+}}, nil),
+mm("interaction", nil, []binderyv1alpha1.RequiredCapability{{
+CapabilityID:      "cap.physics",
+VersionConstraint: "*",
+Scope:             binderyv1alpha1.CapabilityScopeWorld,
+Multiplicity:      binderyv1alpha1.MultiplicityMany, // Mismatch
+DependencyMode:    binderyv1alpha1.DependencyModeRequired,
+}}),
+},
+}
+
+plan, err := r.Resolve(context.Background(), in)
+if err != nil {
+t.Fatalf("Resolve failed: %v", err)
+}
+
+	nonRoot := 0
+	for _, b := range plan.DesiredBindings {
+		if b.Spec.CapabilityID != "system.root" {
+			nonRoot++
+		}
+	}
+	if nonRoot != 0 {
+		t.Errorf("expected 0 non-root bindings, got %d", nonRoot)
+	}
+	if len(plan.Diagnostics.UnresolvedRequired) != 1 {
+		t.Errorf("expected 1 unresolved required, got %d", len(plan.Diagnostics.UnresolvedRequired))
+	}
+}

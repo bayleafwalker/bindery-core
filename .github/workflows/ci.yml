@@ -30,7 +30,15 @@ jobs:
           fi
 
       - name: Go test
-        run: go test ./...
+        run: go test -v ./...
+
+      - name: Install setup-envtest
+        run: go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+
+      - name: Run integration tests
+        run: |
+          export KUBEBUILDER_ASSETS="$(setup-envtest use -p path 1.31.0)"
+          BINDERY_INTEGRATION=1 go test ./... -run Integration -coverprofile cover.out
 
       - name: Go mod tidy check
         run: |
