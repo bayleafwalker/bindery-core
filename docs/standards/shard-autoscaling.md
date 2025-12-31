@@ -1,4 +1,4 @@
-# Shard Autoscaling Standard (v0.1)
+# Shard Autoscaling Standard (v1alpha1)
 
 This document defines the standard for dynamic sharding of World Instances in Bindery.
 
@@ -15,7 +15,7 @@ The `ShardAutoscaler` is a namespaced Custom Resource that targets a specific `W
 ### Schema
 
 ```yaml
-apiVersion: game.platform/v1alpha1
+apiVersion: bindery.platform/v1alpha1
 kind: ShardAutoscaler
 metadata:
   name: my-world-scaler
@@ -56,20 +56,20 @@ To ensure player experience is preserved, modules running in sharded environment
 ### Module Requirements
 
 1.  **Handle SIGTERM**: When a shard is deleted, its pods receive `SIGTERM`. The application should stop accepting new requests and flush state.
-2.  **PreStop Hooks**: Use the `bindery.dev/pre-stop-command` annotation in your `ModuleManifest` to run a script before the process receives `SIGTERM` (e.g., to notify a matchmaker that the shard is draining).
-3.  **Grace Period**: Use `bindery.dev/termination-grace-period` to request sufficient time (e.g., 60s) for the draining process.
+2.  **PreStop Hooks**: Use `ModuleManifest.spec.runtime.preStopCommand` (or the legacy `bindery.dev/pre-stop-command` annotation) to run a script before the process receives `SIGTERM`.
+3.  **Grace Period**: Use `ModuleManifest.spec.runtime.terminationGracePeriodSeconds` (or the legacy `bindery.dev/termination-grace-period` annotation) to request sufficient time (e.g., 60s) for draining.
 
 ### Example Manifest
 
 ```yaml
-apiVersion: game.platform/v0.1
+apiVersion: bindery.platform/v1alpha1
 kind: ModuleManifest
 metadata:
   name: physics-engine
-  annotations:
-    bindery.dev/runtime-image: "physics:v2"
-    bindery.dev/termination-grace-period: "60"
-    bindery.dev/pre-stop-command: "/bin/drain.sh"
 spec:
+  runtime:
+    image: "physics:v2"
+    terminationGracePeriodSeconds: 60
+    preStopCommand: "/bin/drain.sh"
   # ...
 ```

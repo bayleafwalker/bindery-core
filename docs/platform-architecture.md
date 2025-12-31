@@ -36,7 +36,7 @@ Two key ideas:
 - **Engines expose capabilities** (what they provide).
 - **Engines declare dependencies** (what they require).
 
-At the RPC layer, engine modules can share a baseline gRPC contract (see `proto/game/engine/v1/engine.proto`) for operations such as initialization, command application, ticking, and state snapshotting.
+At the RPC layer, engine modules can share a baseline gRPC contract (see `contracts/proto/game/engine/v1/engine.proto`) for operations such as initialization, command application, ticking, and state snapshotting.
 
 Operationally, engines are expected to be horizontally scalable and independently deployable. Multiple providers may exist for the same capability; selection is resolved declaratively.
 

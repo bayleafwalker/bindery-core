@@ -1,4 +1,4 @@
-# `Booklet` Standard (v0.1)
+# `Booklet` Standard (v1alpha1)
 
 This document defines the YAML manifest schema that defines a game composed of modules.
 
@@ -14,7 +14,7 @@ A `Booklet` is a declarative document that:
 ## 2) Reference schema (human-readable)
 
 ```yaml
-apiVersion: game.platform/v0.1
+apiVersion: bindery.platform/v1alpha1
 kind: Booklet
 metadata:
   name: string                  # DNS-like name
@@ -60,7 +60,7 @@ When `strategy: Pod` is used, the platform injects:
 ## 4) Examples
 
 ```yaml
-apiVersion: game.platform/v1alpha1
+apiVersion: bindery.platform/v1alpha1
 kind: Booklet
 metadata:
   name: my-game

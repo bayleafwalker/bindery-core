@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "game.platform/v0.1/CapabilityContract.schema.json",
+  "$id": "bindery.platform/v1alpha1/CapabilityContract.schema.json",
   "title": "CapabilityContract",
   "type": "object",
   "additionalProperties": false,
   "required": ["apiVersion", "kind", "metadata", "spec"],
   "properties": {
-    "apiVersion": { "type": "string", "const": "game.platform/v0.1" },
+    "apiVersion": { "type": "string", "const": "bindery.platform/v1alpha1" },
     "kind": { "type": "string", "const": "CapabilityContract" },
     "metadata": {
       "type": "object",

@@ -1,4 +1,4 @@
-apiVersion: game.platform/v0.1
+apiVersion: bindery.platform/v1alpha1
 kind: CapabilityContract
 metadata:
   name: interaction.engine@0.9.0

@@ -15,6 +15,9 @@ if ! kubectl config current-context | grep -qx "kind-$CLUSTER_NAME"; then
   kubectl config use-context "kind-$CLUSTER_NAME" >/dev/null
 fi
 
+# Build/load demo module images (so the example ModuleManifests can run without pulling from a remote registry).
+bash "$SCRIPT_DIR/build-demo-images.sh" "$CLUSTER_NAME"
+
 "$SCRIPT_DIR/apply-crds-and-examples.sh"
 
 echo "Demo installed on kind cluster: $CLUSTER_NAME"

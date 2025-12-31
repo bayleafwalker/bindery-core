@@ -1,4 +1,4 @@
-# `CapabilityContract` Standard (v0.1)
+# `CapabilityContract` Standard (v1alpha1)
 
 This document defines a machine-readable capability contract document: `CapabilityContract`.
 
@@ -28,7 +28,7 @@ A `CapabilityContract` describes a **single capability ID** at a specific contra
 ## 2) Reference schema (human-readable)
 
 ```yaml
-apiVersion: game.platform/v0.1
+apiVersion: bindery.platform/v1alpha1
 kind: CapabilityContract
 metadata:
   name: string                   # registry-friendly name; suggested: <capabilityId>@<version>

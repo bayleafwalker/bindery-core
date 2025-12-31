@@ -77,7 +77,18 @@ func (r *DefaultResolver) Resolve(ctx context.Context, in Input) (Plan, error) {
 				if p.scope != req.Scope {
 					continue
 				}
-				if req.Multiplicity != "" && p.multiplicity != "" && p.multiplicity != req.Multiplicity {
+				reqMultiplicity := req.Multiplicity
+				if strings.TrimSpace(string(reqMultiplicity)) == "" {
+					reqMultiplicity = binderyv1alpha1.MultiplicityOne
+				}
+				providerMultiplicity := p.multiplicity
+				if strings.TrimSpace(string(providerMultiplicity)) == "" {
+					providerMultiplicity = binderyv1alpha1.MultiplicityOne
+				}
+				// Multiplicity compatibility matrix:
+				// - require "1"   -> provider "1" or "many"
+				// - require "many"-> provider must be "many"
+				if reqMultiplicity == binderyv1alpha1.MultiplicityMany && providerMultiplicity != binderyv1alpha1.MultiplicityMany {
 					continue
 				}
 				if !semver.Satisfies(p.version, constraint) {
@@ -120,10 +131,14 @@ func (r *DefaultResolver) Resolve(ctx context.Context, in Input) (Plan, error) {
 	// If a module is not a provider in any binding, create a synthetic "root" binding.
 	for _, module := range in.Modules {
 		if !isProvider(module.Name, plan.DesiredBindings) {
+			scope := module.Spec.Scaling.DefaultScope
+			if strings.TrimSpace(string(scope)) == "" {
+				scope = binderyv1alpha1.CapabilityScopeWorld
+			}
 			plan.DesiredBindings = append(plan.DesiredBindings, binderyv1alpha1.CapabilityBinding{
 				Spec: binderyv1alpha1.CapabilityBindingSpec{
 					CapabilityID: "system.root",
-					Scope:        binderyv1alpha1.CapabilityScopeWorld,
+					Scope:        scope,
 					Multiplicity: binderyv1alpha1.MultiplicityOne,
 					WorldRef:     &binderyv1alpha1.WorldRef{Name: in.World.Name},
 					Consumer: binderyv1alpha1.ConsumerRef{

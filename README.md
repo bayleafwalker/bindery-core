@@ -37,13 +37,14 @@ The project is currently in active development.
 -   [Capability Model](docs/standards/capability-model.md)
 -   [Module Manifest](docs/standards/modulemanifest.md)
 -   [Platform Architecture](docs/platform-architecture.md)
+-   [Booklets & Game Repositories](docs/workflows/booklets.md)
 
 ### Kubernetes Resources
 -   [CRD Documentation](docs/standards/kubernetes/crds.md)
 -   [CRD YAMLs](k8s/crds/)
 
 ### RPC Contracts
--   [Engine gRPC API (v1)](proto/game/engine/v1/engine.proto)
+-   [Engine gRPC API (v1)](contracts/proto/game/engine/v1/engine.proto)
 -   [Contract Documentation](docs/standards/rpc/engine-grpc-v1.md)
 
 ## Getting Started

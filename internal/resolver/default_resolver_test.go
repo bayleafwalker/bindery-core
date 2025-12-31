@@ -426,3 +426,76 @@ func TestDefaultResolver_FiltersByMultiplicity(t *testing.T) {
 		t.Errorf("expected 1 unresolved required, got %d", len(plan.Diagnostics.UnresolvedRequired))
 	}
 }
+
+func TestDefaultResolver_RequireOneAcceptsProviderMany(t *testing.T) {
+	r := NewDefault()
+
+	in := Input{
+		World: binderyv1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
+		Modules: []binderyv1alpha1.ModuleManifest{
+			mm("provider-a", []binderyv1alpha1.ProvidedCapability{{
+				CapabilityID: "cap.events",
+				Version:      "1.0.0",
+				Scope:        binderyv1alpha1.CapabilityScopeWorld,
+				Multiplicity: binderyv1alpha1.MultiplicityMany,
+			}}, nil),
+			mm("provider-b", []binderyv1alpha1.ProvidedCapability{{
+				CapabilityID: "cap.events",
+				Version:      "1.1.0",
+				Scope:        binderyv1alpha1.CapabilityScopeWorld,
+				Multiplicity: binderyv1alpha1.MultiplicityMany,
+			}}, nil),
+			mm("consumer", nil, []binderyv1alpha1.RequiredCapability{{
+				CapabilityID:      "cap.events",
+				VersionConstraint: "*",
+				Scope:             binderyv1alpha1.CapabilityScopeWorld,
+				Multiplicity:      binderyv1alpha1.MultiplicityOne,
+				DependencyMode:    binderyv1alpha1.DependencyModeRequired,
+			}}),
+		},
+	}
+
+	plan, err := r.Resolve(context.Background(), in)
+	if err != nil {
+		t.Fatalf("Resolve error: %v", err)
+	}
+
+	var bindings []binderyv1alpha1.CapabilityBindingSpec
+	for _, b := range plan.DesiredBindings {
+		if b.Spec.Consumer.ModuleManifestName == "consumer" {
+			bindings = append(bindings, b.Spec)
+		}
+	}
+	if len(bindings) != 1 {
+		t.Fatalf("expected 1 explicit binding for consumer, got %d", len(bindings))
+	}
+	if bindings[0].Provider.ModuleManifestName != "provider-b" {
+		t.Fatalf("expected provider=provider-b, got %q", bindings[0].Provider.ModuleManifestName)
+	}
+}
+
+func TestDefaultResolver_RootBindingUsesModuleDefaultScope(t *testing.T) {
+	r := NewDefault()
+
+	sharded := mm("sharded-module", nil, nil)
+	sharded.Spec.Scaling.DefaultScope = binderyv1alpha1.CapabilityScopeWorldShard
+
+	in := Input{
+		World:   binderyv1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
+		Modules: []binderyv1alpha1.ModuleManifest{sharded},
+	}
+
+	plan, err := r.Resolve(context.Background(), in)
+	if err != nil {
+		t.Fatalf("Resolve error: %v", err)
+	}
+	if len(plan.DesiredBindings) != 1 {
+		t.Fatalf("expected 1 desired binding, got %d", len(plan.DesiredBindings))
+	}
+	if plan.DesiredBindings[0].Spec.CapabilityID != "system.root" {
+		t.Fatalf("expected root binding, got %q", plan.DesiredBindings[0].Spec.CapabilityID)
+	}
+	if plan.DesiredBindings[0].Spec.Scope != binderyv1alpha1.CapabilityScopeWorldShard {
+		t.Fatalf("expected scope=world-shard, got %q", plan.DesiredBindings[0].Spec.Scope)
+	}
+}

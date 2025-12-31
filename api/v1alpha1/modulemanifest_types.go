@@ -27,6 +27,7 @@ type ModuleManifest struct {
 
 type ModuleManifestSpec struct {
 	Module     ModuleIdentity       `json:"module"`
+	Runtime    *ModuleRuntimeSpec   `json:"runtime,omitempty"`
 	Provides   []ProvidedCapability `json:"provides"`
 	Requires   []RequiredCapability `json:"requires"`
 	Scaling    ModuleScaling        `json:"scaling"`
@@ -39,6 +40,29 @@ type ModuleScheduling struct {
 	Tolerations       []corev1.Toleration `json:"tolerations,omitempty"`
 	NodeSelector      map[string]string   `json:"nodeSelector,omitempty"`
 	PriorityClassName string              `json:"priorityClassName,omitempty"`
+}
+
+type ModuleRuntimeSpec struct {
+	// Image is the container image to deploy for this module.
+	//
+	// If empty, the module is treated as not server-orchestrated (or may rely on legacy annotations).
+	Image string `json:"image,omitempty"`
+
+	// Port is the gRPC port exposed by the module container.
+	Port *int32 `json:"port,omitempty"`
+
+	// Command and Args correspond to the Kubernetes container command/args fields.
+	Command []string `json:"command,omitempty"`
+	Args    []string `json:"args,omitempty"`
+
+	// Env is a simple string map merged with platform-injected discovery variables.
+	Env map[string]string `json:"env,omitempty"`
+
+	// TerminationGracePeriodSeconds controls how long Kubernetes waits before SIGKILL.
+	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
+
+	// PreStopCommand runs as a PreStop hook via `/bin/sh -c <command>`.
+	PreStopCommand string `json:"preStopCommand,omitempty"`
 }
 
 type ModuleIdentity struct {

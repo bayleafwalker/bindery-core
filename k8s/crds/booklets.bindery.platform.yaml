@@ -7,9 +7,10 @@ spec:
   scope: Namespaced
   names:
     plural: booklets
-    singular: bookletinition
+    singular: booklet
     kind: Booklet
     shortNames:
+      - bk
       - game
   versions:
     - name: v1alpha1

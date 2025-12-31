@@ -8,7 +8,7 @@ What belongs here:
 - Capability contract docs / machine-readable contracts
 
 Current canonical sources in this repo:
-- Protobuf IDL: `proto/` (e.g. `proto/game/engine/v1/engine.proto`)
+- Protobuf IDL: `contracts/proto/` (e.g. `contracts/proto/game/engine/v1/engine.proto`)
 - Capability contracts: `docs/standards/capabilities/`
 
 Notes:

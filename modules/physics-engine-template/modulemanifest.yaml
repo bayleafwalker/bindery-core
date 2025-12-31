@@ -1,4 +1,4 @@
-apiVersion: game.platform/v1alpha1
+apiVersion: bindery.platform/v1alpha1
 kind: ModuleManifest
 metadata:
   name: physics-engine-template

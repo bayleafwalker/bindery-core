@@ -1,4 +1,4 @@
-# `ModuleManifest` Standard (v0.1)
+# `ModuleManifest` Standard (v1alpha1)
 
 This document defines the YAML manifest schema that modules publish to declare:
 
@@ -30,7 +30,7 @@ A `ModuleManifest` is a declarative contract document.
 ## 2) Reference schema (human-readable)
 
 ```yaml
-apiVersion: game.platform/v0.1
+apiVersion: bindery.platform/v1alpha1
 kind: ModuleManifest
 metadata:
   name: string                  # DNS-like name within your registry
@@ -177,9 +177,24 @@ Worked examples are maintained as separate files:
 
 ---
 
-## 6) Runtime Configuration (Annotations)
+## 6) Runtime Configuration
 
-The RuntimeOrchestrator respects specific annotations on the `ModuleManifest` to control the deployment lifecycle.
+The RuntimeOrchestrator uses `spec.runtime` to control how a module is deployed (image, port, env, and shutdown behavior).
+
+```yaml
+spec:
+  runtime:
+    image: my-registry/physics:v1.2
+    port: 50051
+    env:
+      LOG_LEVEL: info
+    terminationGracePeriodSeconds: 60
+    preStopCommand: /bin/drain-connections.sh
+```
+
+### Legacy annotations (supported)
+
+Existing manifests may still use these annotations; `spec.runtime` takes precedence when set:
 
 | Annotation | Description | Example |
 | :--- | :--- | :--- |
@@ -187,4 +202,3 @@ The RuntimeOrchestrator respects specific annotations on the `ModuleManifest` to
 | `bindery.dev/runtime-port` | Port exposed by the container. | `50051` |
 | `bindery.dev/termination-grace-period` | Seconds to wait before SIGKILL (default: 30). | `60` |
 | `bindery.dev/pre-stop-command` | Command to run before termination (PreStop hook). | `/bin/drain-connections.sh` |
-

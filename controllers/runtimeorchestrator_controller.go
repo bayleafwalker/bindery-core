@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -188,10 +189,18 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, err
 	}
 
-	image := strings.TrimSpace(providerMM.Annotations[annRuntimeImage])
+	runtimeSpec := providerMM.Spec.Runtime
+
+	image := ""
+	if runtimeSpec != nil {
+		image = strings.TrimSpace(runtimeSpec.Image)
+	}
 	if image == "" {
-		// Convention: no runtime annotations means "not server-orchestrated".
-		logger.V(1).Info("provider not server-orchestrated (missing runtime image annotation)")
+		image = strings.TrimSpace(providerMM.Annotations[annRuntimeImage])
+	}
+	if image == "" {
+		// Convention: no runtime config means "not server-orchestrated".
+		logger.V(1).Info("provider not server-orchestrated (missing runtime image)")
 		// Mark binding as runtime-ready (not applicable) for debuggability.
 		before := binding.DeepCopy()
 		binding.Status.ObservedGeneration = binding.Generation
@@ -199,14 +208,16 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 			Type:    BindingConditionRuntimeReady,
 			Status:  metav1.ConditionTrue,
 			Reason:  "NotServerOrchestrated",
-			Message: "Provider has no runtime annotations; no server workload will be created",
+			Message: "Provider has no runtime config; no server workload will be created",
 		})
 		_ = r.Status().Patch(ctx, &binding, client.MergeFrom(before))
 		return ctrl.Result{}, nil
 	}
 
 	port := int32(50051)
-	if raw := strings.TrimSpace(providerMM.Annotations[annRuntimePort]); raw != "" {
+	if runtimeSpec != nil && runtimeSpec.Port != nil && *runtimeSpec.Port > 0 && *runtimeSpec.Port <= 65535 {
+		port = *runtimeSpec.Port
+	} else if raw := strings.TrimSpace(providerMM.Annotations[annRuntimePort]); raw != "" {
 		if p, err := strconv.Atoi(raw); err == nil && p > 0 && p <= 65535 {
 			port = int32(p)
 		} else {
@@ -358,12 +369,20 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 	startDep := time.Now()
 	// Graceful termination settings
 	var terminationGracePeriod *int64
-	if val := strings.TrimSpace(providerMM.Annotations[annTerminationGracePeriod]); val != "" {
+	if runtimeSpec != nil && runtimeSpec.TerminationGracePeriodSeconds != nil {
+		terminationGracePeriod = runtimeSpec.TerminationGracePeriodSeconds
+	} else if val := strings.TrimSpace(providerMM.Annotations[annTerminationGracePeriod]); val != "" {
 		if sec, err := strconv.ParseInt(val, 10, 64); err == nil && sec >= 0 {
 			terminationGracePeriod = &sec
 		}
 	}
-	preStopCommand := strings.TrimSpace(providerMM.Annotations[annPreStopCommand])
+	preStopCommand := ""
+	if runtimeSpec != nil {
+		preStopCommand = strings.TrimSpace(runtimeSpec.PreStopCommand)
+	}
+	if preStopCommand == "" {
+		preStopCommand = strings.TrimSpace(providerMM.Annotations[annPreStopCommand])
+	}
 
 	deployment := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: deploymentName, Namespace: req.Namespace}}
 	deploymentOwner := controllerOwner(shardObj, &world, &binding, isGlobal)
@@ -392,8 +411,15 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 		container := corev1.Container{
 			Name:  containerName,
 			Image: image,
-			Args:  []string{"sleep", "365d"},
 			Ports: []corev1.ContainerPort{{ContainerPort: port, Name: "grpc"}},
+		}
+		if runtimeSpec != nil {
+			if len(runtimeSpec.Command) > 0 {
+				container.Command = append([]string(nil), runtimeSpec.Command...)
+			}
+			if len(runtimeSpec.Args) > 0 {
+				container.Args = append([]string(nil), runtimeSpec.Args...)
+			}
 		}
 		if volumeToMount != nil && mountToUse != nil {
 			container.VolumeMounts = append(container.VolumeMounts, *mountToUse)
@@ -407,9 +433,71 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 			}
 		}
 
-		// UDS Logic
+		// Environment (base + platform-injected).
+		env := map[string]string{}
+		if runtimeSpec != nil && len(runtimeSpec.Env) > 0 {
+			for k, v := range runtimeSpec.Env {
+				env[k] = v
+			}
+		}
+
+		// List dependencies once for service discovery + UDS hints.
+		var deps []binderyv1alpha1.CapabilityBinding
+		{
+			var depList binderyv1alpha1.CapabilityBindingList
+			if err := r.List(ctx, &depList,
+				client.InNamespace(req.Namespace),
+				client.MatchingFields{idxBindingConsumer: providerName},
+			); err != nil {
+				logger.Error(err, "failed to list dependency bindings for injection")
+			} else {
+				for i := range depList.Items {
+					dep := depList.Items[i]
+
+					// World filtering: world-scoped deployments should only see their own bindings.
+					if !isGlobal {
+						if dep.Spec.WorldRef == nil || dep.Spec.WorldRef.Name != world.Name {
+							continue
+						}
+					}
+
+					// Shard filtering: never inject shard-scoped deps into non-sharded deployments.
+					if dep.Spec.Scope == binderyv1alpha1.CapabilityScopeWorldShard {
+						depShard := ""
+						if dep.Labels != nil {
+							depShard = strings.TrimSpace(dep.Labels[labelShardID])
+						}
+						if strings.TrimSpace(shardLabel) == "" {
+							continue
+						}
+						if depShard != shardLabel {
+							continue
+						}
+					}
+
+					deps = append(deps, dep)
+				}
+			}
+		}
+
+		sort.Slice(deps, func(i, j int) bool {
+			a := deps[i].Spec
+			b := deps[j].Spec
+			if a.CapabilityID != b.CapabilityID {
+				return a.CapabilityID < b.CapabilityID
+			}
+			if a.Scope != b.Scope {
+				return a.Scope < b.Scope
+			}
+			if a.Provider.ModuleManifestName != b.Provider.ModuleManifestName {
+				return a.Provider.ModuleManifestName < b.Provider.ModuleManifestName
+			}
+			return deps[i].Name < deps[j].Name
+		})
+
+		// UDS (Pod co-location) support.
 		if isColocPod {
-			// Add shared volume if not present
+			// Add shared volume if not present.
 			hasSharedVol := false
 			for _, v := range deployment.Spec.Template.Spec.Volumes {
 				if v.Name == "shared-socket" {
@@ -426,158 +514,96 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 				})
 			}
 
-			// Mount volume in container
+			// Mount volume in container.
 			container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
 				Name:      "shared-socket",
 				MountPath: "/var/run/bindery",
 			})
 
-			// Set Env Vars
-			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  "BINDERY_UDS_DIR",
-				Value: "/var/run/bindery",
-			})
-			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  "BINDERY_MODULE_NAME",
-				Value: providerName,
-			})
+			env["BINDERY_UDS_DIR"] = "/var/run/bindery"
+			env["BINDERY_MODULE_NAME"] = providerName
 
-			// Inject UDS paths for dependencies if co-located
-			if isColocPod {
-				var allBindings binderyv1alpha1.CapabilityBindingList
-				if err := r.List(ctx, &allBindings, client.InNamespace(req.Namespace)); err == nil {
-					for _, b := range allBindings.Items {
-						if b.Spec.Consumer.ModuleManifestName == providerName &&
-							b.Spec.WorldRef != nil && b.Spec.WorldRef.Name == world.Name {
-
-							depProvider := b.Spec.Provider.ModuleManifestName
-							depGroup := getColocationGroup(&booklet, depProvider)
-							if depGroup != nil && depGroup.Name == colocGroup.Name && depGroup.Strategy == "Pod" {
-								envName := fmt.Sprintf("BINDERY_UDS_%s", strings.ToUpper(strings.ReplaceAll(b.Spec.CapabilityID, ".", "_")))
-								container.Env = append(container.Env, corev1.EnvVar{
-									Name:  envName,
-									Value: fmt.Sprintf("/var/run/bindery/%s.sock", depProvider),
-								})
-							}
-						}
-					}
+			// Inject UDS socket paths for dependencies that are in the same Pod co-location group.
+			for _, dep := range deps {
+				depProvider := strings.TrimSpace(dep.Spec.Provider.ModuleManifestName)
+				if depProvider == "" {
+					continue
 				}
+				depGroup := getColocationGroup(&booklet, depProvider)
+				if depGroup == nil || colocGroup == nil || depGroup.Name != colocGroup.Name || depGroup.Strategy != "Pod" {
+					continue
+				}
+				envName := fmt.Sprintf("BINDERY_UDS_%s", strings.ToUpper(strings.ReplaceAll(dep.Spec.CapabilityID, ".", "_")))
+				env[envName] = fmt.Sprintf("/var/run/bindery/%s.sock", depProvider)
 			}
 		}
 
-		// Service Discovery Injection
-		// Find all bindings where this module is the consumer
-		var dependencyBindings binderyv1alpha1.CapabilityBindingList
-		if err := r.List(ctx, &dependencyBindings, client.MatchingFields{idxBindingConsumer: providerName}, client.InNamespace(req.Namespace)); err != nil {
-			logger.Error(err, "failed to list dependency bindings for injection")
-		} else {
-			for _, b := range dependencyBindings.Items {
-				// Ensure it's for the same world
-				if b.Spec.WorldRef == nil || b.Spec.WorldRef.Name != world.Name {
+		// Service discovery injection: publish resolved endpoints to env vars.
+		for _, dep := range deps {
+			if dep.Status.Provider == nil || dep.Status.Provider.Endpoint == nil {
+				continue
+			}
+			ep := dep.Status.Provider.Endpoint
+			capID := strings.ToUpper(strings.ReplaceAll(dep.Spec.CapabilityID, ".", "_"))
+			env[fmt.Sprintf("BINDERY_CAPABILITY_%s_ENDPOINT", capID)] = fmt.Sprintf("%s:%d", ep.Value, ep.Port)
+			env[fmt.Sprintf("BINDERY_CAPABILITY_%s_HOST", capID)] = ep.Value
+			env[fmt.Sprintf("BINDERY_CAPABILITY_%s_PORT", capID)] = fmt.Sprintf("%d", ep.Port)
+		}
+
+		// Readiness coordination via init container: only for non-pod-colocated deployments.
+		waitTargets := make(map[string]struct{})
+		if !isColocPod {
+			providerCache := make(map[string]*binderyv1alpha1.ModuleManifest)
+			for _, dep := range deps {
+				depProvider := strings.TrimSpace(dep.Spec.Provider.ModuleManifestName)
+				if depProvider == "" {
 					continue
 				}
 
-				// If endpoint is available, inject it
-				if b.Status.Provider != nil && b.Status.Provider.Endpoint != nil {
-					ep := b.Status.Provider.Endpoint
-					capID := strings.ToUpper(strings.ReplaceAll(b.Spec.CapabilityID, ".", "_"))
-
-					// BINDERY_CAPABILITY_<ID>_ENDPOINT
-					container.Env = append(container.Env, corev1.EnvVar{
-						Name:  fmt.Sprintf("BINDERY_CAPABILITY_%s_ENDPOINT", capID),
-						Value: fmt.Sprintf("%s:%d", ep.Value, ep.Port),
-					})
-
-					// BINDERY_CAPABILITY_<ID>_HOST
-					container.Env = append(container.Env, corev1.EnvVar{
-						Name:  fmt.Sprintf("BINDERY_CAPABILITY_%s_HOST", capID),
-						Value: ep.Value,
-					})
-
-					// BINDERY_CAPABILITY_<ID>_PORT
-					container.Env = append(container.Env, corev1.EnvVar{
-						Name:  fmt.Sprintf("BINDERY_CAPABILITY_%s_PORT", capID),
-						Value: fmt.Sprintf("%d", ep.Port),
-					})
-				}
-			}
-		}
-
-		// Inject dependency endpoints (Service Discovery)
-		var myDependencies binderyv1alpha1.CapabilityBindingList
-		var waitList []string
-		if err := r.List(ctx, &myDependencies, client.InNamespace(req.Namespace), client.MatchingFields{idxBindingConsumer: providerName}); err == nil {
-			for _, dep := range myDependencies.Items {
-				// Filter by world to ensure we only inject dependencies for THIS world instance
-				if !isGlobal {
-					if dep.Spec.WorldRef == nil || dep.Spec.WorldRef.Name != world.Name {
+				depMM, ok := providerCache[depProvider]
+				if !ok {
+					var mm binderyv1alpha1.ModuleManifest
+					if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: depProvider}, &mm); err != nil {
 						continue
 					}
+					depMM = &mm
+					providerCache[depProvider] = depMM
+				}
+				if !isServerOrchestrated(depMM) {
+					continue
 				}
 
-				// Compute service name for wait list
-				depProvider := dep.Spec.Provider.ModuleManifestName
-				depShard := ""
-				if dep.Labels != nil {
-					depShard = dep.Labels[labelShardID]
+				targetService := serviceNameForBinding(dep)
+				if targetService == "" {
+					continue
 				}
-				depWorldName := "global"
-				if dep.Spec.WorldRef != nil && dep.Spec.WorldRef.Name != "" {
-					depWorldName = dep.Spec.WorldRef.Name
-				}
-				svcName := rtNameWithShard(depWorldName, depShard, depProvider)
-
-				// Fetch provider MM to get port
-				var depMM binderyv1alpha1.ModuleManifest
-				if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: depProvider}, &depMM); err == nil {
-					port := int32(50051)
-					if raw := strings.TrimSpace(depMM.Annotations[annRuntimePort]); raw != "" {
-						if p, err := strconv.Atoi(raw); err == nil {
-							port = int32(p)
-						}
-					}
-					waitList = append(waitList, fmt.Sprintf("%s:%d", svcName, port))
-				}
-
-				// If the dependency has an endpoint published, inject it.
-				if dep.Status.Provider != nil && dep.Status.Provider.Endpoint != nil {
-					ep := dep.Status.Provider.Endpoint
-					capID := strings.ToUpper(strings.ReplaceAll(dep.Spec.CapabilityID, ".", "_"))
-
-					// BINDERY_CAPABILITY_<ID>_ENDPOINT = host:port
-					container.Env = append(container.Env, corev1.EnvVar{
-						Name:  fmt.Sprintf("BINDERY_CAPABILITY_%s_ENDPOINT", capID),
-						Value: fmt.Sprintf("%s:%d", ep.Value, ep.Port),
-					})
-					// BINDERY_CAPABILITY_<ID>_HOST = host
-					container.Env = append(container.Env, corev1.EnvVar{
-						Name:  fmt.Sprintf("BINDERY_CAPABILITY_%s_HOST", capID),
-						Value: ep.Value,
-					})
-					// BINDERY_CAPABILITY_<ID>_PORT = port
-					container.Env = append(container.Env, corev1.EnvVar{
-						Name:  fmt.Sprintf("BINDERY_CAPABILITY_%s_PORT", capID),
-						Value: fmt.Sprintf("%d", ep.Port),
-					})
-				}
+				targetPort := runtimePortForModule(depMM)
+				waitTargets[fmt.Sprintf("%s:%d", targetService, targetPort)] = struct{}{}
 			}
 		}
 
-		// Add init container if there are dependencies
-		if len(waitList) > 0 {
-			cmd := "for target in " + strings.Join(waitList, " ") + "; do " +
+		// Add/update/remove the init container to avoid stale waits.
+		const waitInitName = "wait-for-deps"
+		if len(waitTargets) > 0 && !isColocPod {
+			targets := make([]string, 0, len(waitTargets))
+			for t := range waitTargets {
+				targets = append(targets, t)
+			}
+			sort.Strings(targets)
+
+			cmd := "for target in " + strings.Join(targets, " ") + "; do " +
 				"host=${target%%:*}; port=${target##*:}; " +
-				"until nc -z -v -w 2 $host $port; do echo waiting for $target; sleep 2; done; " +
+				"until nc -z -w 2 $host $port; do echo waiting for $target; sleep 2; done; " +
 				"done"
 			initContainer := corev1.Container{
-				Name:    "wait-for-deps",
+				Name:    waitInitName,
 				Image:   "busybox:1.36",
 				Command: []string{"sh", "-c", cmd},
 			}
-			// Add or update init container
+
 			foundInit := false
-			for i, c := range deployment.Spec.Template.Spec.InitContainers {
-				if c.Name == "wait-for-deps" {
+			for i := range deployment.Spec.Template.Spec.InitContainers {
+				if deployment.Spec.Template.Spec.InitContainers[i].Name == waitInitName {
 					deployment.Spec.Template.Spec.InitContainers[i] = initContainer
 					foundInit = true
 					break
@@ -586,7 +612,19 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 			if !foundInit {
 				deployment.Spec.Template.Spec.InitContainers = append(deployment.Spec.Template.Spec.InitContainers, initContainer)
 			}
+		} else {
+			// Remove wait init container if present.
+			next := deployment.Spec.Template.Spec.InitContainers[:0]
+			for _, c := range deployment.Spec.Template.Spec.InitContainers {
+				if c.Name == waitInitName {
+					continue
+				}
+				next = append(next, c)
+			}
+			deployment.Spec.Template.Spec.InitContainers = next
 		}
+
+		container.Env = envVarsFromMap(env)
 
 		// Add/Update container in list
 		found := false
@@ -706,8 +744,10 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 
 	// Update the owning world's RuntimeReady condition (best-effort for debuggability).
-	if err := r.updateWorldRuntimeReadyCondition(ctx, req.Namespace, &world); err != nil {
-		logger.Error(err, "failed to update world RuntimeReady condition")
+	if !isGlobal {
+		if err := r.updateWorldRuntimeReadyCondition(ctx, req.Namespace, &world); err != nil {
+			logger.Error(err, "failed to update world RuntimeReady condition")
+		}
 	}
 
 	logger.Info("ensured runtime", "service", serviceName, "image", image, "port", port)
@@ -715,7 +755,7 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 }
 
 func (r *RuntimeOrchestratorReconciler) updateWorldRuntimeReadyCondition(ctx context.Context, namespace string, world *binderyv1alpha1.WorldInstance) error {
-	if world == nil {
+	if world == nil || strings.TrimSpace(world.Name) == "" {
 		return nil
 	}
 
@@ -745,8 +785,7 @@ func (r *RuntimeOrchestratorReconciler) updateWorldRuntimeReadyCondition(ctx con
 			}
 			return err
 		}
-		if strings.TrimSpace(mm.Annotations[annRuntimeImage]) == "" {
-			// Not a server workload.
+		if !isServerOrchestrated(&mm) {
 			continue
 		}
 		total++
@@ -1016,4 +1055,70 @@ func getColocationGroup(game *binderyv1alpha1.Booklet, moduleName string) *binde
 		}
 	}
 	return nil
+}
+
+func envVarsFromMap(env map[string]string) []corev1.EnvVar {
+	if len(env) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(env))
+	for k := range env {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	out := make([]corev1.EnvVar, 0, len(keys))
+	for _, k := range keys {
+		out = append(out, corev1.EnvVar{Name: k, Value: env[k]})
+	}
+	return out
+}
+
+func isServerOrchestrated(mm *binderyv1alpha1.ModuleManifest) bool {
+	if mm == nil {
+		return false
+	}
+	if mm.Spec.Runtime != nil && strings.TrimSpace(mm.Spec.Runtime.Image) != "" {
+		return true
+	}
+	return strings.TrimSpace(mm.Annotations[annRuntimeImage]) != ""
+}
+
+func runtimePortForModule(mm *binderyv1alpha1.ModuleManifest) int32 {
+	if mm == nil {
+		return 50051
+	}
+	if mm.Spec.Runtime != nil && mm.Spec.Runtime.Port != nil && *mm.Spec.Runtime.Port > 0 && *mm.Spec.Runtime.Port <= 65535 {
+		return *mm.Spec.Runtime.Port
+	}
+	if raw := strings.TrimSpace(mm.Annotations[annRuntimePort]); raw != "" {
+		if p, err := strconv.Atoi(raw); err == nil && p > 0 && p <= 65535 {
+			return int32(p)
+		}
+	}
+	return 50051
+}
+
+func serviceNameForBinding(binding binderyv1alpha1.CapabilityBinding) string {
+	provider := strings.TrimSpace(binding.Spec.Provider.ModuleManifestName)
+	if provider == "" {
+		return ""
+	}
+
+	worldName := "global"
+	switch binding.Spec.Scope {
+	case binderyv1alpha1.CapabilityScopeCluster, binderyv1alpha1.CapabilityScopeRegion, binderyv1alpha1.CapabilityScopeRealm:
+		// Global service per cluster/region/realm scope (MVP uses a single shared name).
+	default:
+		if binding.Spec.WorldRef != nil && binding.Spec.WorldRef.Name != "" {
+			worldName = binding.Spec.WorldRef.Name
+		}
+	}
+
+	shard := ""
+	if binding.Spec.Scope == binderyv1alpha1.CapabilityScopeWorldShard && binding.Labels != nil {
+		shard = strings.TrimSpace(binding.Labels[labelShardID])
+	}
+
+	return rtNameWithShard(worldName, shard, provider)
 }

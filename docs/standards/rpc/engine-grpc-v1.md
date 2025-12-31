@@ -4,10 +4,10 @@ This project includes a versioned gRPC Protobuf contract that defines the baseli
 
 ## Location
 
-- Protobuf IDL: `proto/game/engine/v1/engine.proto`
+- Protobuf IDL: `contracts/proto/game/engine/v1/engine.proto`
 - Generated Go stubs:
-  - `proto/game/engine/v1/engine.pb.go`
-  - `proto/game/engine/v1/engine_grpc.pb.go`
+  - `contracts/proto/game/engine/v1/engine.pb.go`
+  - `contracts/proto/game/engine/v1/engine_grpc.pb.go`
 
 ## Package
 
@@ -57,7 +57,7 @@ Commands:
   - `go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.1`
   - `go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1`
 - Generate (from repo root):
-  - `PATH="$PATH:$(go env GOPATH)/bin" protoc -I . --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative proto/game/engine/v1/engine.proto`
+  - `PATH="$PATH:$(go env GOPATH)/bin" protoc -I . --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative contracts/proto/game/engine/v1/engine.proto`
 
 ## Minimal server skeleton
 

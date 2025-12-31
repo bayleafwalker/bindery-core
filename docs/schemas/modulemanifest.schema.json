@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "game.platform/v0.1/ModuleManifest.schema.json",
+  "$id": "bindery.platform/v1alpha1/ModuleManifest.schema.json",
   "title": "ModuleManifest",
   "type": "object",
   "additionalProperties": false,
@@ -8,7 +8,7 @@
   "properties": {
     "apiVersion": {
       "type": "string",
-      "const": "game.platform/v0.1"
+      "const": "bindery.platform/v1alpha1"
     },
     "kind": {
       "type": "string",

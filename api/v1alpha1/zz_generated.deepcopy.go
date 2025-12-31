@@ -40,6 +40,10 @@ func (in *ModuleManifest) DeepCopyObject() runtime.Object {
 func (in *ModuleManifestSpec) DeepCopyInto(out *ModuleManifestSpec) {
 	*out = *in
 	out.Module = in.Module
+	if in.Runtime != nil {
+		out.Runtime = new(ModuleRuntimeSpec)
+		in.Runtime.DeepCopyInto(out.Runtime)
+	}
 	if in.Provides != nil {
 		out.Provides = make([]ProvidedCapability, len(in.Provides))
 		copy(out.Provides, in.Provides)
@@ -56,6 +60,33 @@ func (in *ModuleManifestSpec) DeepCopyInto(out *ModuleManifestSpec) {
 			out.ExtraSpec[k] = v
 		}
 	}
+}
+
+func (in *ModuleRuntimeSpec) DeepCopyInto(out *ModuleRuntimeSpec) {
+	*out = *in
+	if in.Command != nil {
+		out.Command = make([]string, len(in.Command))
+		copy(out.Command, in.Command)
+	}
+	if in.Args != nil {
+		out.Args = make([]string, len(in.Args))
+		copy(out.Args, in.Args)
+	}
+	if in.Env != nil {
+		out.Env = make(map[string]string, len(in.Env))
+		for k, v := range in.Env {
+			out.Env[k] = v
+		}
+	}
+}
+
+func (in *ModuleRuntimeSpec) DeepCopy() *ModuleRuntimeSpec {
+	if in == nil {
+		return nil
+	}
+	out := new(ModuleRuntimeSpec)
+	in.DeepCopyInto(out)
+	return out
 }
 
 // DeepCopyInto copies the receiver into out.

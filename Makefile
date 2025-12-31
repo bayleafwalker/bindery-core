@@ -43,7 +43,7 @@ proto:
 	PATH="$$PATH:$$(go env GOPATH)/bin" protoc -I . \
 		--go_out=. --go_opt=paths=source_relative \
 		--go-grpc_out=. --go-grpc_opt=paths=source_relative \
-		proto/game/engine/v1/engine.proto
+		contracts/proto/game/engine/v1/engine.proto
 
 kind-demo:
 	./k8s/dev/kind-demo.sh

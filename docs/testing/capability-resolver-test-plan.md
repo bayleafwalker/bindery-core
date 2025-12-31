@@ -29,7 +29,7 @@ Scope: declarative inputs (`ModuleManifest`, `Booklet`, `WorldInstance`) and res
   - Go implementation: `controllers/CapabilityResolverReconciler`
 
 - **Schemas/CRDs**:
-  - CRDs: `k8s/crds/*.game.platform.yaml`
+  - CRDs: `k8s/crds/*.bindery.platform.yaml`
   - Example CRs: `k8s/examples/`
 
 ### Key invariants

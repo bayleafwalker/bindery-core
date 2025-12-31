@@ -6,7 +6,7 @@ This guide helps you troubleshoot issues where modules are not starting, connect
 The `CapabilityBinding` is the source of truth for what should be running.
 
 ```bash
-kubectl get capabilitybindings -l game.platform/world=<world-name>
+kubectl get capabilitybindings -l bindery.platform/world=<world-name>
 ```
 
 Look for:
@@ -24,7 +24,7 @@ Look for:
     - `kubectl describe world <world-name>`
 3.  **Check RuntimeOrchestrator**:
     - If binding exists, is there a Deployment?
-    - `kubectl get deployment -l game.platform/module=<module-name>`
+    - `kubectl get deployment -l bindery.platform/module=<module-name>`
     - If no deployment, check `RuntimeOrchestrator` logs. Does the module have `bindery.dev/runtime-image` annotation?
 
 ### Scenario: "My module crashes on startup"

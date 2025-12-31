@@ -7,6 +7,7 @@ Start here:
 
 Notable areas:
 - Standards/specs: `docs/standards/`
+- Workflows/how-to: `docs/workflows/`
 - Kubernetes CRD + controller design: `docs/standards/kubernetes/`
 - RPC contracts: `docs/standards/rpc/`
 - Testing guidance: `docs/testing/`

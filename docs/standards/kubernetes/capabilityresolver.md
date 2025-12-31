@@ -150,9 +150,9 @@ reconcile(worldKey):
           namespace: world.namespace
           ownerReferences: [world]
           labels:
-            game.platform/world: world.metadata.name
-            game.platform/game: game.metadata.name
-            game.platform/capabilityId: req.capabilityId
+            bindery.platform/managed-by: capabilityresolver
+            bindery.platform/world: world.metadata.name
+            bindery.platform/game: game.metadata.name
         spec:
           capabilityId: req.capabilityId
           scope: req.scope
@@ -286,7 +286,7 @@ Assumptions:
 - A `core-time-source` module provides `time.source`.
 
 ```yaml
-apiVersion: game.platform/v1alpha1
+apiVersion: bindery.platform/v1alpha1
 kind: CapabilityBinding
 metadata:
   name: physics-requires-timesource
@@ -310,7 +310,7 @@ spec:
 ### Example B: interaction → physics
 
 ```yaml
-apiVersion: game.platform/v1alpha1
+apiVersion: bindery.platform/v1alpha1
 kind: CapabilityBinding
 metadata:
   name: interaction-requires-physics
