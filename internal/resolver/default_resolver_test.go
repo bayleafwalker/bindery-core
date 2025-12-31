@@ -302,31 +302,31 @@ func TestDefaultResolver_VersionIncompatibleOptional(t *testing.T) {
 }
 
 func TestDefaultResolver_IgnoresInvalidProviderVersion(t *testing.T) {
-r := NewDefault()
+	r := NewDefault()
 
-in := Input{
-World: binderyv1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
-Modules: []binderyv1alpha1.ModuleManifest{
-mm("physics-bad", []binderyv1alpha1.ProvidedCapability{{
-CapabilityID: "cap.physics",
-Version:      "invalid-version",
-Scope:        binderyv1alpha1.CapabilityScopeWorld,
-Multiplicity: binderyv1alpha1.MultiplicityOne,
-}}, nil),
-mm("interaction", nil, []binderyv1alpha1.RequiredCapability{{
-CapabilityID:      "cap.physics",
-VersionConstraint: "*",
-Scope:             binderyv1alpha1.CapabilityScopeWorld,
-Multiplicity:      binderyv1alpha1.MultiplicityOne,
-DependencyMode:    binderyv1alpha1.DependencyModeRequired,
-}}),
-},
-}
+	in := Input{
+		World: binderyv1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
+		Modules: []binderyv1alpha1.ModuleManifest{
+			mm("physics-bad", []binderyv1alpha1.ProvidedCapability{{
+				CapabilityID: "cap.physics",
+				Version:      "invalid-version",
+				Scope:        binderyv1alpha1.CapabilityScopeWorld,
+				Multiplicity: binderyv1alpha1.MultiplicityOne,
+			}}, nil),
+			mm("interaction", nil, []binderyv1alpha1.RequiredCapability{{
+				CapabilityID:      "cap.physics",
+				VersionConstraint: "*",
+				Scope:             binderyv1alpha1.CapabilityScopeWorld,
+				Multiplicity:      binderyv1alpha1.MultiplicityOne,
+				DependencyMode:    binderyv1alpha1.DependencyModeRequired,
+			}}),
+		},
+	}
 
-plan, err := r.Resolve(context.Background(), in)
-if err != nil {
-t.Fatalf("Resolve failed: %v", err)
-}
+	plan, err := r.Resolve(context.Background(), in)
+	if err != nil {
+		t.Fatalf("Resolve failed: %v", err)
+	}
 
 	nonRoot := 0
 	for _, b := range plan.DesiredBindings {
@@ -343,31 +343,31 @@ t.Fatalf("Resolve failed: %v", err)
 }
 
 func TestDefaultResolver_ReportsInvalidConstraint(t *testing.T) {
-r := NewDefault()
+	r := NewDefault()
 
-in := Input{
-World: binderyv1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
-Modules: []binderyv1alpha1.ModuleManifest{
-mm("physics-a", []binderyv1alpha1.ProvidedCapability{{
-CapabilityID: "cap.physics",
-Version:      "1.0.0",
-Scope:        binderyv1alpha1.CapabilityScopeWorld,
-Multiplicity: binderyv1alpha1.MultiplicityOne,
-}}, nil),
-mm("interaction", nil, []binderyv1alpha1.RequiredCapability{{
-CapabilityID:      "cap.physics",
-VersionConstraint: "invalid-constraint",
-Scope:             binderyv1alpha1.CapabilityScopeWorld,
-Multiplicity:      binderyv1alpha1.MultiplicityOne,
-DependencyMode:    binderyv1alpha1.DependencyModeRequired,
-}}),
-},
-}
+	in := Input{
+		World: binderyv1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
+		Modules: []binderyv1alpha1.ModuleManifest{
+			mm("physics-a", []binderyv1alpha1.ProvidedCapability{{
+				CapabilityID: "cap.physics",
+				Version:      "1.0.0",
+				Scope:        binderyv1alpha1.CapabilityScopeWorld,
+				Multiplicity: binderyv1alpha1.MultiplicityOne,
+			}}, nil),
+			mm("interaction", nil, []binderyv1alpha1.RequiredCapability{{
+				CapabilityID:      "cap.physics",
+				VersionConstraint: "invalid-constraint",
+				Scope:             binderyv1alpha1.CapabilityScopeWorld,
+				Multiplicity:      binderyv1alpha1.MultiplicityOne,
+				DependencyMode:    binderyv1alpha1.DependencyModeRequired,
+			}}),
+		},
+	}
 
-plan, err := r.Resolve(context.Background(), in)
-if err != nil {
-t.Fatalf("Resolve failed: %v", err)
-}
+	plan, err := r.Resolve(context.Background(), in)
+	if err != nil {
+		t.Fatalf("Resolve failed: %v", err)
+	}
 
 	nonRoot := 0
 	for _, b := range plan.DesiredBindings {
@@ -387,31 +387,31 @@ t.Fatalf("Resolve failed: %v", err)
 }
 
 func TestDefaultResolver_FiltersByMultiplicity(t *testing.T) {
-r := NewDefault()
+	r := NewDefault()
 
-in := Input{
-World: binderyv1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
-Modules: []binderyv1alpha1.ModuleManifest{
-mm("physics-one", []binderyv1alpha1.ProvidedCapability{{
-CapabilityID: "cap.physics",
-Version:      "1.0.0",
-Scope:        binderyv1alpha1.CapabilityScopeWorld,
-Multiplicity: binderyv1alpha1.MultiplicityOne,
-}}, nil),
-mm("interaction", nil, []binderyv1alpha1.RequiredCapability{{
-CapabilityID:      "cap.physics",
-VersionConstraint: "*",
-Scope:             binderyv1alpha1.CapabilityScopeWorld,
-Multiplicity:      binderyv1alpha1.MultiplicityMany, // Mismatch
-DependencyMode:    binderyv1alpha1.DependencyModeRequired,
-}}),
-},
-}
+	in := Input{
+		World: binderyv1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
+		Modules: []binderyv1alpha1.ModuleManifest{
+			mm("physics-one", []binderyv1alpha1.ProvidedCapability{{
+				CapabilityID: "cap.physics",
+				Version:      "1.0.0",
+				Scope:        binderyv1alpha1.CapabilityScopeWorld,
+				Multiplicity: binderyv1alpha1.MultiplicityOne,
+			}}, nil),
+			mm("interaction", nil, []binderyv1alpha1.RequiredCapability{{
+				CapabilityID:      "cap.physics",
+				VersionConstraint: "*",
+				Scope:             binderyv1alpha1.CapabilityScopeWorld,
+				Multiplicity:      binderyv1alpha1.MultiplicityMany, // Mismatch
+				DependencyMode:    binderyv1alpha1.DependencyModeRequired,
+			}}),
+		},
+	}
 
-plan, err := r.Resolve(context.Background(), in)
-if err != nil {
-t.Fatalf("Resolve failed: %v", err)
-}
+	plan, err := r.Resolve(context.Background(), in)
+	if err != nil {
+		t.Fatalf("Resolve failed: %v", err)
+	}
 
 	nonRoot := 0
 	for _, b := range plan.DesiredBindings {
