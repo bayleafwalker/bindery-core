@@ -599,38 +599,38 @@ func TestRuntimeOrchestrator_InjectsDependencyEndpoints(t *testing.T) {
 }
 
 func TestRuntimeOrchestrator_GracefulTermination(t *testing.T) {
-ctx := context.Background()
+	ctx := context.Background()
 
-scheme := runtime.NewScheme()
-_ = clientgoscheme.AddToScheme(scheme)
-_ = gamev1alpha1.AddToScheme(scheme)
-_ = appsv1.AddToScheme(scheme)
-_ = corev1.AddToScheme(scheme)
+	scheme := runtime.NewScheme()
+	_ = clientgoscheme.AddToScheme(scheme)
+	_ = gamev1alpha1.AddToScheme(scheme)
+	_ = appsv1.AddToScheme(scheme)
+	_ = corev1.AddToScheme(scheme)
 
-world := &gamev1alpha1.WorldInstance{
-ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"},
-Spec:       gamev1alpha1.WorldInstanceSpec{WorldID: "w1", ShardCount: 1},
-}
+	world := &gamev1alpha1.WorldInstance{
+		ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"},
+		Spec:       gamev1alpha1.WorldInstanceSpec{WorldID: "w1", ShardCount: 1},
+	}
 
-provider := &gamev1alpha1.ModuleManifest{
-ObjectMeta: metav1.ObjectMeta{
-Name:      "provider-mod",
-Namespace: "default",
-Annotations: map[string]string{
-annRuntimeImage:           "img",
-annTerminationGracePeriod: "60",
-annPreStopCommand:         "/bin/sleep 10",
-},
-},
-}
+	provider := &gamev1alpha1.ModuleManifest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "provider-mod",
+			Namespace: "default",
+			Annotations: map[string]string{
+				annRuntimeImage:           "img",
+				annTerminationGracePeriod: "60",
+				annPreStopCommand:         "/bin/sleep 10",
+			},
+		},
+	}
 
-binding := &gamev1alpha1.CapabilityBinding{
-ObjectMeta: metav1.ObjectMeta{Name: "binding-1", Namespace: "default"},
-Spec: gamev1alpha1.CapabilityBindingSpec{
-WorldRef: &gamev1alpha1.WorldRef{Name: "world-1"},
-Provider: gamev1alpha1.ProviderRef{ModuleManifestName: "provider-mod"},
-},
-}
+	binding := &gamev1alpha1.CapabilityBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "binding-1", Namespace: "default"},
+		Spec: gamev1alpha1.CapabilityBindingSpec{
+			WorldRef: &gamev1alpha1.WorldRef{Name: "world-1"},
+			Provider: gamev1alpha1.ProviderRef{ModuleManifestName: "provider-mod"},
+		},
+	}
 
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(world, provider, binding).WithStatusSubresource(binding).Build()
 	r := &RuntimeOrchestratorReconciler{Client: cl, Scheme: scheme}
@@ -644,19 +644,19 @@ Provider: gamev1alpha1.ProviderRef{ModuleManifestName: "provider-mod"},
 	// Name is rtName(world.Name, provider.Name) -> "rt-world-1-provider-mod"
 	depName := "rt-world-1-provider-mod"
 	if err := cl.Get(ctx, types.NamespacedName{Namespace: "default", Name: depName}, &dep); err != nil {
-t.Fatalf("Deployment not found: %v", err)
-}
+		t.Fatalf("Deployment not found: %v", err)
+	}
 
-if dep.Spec.Template.Spec.TerminationGracePeriodSeconds == nil || *dep.Spec.Template.Spec.TerminationGracePeriodSeconds != 60 {
-t.Errorf("Expected TerminationGracePeriodSeconds 60, got %v", dep.Spec.Template.Spec.TerminationGracePeriodSeconds)
-}
+	if dep.Spec.Template.Spec.TerminationGracePeriodSeconds == nil || *dep.Spec.Template.Spec.TerminationGracePeriodSeconds != 60 {
+		t.Errorf("Expected TerminationGracePeriodSeconds 60, got %v", dep.Spec.Template.Spec.TerminationGracePeriodSeconds)
+	}
 
-container := dep.Spec.Template.Spec.Containers[0]
-if container.Lifecycle == nil || container.Lifecycle.PreStop == nil || container.Lifecycle.PreStop.Exec == nil {
-t.Fatal("Expected PreStop hook")
-}
-cmd := container.Lifecycle.PreStop.Exec.Command
-if len(cmd) != 3 || cmd[2] != "/bin/sleep 10" {
-t.Errorf("Unexpected PreStop command: %v", cmd)
-}
+	container := dep.Spec.Template.Spec.Containers[0]
+	if container.Lifecycle == nil || container.Lifecycle.PreStop == nil || container.Lifecycle.PreStop.Exec == nil {
+		t.Fatal("Expected PreStop hook")
+	}
+	cmd := container.Lifecycle.PreStop.Exec.Command
+	if len(cmd) != 3 || cmd[2] != "/bin/sleep 10" {
+		t.Errorf("Unexpected PreStop command: %v", cmd)
+	}
 }
