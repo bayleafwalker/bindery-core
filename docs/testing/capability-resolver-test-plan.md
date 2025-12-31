@@ -45,6 +45,9 @@ Scope: declarative inputs (`ModuleManifest`, `GameDefinition`, `WorldInstance`) 
 - **Integration**: Kind cluster (preferred; already used for CRD validation)
 - **Chaos**: Kind + failure injection (delete pods, drop network via tools if available)
 - **Load**: Kind on a developer workstation (bounded, representative)
+- **CI Verification**: GitHub Actions workflow (`ci.yml`).
+  - Check status: `gh run list --workflow ci.yml`
+  - Watch progress: `gh run watch`
 
 ## Unit tests
 
@@ -56,11 +59,11 @@ Coverage targets:
 
 - Valid constraints: `^1.2.0`, `~1.4`, `>=1.2.0 <2.0.0`, `=1.0.0`, `*`
 - Boundary cases:
-  - `^0.x` behavior (pre-1.0 compatibility rules)
-  - Pre-release handling (`1.2.0-alpha.1`) if/when used in manifests
+  - [x] `^0.x` behavior (pre-1.0 compatibility rules)
+  - [x] Pre-release handling (`1.2.0-alpha.1`) if/when used in manifests
 - Invalid inputs:
-  - constraint parse failures (must be rejected and surfaced)
-  - version parse failures (providers with invalid versions should not be selected)
+  - [x] constraint parse failures (must be rejected and surfaced)
+  - [x] version parse failures (providers with invalid versions should not be selected)
 
 Assertions:
 
@@ -88,11 +91,11 @@ Coverage targets:
 
 Concrete scenarios (unit-level):
 
-1) **No provider found**
+1) **No provider found** (Implemented)
 - Consumer requires `capabilityId=X`, no module provides `X`.
 - Expect: no binding; unresolved required/optional recorded based on `dependencyMode`.
 
-2) **Version incompatible**
+2) **Version incompatible** (Implemented)
 - Provider offers `X@1.0.0`, consumer requires `>=2.0.0`.
 - Expect: unresolved requirement recorded.
 

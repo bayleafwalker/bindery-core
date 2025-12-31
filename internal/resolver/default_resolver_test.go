@@ -182,3 +182,102 @@ func TestDefaultResolver_UnresolvedOptionalRecorded(t *testing.T) {
 		t.Fatalf("expected 1 unresolved optional, got %d", len(plan.Diagnostics.UnresolvedOptional))
 	}
 }
+
+func TestDefaultResolver_UnresolvedRequiredRecorded(t *testing.T) {
+r := NewDefault()
+
+in := Input{
+World: gamev1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
+Modules: []gamev1alpha1.ModuleManifest{
+mm("consumer", nil, []gamev1alpha1.RequiredCapability{{
+CapabilityID:      "cap.missing",
+VersionConstraint: ">=1.0.0",
+Scope:             gamev1alpha1.CapabilityScopeWorld,
+Multiplicity:      gamev1alpha1.MultiplicityOne,
+DependencyMode:    gamev1alpha1.DependencyModeRequired,
+}}),
+},
+}
+
+plan, err := r.Resolve(context.Background(), in)
+if err != nil {
+t.Fatalf("Resolve error: %v", err)
+}
+if len(plan.DesiredBindings) != 0 {
+t.Fatalf("expected 0 bindings, got %d", len(plan.DesiredBindings))
+}
+if len(plan.Diagnostics.UnresolvedRequired) != 1 {
+t.Fatalf("expected 1 unresolved required, got %d", len(plan.Diagnostics.UnresolvedRequired))
+}
+if plan.Diagnostics.UnresolvedRequired[0].CapabilityID != "cap.missing" {
+t.Fatalf("expected unresolved cap.missing, got %s", plan.Diagnostics.UnresolvedRequired[0].CapabilityID)
+}
+}
+
+func TestDefaultResolver_VersionIncompatibleRequired(t *testing.T) {
+r := NewDefault()
+
+in := Input{
+World: gamev1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
+Modules: []gamev1alpha1.ModuleManifest{
+mm("provider", []gamev1alpha1.ProvidedCapability{{
+CapabilityID: "cap.physics",
+Version:      "1.0.0",
+Scope:        gamev1alpha1.CapabilityScopeWorld,
+Multiplicity:      gamev1alpha1.MultiplicityOne,
+}}, nil),
+mm("consumer", nil, []gamev1alpha1.RequiredCapability{{
+CapabilityID:      "cap.physics",
+VersionConstraint: ">=2.0.0",
+Scope:             gamev1alpha1.CapabilityScopeWorld,
+Multiplicity:      gamev1alpha1.MultiplicityOne,
+DependencyMode:    gamev1alpha1.DependencyModeRequired,
+}}),
+},
+}
+
+plan, err := r.Resolve(context.Background(), in)
+if err != nil {
+t.Fatalf("Resolve error: %v", err)
+}
+if len(plan.DesiredBindings) != 0 {
+t.Fatalf("expected 0 bindings, got %d", len(plan.DesiredBindings))
+}
+if len(plan.Diagnostics.UnresolvedRequired) != 1 {
+t.Fatalf("expected 1 unresolved required, got %d", len(plan.Diagnostics.UnresolvedRequired))
+}
+}
+
+func TestDefaultResolver_VersionIncompatibleOptional(t *testing.T) {
+r := NewDefault()
+
+in := Input{
+World: gamev1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
+Modules: []gamev1alpha1.ModuleManifest{
+mm("provider", []gamev1alpha1.ProvidedCapability{{
+CapabilityID: "cap.physics",
+Version:      "1.0.0",
+Scope:        gamev1alpha1.CapabilityScopeWorld,
+Multiplicity:      gamev1alpha1.MultiplicityOne,
+}}, nil),
+mm("consumer", nil, []gamev1alpha1.RequiredCapability{{
+CapabilityID:      "cap.physics",
+VersionConstraint: ">=2.0.0",
+Scope:             gamev1alpha1.CapabilityScopeWorld,
+Multiplicity:      gamev1alpha1.MultiplicityOne,
+DependencyMode:    gamev1alpha1.DependencyModeOptional,
+}}),
+},
+}
+
+plan, err := r.Resolve(context.Background(), in)
+if err != nil {
+t.Fatalf("Resolve error: %v", err)
+}
+if len(plan.DesiredBindings) != 0 {
+t.Fatalf("expected 0 bindings, got %d", len(plan.DesiredBindings))
+}
+if len(plan.Diagnostics.UnresolvedOptional) != 1 {
+t.Fatalf("expected 1 unresolved optional, got %d", len(plan.Diagnostics.UnresolvedOptional))
+}
+}
