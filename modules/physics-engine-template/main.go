@@ -27,8 +27,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/bayleafwalker/bindery-core/modules/physics-engine-template/publish"
 	enginev1 "github.com/bayleafwalker/bindery-core/contracts/proto/game/engine/v1"
+	"github.com/bayleafwalker/bindery-core/modules/physics-engine-template/publish"
 )
 
 type server struct {

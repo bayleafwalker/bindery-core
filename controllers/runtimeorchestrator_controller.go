@@ -628,7 +628,7 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 
 			matchLabels := map[string]string{
 				"bindery.platform/coloc-group": colocGroup.Name,
-				rtLabelWorldName:            world.Name,
+				rtLabelWorldName:               world.Name,
 			}
 			if shardLabel != "" {
 				matchLabels[labelShardID] = shardLabel

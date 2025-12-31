@@ -56,7 +56,7 @@ func (r *RealmReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 		_, err := controllerutil.CreateOrUpdate(ctx, r.Client, binding, func() error {
 			binding.Labels = map[string]string{
-				rtLabelManagedBy:      realmManagedBy,
+				rtLabelManagedBy:         realmManagedBy,
 				"bindery.platform/realm": realm.Name,
 			}
 

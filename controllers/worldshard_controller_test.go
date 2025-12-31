@@ -28,7 +28,7 @@ func TestWorldShardController_CreatesShardsForWorld(t *testing.T) {
 		TypeMeta:   metav1.TypeMeta{APIVersion: "bindery.platform/v1alpha1", Kind: "WorldInstance"},
 		ObjectMeta: metav1.ObjectMeta{Name: "w1", Namespace: "ns"},
 		Spec: binderyv1alpha1.WorldInstanceSpec{
-			BookletRef:      binderyv1alpha1.ObjectRef{Name: "g"},
+			BookletRef:   binderyv1alpha1.ObjectRef{Name: "g"},
 			WorldID:      "world-1",
 			Region:       "r",
 			ShardCount:   3,

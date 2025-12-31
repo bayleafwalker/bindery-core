@@ -77,7 +77,7 @@ func main() {
 					Namespace: namespace,
 				},
 				Spec: binderyv1alpha1.WorldInstanceSpec{
-					BookletRef:    binderyv1alpha1.ObjectRef{Name: bookletName},
+					BookletRef: binderyv1alpha1.ObjectRef{Name: bookletName},
 					RealmRef:   &binderyv1alpha1.ObjectRef{Name: realmName},
 					WorldID:    worldName,
 					Region:     "eu-west-1",

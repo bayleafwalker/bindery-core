@@ -24,11 +24,11 @@ type Booklet struct {
 }
 
 type BookletSpec struct {
-	BookletID     string            `json:"bookletId"`
-	Version    string            `json:"version"`
-	Modules    []BookletModuleRef   `json:"modules"`
-	Colocation []ColocationGroup `json:"colocation,omitempty"`
-	Defaults   map[string]string `json:"-"` // TODO: expand
+	BookletID  string             `json:"bookletId"`
+	Version    string             `json:"version"`
+	Modules    []BookletModuleRef `json:"modules"`
+	Colocation []ColocationGroup  `json:"colocation,omitempty"`
+	Defaults   map[string]string  `json:"-"` // TODO: expand
 }
 
 type ColocationGroup struct {

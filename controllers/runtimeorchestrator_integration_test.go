@@ -75,7 +75,7 @@ func TestIntegration_RuntimeOrchestrator_PublishesEndpointToStatus(t *testing.T)
 		TypeMeta:   metav1.TypeMeta{APIVersion: "bindery.platform/v1alpha1", Kind: "WorldInstance"},
 		ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: ns.Name},
 		Spec: binderyv1alpha1.WorldInstanceSpec{
-			BookletRef:      binderyv1alpha1.ObjectRef{Name: "game-1"},
+			BookletRef:   binderyv1alpha1.ObjectRef{Name: "game-1"},
 			WorldID:      "world-001",
 			Region:       "test-1",
 			ShardCount:   1,
@@ -211,7 +211,7 @@ func TestIntegration_RuntimeOrchestrator_ShardStorage_CreatesClaimMountAndPVC(t 
 		TypeMeta:   metav1.TypeMeta{APIVersion: "bindery.platform/v1alpha1", Kind: "WorldInstance"},
 		ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: ns.Name},
 		Spec: binderyv1alpha1.WorldInstanceSpec{
-			BookletRef:      binderyv1alpha1.ObjectRef{Name: "game-1"},
+			BookletRef:   binderyv1alpha1.ObjectRef{Name: "game-1"},
 			WorldID:      "world-001",
 			Region:       "test-1",
 			ShardCount:   2,
@@ -436,7 +436,7 @@ func TestIntegration_RuntimeOrchestrator_InjectsEndpoints(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: ns.Name},
 		Spec: binderyv1alpha1.WorldInstanceSpec{
 			BookletRef: binderyv1alpha1.ObjectRef{Name: "game-1"},
-			WorldID: "world-001",
+			WorldID:    "world-001",
 		},
 	}
 	if err := k8sClient.Create(ctx, world); err != nil {
