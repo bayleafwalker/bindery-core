@@ -57,7 +57,8 @@ When executing a task, follow this lifecycle to ensure quality and consistency:
    - Update relevant documentation in `docs/` to reflect new features or behavior.
    - Refactor existing docs and remove obsolete entries to keep information clean.
 4. **Verify**:
-   - Run local tests: `go test ./...`
+   - Run `make verify` to execute `fmt`, `tidy`, and `test` locally.
+   - This ensures code style and dependencies are correct before pushing, preventing CI failures.
    - Run integration tests: `make test-integration`
    - Ensure CI pipelines pass (check via `gh run list` or `gh run view`).
 5. **Refine Guidelines**: If the task reveals a gap in these instructions, update `.github/copilot-instructions.md`.

@@ -1,6 +1,6 @@
 SHELL := /usr/bin/env bash
 
-.PHONY: help test test-integration envtest tidy fmt proto kind-demo kind-down run-controller
+.PHONY: help test test-integration envtest tidy fmt verify proto kind-demo kind-down run-controller
 
 help:
 	@echo "Targets:"
@@ -8,6 +8,7 @@ help:
 	@echo "  make test-integration Run envtest integration tests"
 	@echo "  make tidy           Run go mod tidy"
 	@echo "  make fmt            Run gofmt on the repo"
+	@echo "  make verify         Run fmt, tidy, and test (CI pre-check)"
 	@echo "  make proto          Regenerate protobuf stubs (requires protoc + plugins)"
 	@echo "  make kind-demo      Create Kind cluster + apply CRDs/examples"
 	@echo "  make kind-down      Tear down Kind cluster"
@@ -33,6 +34,10 @@ tidy:
 
 fmt:
 	gofmt -w $(shell find . -name '*.go' -not -path './vendor/*')
+
+verify: fmt tidy test
+	@git diff --exit-code go.mod go.sum || (echo "Error: go.mod/go.sum are not tidy"; exit 1)
+	@echo "Verification passed!"
 
 proto:
 	PATH="$$PATH:$$(go env GOPATH)/bin" protoc -I . \
