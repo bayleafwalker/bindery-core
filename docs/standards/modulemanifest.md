@@ -152,9 +152,9 @@ For each required capability, the following variables are injected:
 
 | Variable | Description | Example |
 | :--- | :--- | :--- |
-| `ANVIL_CAPABILITY_<ID>_ENDPOINT` | Full address (host:port) | `physics-svc:8080` |
-| `ANVIL_CAPABILITY_<ID>_HOST` | Hostname or IP | `physics-svc` |
-| `ANVIL_CAPABILITY_<ID>_PORT` | Port number | `8080` |
+| `BINDERY_CAPABILITY_<ID>_ENDPOINT` | Full address (host:port) | `physics-svc:8080` |
+| `BINDERY_CAPABILITY_<ID>_HOST` | Hostname or IP | `physics-svc` |
+| `BINDERY_CAPABILITY_<ID>_PORT` | Port number | `8080` |
 
 **Naming Convention:**
 - `<ID>` is the Capability ID transformed to **UPPER_SNAKE_CASE**.
@@ -164,7 +164,7 @@ For each required capability, the following variables are injected:
 ### Example Usage
 
 If your module requires `physics.engine`, it can read:
-- `ANVIL_CAPABILITY_PHYSICS_ENGINE_ENDPOINT` to get the gRPC target.
+- `BINDERY_CAPABILITY_PHYSICS_ENGINE_ENDPOINT` to get the gRPC target.
 
 ---
 
@@ -183,8 +183,8 @@ The RuntimeOrchestrator respects specific annotations on the `ModuleManifest` to
 
 | Annotation | Description | Example |
 | :--- | :--- | :--- |
-| `anvil.dev/runtime-image` | Container image to deploy. | `my-registry/physics:v1.2` |
-| `anvil.dev/runtime-port` | Port exposed by the container. | `50051` |
-| `anvil.dev/termination-grace-period` | Seconds to wait before SIGKILL (default: 30). | `60` |
-| `anvil.dev/pre-stop-command` | Command to run before termination (PreStop hook). | `/bin/drain-connections.sh` |
+| `bindery.dev/runtime-image` | Container image to deploy. | `my-registry/physics:v1.2` |
+| `bindery.dev/runtime-port` | Port exposed by the container. | `50051` |
+| `bindery.dev/termination-grace-period` | Seconds to wait before SIGKILL (default: 30). | `60` |
+| `bindery.dev/pre-stop-command` | Command to run before termination (PreStop hook). | `/bin/drain-connections.sh` |
 

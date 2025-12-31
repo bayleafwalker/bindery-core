@@ -2,7 +2,7 @@
 
 This document defines a pragmatic, stability-first test plan for the **CapabilityResolver** system.
 
-Scope: declarative inputs (`ModuleManifest`, `GameDefinition`, `WorldInstance`) and resolver/controller outputs (`CapabilityBinding`), including schema compatibility and operational behaviors.
+Scope: declarative inputs (`ModuleManifest`, `Booklet`, `WorldInstance`) and resolver/controller outputs (`CapabilityBinding`), including schema compatibility and operational behaviors.
 
 ## Goals
 
@@ -120,7 +120,7 @@ Once the controller uses `resolver.Input` built from cluster reads and writes `C
   - Verify owner refs / labels / stable naming (if/when implemented).
 - Reconcile edge cases:
   - NotFound WorldInstance should be ignored.
-  - Missing GameDefinition should set status/event (if status logic is implemented).
+  - Missing Booklet should set status/event (if status logic is implemented).
   - Conflicts should requeue.
 
 ## Integration tests (Kind)
@@ -147,7 +147,7 @@ Prereq: controller runs in-cluster and performs binding reconciliation.
 Test cases (concrete):
 
 1) **No provider found**
-- Create GameDefinition that includes a consumer module requiring `time.source`.
+- Create Booklet that includes a consumer module requiring `time.source`.
 - Omit any provider.
 - Expect:
   - No `CapabilityBinding` created for that requirement.

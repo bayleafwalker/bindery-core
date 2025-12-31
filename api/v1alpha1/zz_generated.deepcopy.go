@@ -89,7 +89,7 @@ func (in *ModuleManifestList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-func (in *GameDefinition) DeepCopyInto(out *GameDefinition) {
+func (in *Booklet) DeepCopyInto(out *Booklet) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
@@ -97,26 +97,26 @@ func (in *GameDefinition) DeepCopyInto(out *GameDefinition) {
 	out.Status = in.Status
 }
 
-func (in *GameDefinition) DeepCopy() *GameDefinition {
+func (in *Booklet) DeepCopy() *Booklet {
 	if in == nil {
 		return nil
 	}
-	out := new(GameDefinition)
+	out := new(Booklet)
 	in.DeepCopyInto(out)
 	return out
 }
 
-func (in *GameDefinition) DeepCopyObject() runtime.Object {
+func (in *Booklet) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
 	return nil
 }
 
-func (in *GameDefinitionSpec) DeepCopyInto(out *GameDefinitionSpec) {
+func (in *BookletSpec) DeepCopyInto(out *BookletSpec) {
 	*out = *in
 	if in.Modules != nil {
-		out.Modules = make([]GameModuleRef, len(in.Modules))
+		out.Modules = make([]BookletModuleRef, len(in.Modules))
 		copy(out.Modules, in.Modules)
 	}
 	if in.Colocation != nil {
@@ -133,28 +133,28 @@ func (in *GameDefinitionSpec) DeepCopyInto(out *GameDefinitionSpec) {
 	}
 }
 
-func (in *GameDefinitionList) DeepCopyInto(out *GameDefinitionList) {
+func (in *BookletList) DeepCopyInto(out *BookletList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
-		out.Items = make([]GameDefinition, len(in.Items))
+		out.Items = make([]Booklet, len(in.Items))
 		for i := range in.Items {
 			in.Items[i].DeepCopyInto(&out.Items[i])
 		}
 	}
 }
 
-func (in *GameDefinitionList) DeepCopy() *GameDefinitionList {
+func (in *BookletList) DeepCopy() *BookletList {
 	if in == nil {
 		return nil
 	}
-	out := new(GameDefinitionList)
+	out := new(BookletList)
 	in.DeepCopyInto(out)
 	return out
 }
 
-func (in *GameDefinitionList) DeepCopyObject() runtime.Object {
+func (in *BookletList) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}

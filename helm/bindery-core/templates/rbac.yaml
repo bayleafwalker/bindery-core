@@ -1,0 +1,46 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "bindery-core.fullname" . }}-manager-role
+  labels:
+    {{- include "bindery-core.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["game.platform"]
+    resources: ["modulemanifests", "bookletinitions", "worldinstances", "worldshards", "worldstorageclaims"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["game.platform"]
+    resources: ["worldshards", "worldstorageclaims"]
+    verbs: ["create", "update", "patch", "delete"]
+  - apiGroups: ["game.platform"]
+    resources: ["capabilitybindings"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["game.platform"]
+    resources: ["capabilitybindings/status", "worldinstances/status", "worldshards/status", "worldstorageclaims/status"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "bindery-core.fullname" . }}-manager-rolebinding
+  labels:
+    {{- include "bindery-core.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "bindery-core.fullname" . }}-manager-role
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "bindery-core.fullname" . }}-controller-manager
+    namespace: {{ .Release.Namespace }}

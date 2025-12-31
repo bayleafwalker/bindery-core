@@ -1,6 +1,6 @@
 # Platform Architecture
 
-This document describes the high-level architecture of the Anvil platform: a Kubernetes-orchestrated, capability-driven system for composing distributed game engines out of modular components.
+This document describes the high-level architecture of the Bindery platform: a Kubernetes-orchestrated, capability-driven system for composing distributed game engines out of modular components.
 
 ## Overall system
 
@@ -71,7 +71,7 @@ Kubernetes is the control-plane substrate.
 In this repo, Kubernetes-native resources represent platform intent:
 
 - `ModuleManifest` declares provides/requires for a module.
-- `GameDefinition` declares the module set for a game.
+- `Booklet` declares the module set for a game.
 - `WorldInstance` declares a running world.
 - `CapabilityBinding` declares a resolved dependency from consumer → provider.
 
@@ -79,15 +79,15 @@ A controller (CapabilityResolver) reconciles these resources into stable `Capabi
 
 In the current MVP direction, runtime workload creation is handled by a separate controller (RuntimeOrchestrator) that materializes `Deployment`/`Service` for **server-owned** provider modules and publishes the reachable endpoint back onto `CapabilityBinding.status.provider.endpoint`.
 
-Convention (MVP): a provider module is considered server-owned/orchestrated if its `ModuleManifest` includes runtime annotations (e.g. `anvil.dev/runtime-image`, optional `anvil.dev/runtime-port`).
+Convention (MVP): a provider module is considered server-owned/orchestrated if its `ModuleManifest` includes runtime annotations (e.g. `bindery.dev/runtime-image`, optional `bindery.dev/runtime-port`).
 
 ### Co-location and Latency Optimization
 
 To support high-frequency real-time games, the platform supports explicit co-location of modules to minimize inter-module latency.
 
-- **Node Co-location**: Modules can be scheduled on the same node using `GameDefinition.spec.colocation` with `strategy: Node`. This leverages Kubernetes Pod Affinity.
+- **Node Co-location**: Modules can be scheduled on the same node using `Booklet.spec.colocation` with `strategy: Node`. This leverages Kubernetes Pod Affinity.
 - **Pod Co-location**: Modules can be merged into a single Pod (sidecar pattern) using `strategy: Pod`. This enables communication via Unix Domain Sockets (UDS) or localhost.
-- **UDS Support**: The platform automatically injects shared volumes and environment variables (`ANVIL_UDS_DIR`, `ANVIL_UDS_<CAPABILITY>`) for Pod-co-located modules, allowing them to bypass the TCP stack.
+- **UDS Support**: The platform automatically injects shared volumes and environment variables (`BINDERY_UDS_DIR`, `BINDERY_UDS_<CAPABILITY>`) for Pod-co-located modules, allowing them to bypass the TCP stack.
 - **gRPC Tuning**: Modules can be configured with custom gRPC window sizes via `ModuleManifest` annotations or environment variables to optimize throughput.
 
 ## Capability model
@@ -138,12 +138,12 @@ The resolver is a reconciliation loop that computes a desired set of `Capability
 
 Inputs:
 
-- `WorldInstance` selects a `GameDefinition`.
-- `GameDefinition` selects a set of participating `ModuleManifest`s.
+- `WorldInstance` selects a `Booklet`.
+- `Booklet` selects a set of participating `ModuleManifest`s.
 
 Resolution steps (high level):
 
-1. Load `WorldInstance` and its referenced `GameDefinition`.
+1. Load `WorldInstance` and its referenced `Booklet`.
 2. Load the participating `ModuleManifest`s.
 3. Index all provider capabilities by `(capabilityId, scope)`.
 4. For each consumer requirement:
@@ -188,7 +188,7 @@ flowchart LR
   %% Control plane
   subgraph Kubernetes Control Plane
     API[Kubernetes API Server]
-    CRDs[CRDs: ModuleManifest/GameDefinition/WorldInstance/CapabilityBinding]
+    CRDs[CRDs: ModuleManifest/Booklet/WorldInstance/CapabilityBinding]
     R[CapabilityResolver Controller]
     API --- CRDs
     R --> API

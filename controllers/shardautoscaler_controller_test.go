@@ -11,7 +11,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	gamev1alpha1 "github.com/anvil-platform/anvil/api/v1alpha1"
+	binderyv1alpha1 "github.com/bayleafwalker/bindery-core/api/v1alpha1"
 )
 
 func TestShardAutoscaler_Reconcile(t *testing.T) {
@@ -19,17 +19,17 @@ func TestShardAutoscaler_Reconcile(t *testing.T) {
 
 	scheme := runtime.NewScheme()
 	_ = clientgoscheme.AddToScheme(scheme)
-	_ = gamev1alpha1.AddToScheme(scheme)
+	_ = binderyv1alpha1.AddToScheme(scheme)
 
-	world := &gamev1alpha1.WorldInstance{
+	world := &binderyv1alpha1.WorldInstance{
 		ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"},
-		Spec:       gamev1alpha1.WorldInstanceSpec{WorldID: "w1", ShardCount: 2},
+		Spec:       binderyv1alpha1.WorldInstanceSpec{WorldID: "w1", ShardCount: 2},
 	}
 
-	sa := &gamev1alpha1.ShardAutoscaler{
+	sa := &binderyv1alpha1.ShardAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{Name: "sa-1", Namespace: "default"},
-		Spec: gamev1alpha1.ShardAutoscalerSpec{
-			WorldRef:  gamev1alpha1.ObjectRef{Name: "world-1"},
+		Spec: binderyv1alpha1.ShardAutoscalerSpec{
+			WorldRef:  binderyv1alpha1.ObjectRef{Name: "world-1"},
 			MinShards: 1,
 			MaxShards: 5,
 		},
@@ -45,7 +45,7 @@ func TestShardAutoscaler_Reconcile(t *testing.T) {
 		t.Fatalf("Reconcile failed: %v", err)
 	}
 
-	var updatedSA gamev1alpha1.ShardAutoscaler
+	var updatedSA binderyv1alpha1.ShardAutoscaler
 	if err := cl.Get(ctx, types.NamespacedName{Namespace: "default", Name: "sa-1"}, &updatedSA); err != nil {
 		t.Fatalf("Get SA failed: %v", err)
 	}
@@ -63,17 +63,17 @@ func TestShardAutoscaler_ScalesToMin(t *testing.T) {
 
 	scheme := runtime.NewScheme()
 	_ = clientgoscheme.AddToScheme(scheme)
-	_ = gamev1alpha1.AddToScheme(scheme)
+	_ = binderyv1alpha1.AddToScheme(scheme)
 
-	world := &gamev1alpha1.WorldInstance{
+	world := &binderyv1alpha1.WorldInstance{
 		ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"},
-		Spec:       gamev1alpha1.WorldInstanceSpec{WorldID: "w1", ShardCount: 1},
+		Spec:       binderyv1alpha1.WorldInstanceSpec{WorldID: "w1", ShardCount: 1},
 	}
 
-	sa := &gamev1alpha1.ShardAutoscaler{
+	sa := &binderyv1alpha1.ShardAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{Name: "sa-1", Namespace: "default"},
-		Spec: gamev1alpha1.ShardAutoscalerSpec{
-			WorldRef:  gamev1alpha1.ObjectRef{Name: "world-1"},
+		Spec: binderyv1alpha1.ShardAutoscalerSpec{
+			WorldRef:  binderyv1alpha1.ObjectRef{Name: "world-1"},
 			MinShards: 3,
 			MaxShards: 5,
 		},
@@ -88,7 +88,7 @@ func TestShardAutoscaler_ScalesToMin(t *testing.T) {
 		t.Fatalf("Reconcile failed: %v", err)
 	}
 
-	var updatedWorld gamev1alpha1.WorldInstance
+	var updatedWorld binderyv1alpha1.WorldInstance
 	if err := cl.Get(ctx, types.NamespacedName{Namespace: "default", Name: "world-1"}, &updatedWorld); err != nil {
 		t.Fatalf("Get World failed: %v", err)
 	}

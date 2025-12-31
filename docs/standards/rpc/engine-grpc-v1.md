@@ -12,7 +12,7 @@ This project includes a versioned gRPC Protobuf contract that defines the baseli
 ## Package
 
 - Protobuf package: `game.engine.v1`
-- Go package: `github.com/anvil-platform/anvil/proto/game/engine/v1`
+- Go package: `github.com/bayleafwalker/bindery-core/contracts/proto/game/engine/v1`
 
 ## Service
 

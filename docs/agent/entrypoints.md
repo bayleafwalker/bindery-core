@@ -9,7 +9,7 @@ Use this to start a new task with minimal ambiguity.
 Prompt:
 
 ```text
-You are working in the /projects/dev/anvil repo.
+You are working in the /projects/dev/bindery repo.
 
 Goal:
 - [Describe the outcome you want in 1–3 bullets]

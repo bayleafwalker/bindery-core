@@ -12,7 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	gamev1alpha1 "github.com/anvil-platform/anvil/api/v1alpha1"
+	binderyv1alpha1 "github.com/bayleafwalker/bindery-core/api/v1alpha1"
 )
 
 func TestWorldShardController_CreatesShardsForWorld(t *testing.T) {
@@ -20,15 +20,15 @@ func TestWorldShardController_CreatesShardsForWorld(t *testing.T) {
 
 	scheme := runtime.NewScheme()
 	_ = clientgoscheme.AddToScheme(scheme)
-	if err := gamev1alpha1.AddToScheme(scheme); err != nil {
+	if err := binderyv1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("AddToScheme(game): %v", err)
 	}
 
-	world := &gamev1alpha1.WorldInstance{
-		TypeMeta:   metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "WorldInstance"},
+	world := &binderyv1alpha1.WorldInstance{
+		TypeMeta:   metav1.TypeMeta{APIVersion: "bindery.platform/v1alpha1", Kind: "WorldInstance"},
 		ObjectMeta: metav1.ObjectMeta{Name: "w1", Namespace: "ns"},
-		Spec: gamev1alpha1.WorldInstanceSpec{
-			GameRef:      gamev1alpha1.ObjectRef{Name: "g"},
+		Spec: binderyv1alpha1.WorldInstanceSpec{
+			BookletRef:      binderyv1alpha1.ObjectRef{Name: "g"},
 			WorldID:      "world-1",
 			Region:       "r",
 			ShardCount:   3,
@@ -44,7 +44,7 @@ func TestWorldShardController_CreatesShardsForWorld(t *testing.T) {
 		t.Fatalf("Reconcile: %v", err)
 	}
 
-	var list gamev1alpha1.WorldShardList
+	var list binderyv1alpha1.WorldShardList
 	if err := cl.List(ctx, &list, client.InNamespace("ns")); err != nil {
 		t.Fatalf("List: %v", err)
 	}

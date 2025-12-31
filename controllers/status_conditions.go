@@ -6,7 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	gamev1alpha1 "github.com/anvil-platform/anvil/api/v1alpha1"
+	binderyv1alpha1 "github.com/bayleafwalker/bindery-core/api/v1alpha1"
 )
 
 const (
@@ -17,7 +17,7 @@ const (
 	BindingConditionRuntimeReady = "RuntimeReady"
 )
 
-func setWorldCondition(world *gamev1alpha1.WorldInstance, condition metav1.Condition) {
+func setWorldCondition(world *binderyv1alpha1.WorldInstance, condition metav1.Condition) {
 	if world == nil {
 		return
 	}
@@ -25,7 +25,7 @@ func setWorldCondition(world *gamev1alpha1.WorldInstance, condition metav1.Condi
 	meta.SetStatusCondition(&world.Status.Conditions, condition)
 }
 
-func setBindingCondition(binding *gamev1alpha1.CapabilityBinding, condition metav1.Condition) {
+func setBindingCondition(binding *binderyv1alpha1.CapabilityBinding, condition metav1.Condition) {
 	if binding == nil {
 		return
 	}

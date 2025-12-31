@@ -1,6 +1,6 @@
 # /controllers
 
-This folder contains Kubernetes controllers/reconcilers for Anvil.
+This folder contains Kubernetes controllers/reconcilers for Bindery.
 
 Primary controller:
 - CapabilityResolver reconciles `WorldInstance` inputs into `CapabilityBinding` outputs.

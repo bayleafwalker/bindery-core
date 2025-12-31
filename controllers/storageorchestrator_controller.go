@@ -18,14 +18,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	gamev1alpha1 "github.com/anvil-platform/anvil/api/v1alpha1"
+	binderyv1alpha1 "github.com/bayleafwalker/bindery-core/api/v1alpha1"
 )
 
 // StorageOrchestratorReconciler materializes backing PVCs for WorldStorageClaims (server tiers).
 //
 // RBAC:
-// +kubebuilder:rbac:groups=game.platform,resources=worldstorageclaims,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=game.platform,resources=worldstorageclaims/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=bindery.platform,resources=worldstorageclaims,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=bindery.platform,resources=worldstorageclaims/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch;update
 type StorageOrchestratorReconciler struct {
@@ -41,7 +41,7 @@ func (r *StorageOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 		"claim", req.Name,
 	)
 
-	var claim gamev1alpha1.WorldStorageClaim
+	var claim binderyv1alpha1.WorldStorageClaim
 	if err := r.Get(ctx, req.NamespacedName, &claim); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -56,7 +56,7 @@ func (r *StorageOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 
 	// Client-side tiers are external to the cluster: no PVC.
-	if claim.Spec.Tier == gamev1alpha1.WorldStorageTierClientLowLatency {
+	if claim.Spec.Tier == binderyv1alpha1.WorldStorageTierClientLowLatency {
 		before := claim.DeepCopy()
 		claim.Status.Phase = "External"
 		claim.Status.Message = "Client-side low-latency storage is outside the Kubernetes cluster"
@@ -110,7 +110,7 @@ func (r *StorageOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 		if claim.Spec.ShardRef != nil && pvc.Labels[labelShardID] == "" {
 			pvc.Labels[labelShardID] = claim.Spec.ShardRef.Name
 		}
-		pvc.Labels["game.platform/storage-tier"] = string(claim.Spec.Tier)
+		pvc.Labels["bindery.platform/storage-tier"] = string(claim.Spec.Tier)
 		pvc.Spec.AccessModes = modeObjs
 		pvc.Spec.Resources.Requests = corev1.ResourceList{corev1.ResourceStorage: sizeQty}
 		if strings.TrimSpace(requestedSC) != "" {
@@ -151,31 +151,31 @@ func (r *StorageOrchestratorReconciler) recordEventf(obj client.Object, eventTyp
 
 func (r *StorageOrchestratorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&gamev1alpha1.WorldStorageClaim{}).
+		For(&binderyv1alpha1.WorldStorageClaim{}).
 		Owns(&corev1.PersistentVolumeClaim{}).
 		Complete(r)
 }
 
-func defaultStorageClassForTier(tier gamev1alpha1.WorldStorageTier) string {
+func defaultStorageClassForTier(tier binderyv1alpha1.WorldStorageTier) string {
 	// Defaults are resolved via env vars so clusters can configure without CRD changes.
 	switch tier {
-	case gamev1alpha1.WorldStorageTierServerLowLatency:
-		return strings.TrimSpace(os.Getenv("ANVIL_STORAGECLASS_SERVER_LOW_LATENCY"))
-	case gamev1alpha1.WorldStorageTierServerHighLatency:
-		return strings.TrimSpace(os.Getenv("ANVIL_STORAGECLASS_SERVER_HIGH_LATENCY"))
+	case binderyv1alpha1.WorldStorageTierServerLowLatency:
+		return strings.TrimSpace(os.Getenv("BINDERY_STORAGECLASS_SERVER_LOW_LATENCY"))
+	case binderyv1alpha1.WorldStorageTierServerHighLatency:
+		return strings.TrimSpace(os.Getenv("BINDERY_STORAGECLASS_SERVER_HIGH_LATENCY"))
 	default:
-		return strings.TrimSpace(os.Getenv("ANVIL_STORAGECLASS_DEFAULT"))
+		return strings.TrimSpace(os.Getenv("BINDERY_STORAGECLASS_DEFAULT"))
 	}
 }
 
 func defaultClientStorageURI(worldName, shardName string) string {
 	if shardName == "" {
-		return fmt.Sprintf("file://$HOME/.anvil/worlds/%s", worldName)
+		return fmt.Sprintf("file://$HOME/.bindery/worlds/%s", worldName)
 	}
-	return fmt.Sprintf("file://$HOME/.anvil/worlds/%s/shards/%s", worldName, shardName)
+	return fmt.Sprintf("file://$HOME/.bindery/worlds/%s/shards/%s", worldName, shardName)
 }
 
-func shardRefName(ref *gamev1alpha1.ObjectRef) string {
+func shardRefName(ref *binderyv1alpha1.ObjectRef) string {
 	if ref == nil {
 		return ""
 	}

@@ -1,6 +1,6 @@
 # Runtime Coordination
 
-This document describes how the Anvil platform coordinates the lifecycle and connectivity of game modules at runtime.
+This document describes how the Bindery platform coordinates the lifecycle and connectivity of game modules at runtime.
 
 ## Overview
 
@@ -13,7 +13,7 @@ Runtime coordination ensures that:
 ## Core Concepts
 
 ### Root Modules
-A "Root Module" is a module listed in a `GameDefinition` that is not required by any other module (e.g., a Game Server or Gateway).
+A "Root Module" is a module listed in a `Booklet` that is not required by any other module (e.g., a Game Server or Gateway).
 The `CapabilityResolver` automatically detects these modules and creates a **Root CapabilityBinding** to ensure they are deployed.
 - **Consumer**: The World Instance itself (synthetic).
 - **Provider**: The Root Module.
@@ -33,8 +33,8 @@ To ensure smooth startup, the platform injects **Init Containers** into module d
 ## Observability
 
 ### Metrics
-- `anvil_capabilityresolver_resolution_duration_seconds`: Histogram of resolution time.
-- `anvil_runtimeorchestrator_deployment_duration_seconds`: Histogram of deployment reconciliation time.
+- `bindery_capabilityresolver_resolution_duration_seconds`: Histogram of resolution time.
+- `bindery_runtimeorchestrator_deployment_duration_seconds`: Histogram of deployment reconciliation time.
 
 ### CLI
 `kubectl get capabilitybindings` now shows:

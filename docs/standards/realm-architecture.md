@@ -1,6 +1,6 @@
 # Realm Architecture
 
-The Anvil platform uses a hierarchical model to organize game worlds and shared services. This document describes the `Realm` concept and how it interacts with Worlds and the Runtime.
+The Bindery platform uses a hierarchical model to organize game worlds and shared services. This document describes the `Realm` concept and how it interacts with Worlds and the Runtime.
 
 ## Hierarchy
 
@@ -21,7 +21,7 @@ A **Realm** represents a shared context for a group of World Instances. It typic
 - **Controller**: `RealmController`.
 
 ### 2. WorldInstance
-A **WorldInstance** is a specific instantiation of a `GameDefinition`.
+A **WorldInstance** is a specific instantiation of a `Booklet`.
 - **Responsibility**: Hosting game logic, physics, and world-specific state.
 - **Resource**: `WorldInstance` CRD.
 - **Controller**: `CapabilityResolver` (logic), `WorldShardController` (sharding).
@@ -50,8 +50,8 @@ Modules in a World often need to communicate with Global modules in the Realm.
 
 ## Service Discovery
 The platform automatically injects environment variables for service discovery:
-- `ANVIL_CAPABILITY_<ID>_ENDPOINT`: `host:port`
-- `ANVIL_CAPABILITY_<ID>_HOST`: `host`
-- `ANVIL_CAPABILITY_<ID>_PORT`: `port`
+- `BINDERY_CAPABILITY_<ID>_ENDPOINT`: `host:port`
+- `BINDERY_CAPABILITY_<ID>_HOST`: `host`
+- `BINDERY_CAPABILITY_<ID>_PORT`: `port`
 
 For Realm-scoped dependencies, these point to the single shared Service of the global module.

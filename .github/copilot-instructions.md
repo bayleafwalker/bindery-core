@@ -1,4 +1,4 @@
-# Copilot instructions (anvil)
+# Copilot instructions (bindery)
 
 ## What this repo is
 - Kubernetes-native, capability-driven game platform.
@@ -20,7 +20,7 @@
 
 ## Common workflows
 - Unit tests: `go test ./...`
-- Integration tests (envtest): `make test-integration` (or `ANVIL_INTEGRATION=1 go test ./... -run Integration`)
+- Integration tests (envtest): `make test-integration` (or `BINDERY_INTEGRATION=1 go test ./... -run Integration`)
 - Local CRD/example validation on Kind:
   - up + apply: `./k8s/dev/kind-demo.sh`
   - down: `./k8s/dev/kind-down.sh`

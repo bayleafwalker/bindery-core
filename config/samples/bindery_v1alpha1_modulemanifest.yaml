@@ -1,0 +1,23 @@
+apiVersion: bindery.platform/v1alpha1
+kind: ModuleManifest
+metadata:
+  name: core-physics-engine
+  namespace: default
+spec:
+  module:
+    id: core.physics
+    version: 1.0.0
+  provides:
+    - capabilityId: physics.engine
+      version: 1.0.0
+      scope: world
+      multiplicity: "1"
+  requires:
+    - capabilityId: time.source
+      versionConstraint: "^1.0.0"
+      scope: world
+      multiplicity: "1"
+      dependencyMode: required
+  scaling:
+    defaultScope: world
+    statefulness: stateful

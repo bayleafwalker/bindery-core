@@ -1,10 +1,10 @@
 # Production Readiness & Scalability Guide
 
-This guide outlines best practices for running Anvil in production environments, addressing scalability, performance, and operational limits.
+This guide outlines best practices for running Bindery in production environments, addressing scalability, performance, and operational limits.
 
 ## Kubernetes Limitations & Scalability
 
-Anvil relies heavily on Kubernetes CRDs (`WorldInstance`, `CapabilityBinding`, etc.). While Kubernetes is robust, it has limits:
+Bindery relies heavily on Kubernetes CRDs (`WorldInstance`, `CapabilityBinding`, etc.). While Kubernetes is robust, it has limits:
 
 *   **Object Count**: A single cluster can handle thousands of CRs, but tens of thousands may strain `etcd` and the API server.
 *   **Scheduling Latency**: Pod startup is not instantaneous. Expect seconds of latency for new world creation.
@@ -20,7 +20,7 @@ Anvil relies heavily on Kubernetes CRDs (`WorldInstance`, `CapabilityBinding`, e
 
 ### Controller Resources
 
-Ensure the Anvil controller manager has sufficient resources. Recommended defaults for a moderate cluster:
+Ensure the Bindery controller manager has sufficient resources. Recommended defaults for a moderate cluster:
 
 ```yaml
 resources:
@@ -61,7 +61,7 @@ Use Kubernetes `PriorityClasses` to ensure critical game servers take precedence
 To minimize latency:
 
 *   **Node Affinity**: Use `nodeSelector` or `affinity` in `ModuleManifest` to schedule game servers on optimized node pools.
-*   **Colocation**: Use `GameDefinition` colocation strategies to keep related modules together.
+*   **Colocation**: Use `Booklet` colocation strategies to keep related modules together.
 
 ## Monitoring
 
@@ -73,8 +73,8 @@ Key metrics to watch:
 
 ## Load Testing
 
-Use the `anvil-load-test` tool to benchmark your cluster's performance:
+Use the `bindery-load-test` tool to benchmark your cluster's performance:
 
 ```bash
-go run ./cmd/anvil-load-test --worlds 100 --namespace default
+go run ./cmd/bindery-load-test --worlds 100 --namespace default
 ```

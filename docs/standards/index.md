@@ -6,7 +6,7 @@ This folder defines the **declarative module/capability standard** for the platf
 
 - Capability model (IDs, versions, scopes, resolution, features, NFRs): `capability-model.md`
 - Module manifest contract: `modulemanifest.md`
-- Game definition contract: `gamedefinition.md`
+- Game definition contract: `bookletinition.md`
 - Capability contract document: `capabilitycontract.md`
 - Versioning & deprecation policy: `versioning-and-deprecation.md`
 

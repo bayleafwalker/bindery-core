@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	gamev1alpha1 "github.com/anvil-platform/anvil/api/v1alpha1"
+	binderyv1alpha1 "github.com/bayleafwalker/bindery-core/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -12,24 +12,24 @@ func TestDefaultResolver_CreatesRootBindings(t *testing.T) {
 	r := NewDefault()
 
 	in := Input{
-		World: gamev1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
-		Modules: []gamev1alpha1.ModuleManifest{
+		World: binderyv1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
+		Modules: []binderyv1alpha1.ModuleManifest{
 			// Module A: Root module, no requirements, no providers.
 			mm("module-a", nil, nil),
 			// Module B: Required by Module C.
-			mm("module-b", []gamev1alpha1.ProvidedCapability{{
+			mm("module-b", []binderyv1alpha1.ProvidedCapability{{
 				CapabilityID: "cap.b",
 				Version:      "1.0.0",
-				Scope:        gamev1alpha1.CapabilityScopeWorld,
-				Multiplicity: gamev1alpha1.MultiplicityOne,
+				Scope:        binderyv1alpha1.CapabilityScopeWorld,
+				Multiplicity: binderyv1alpha1.MultiplicityOne,
 			}}, nil),
 			// Module C: Requires Module B.
-			mm("module-c", nil, []gamev1alpha1.RequiredCapability{{
+			mm("module-c", nil, []binderyv1alpha1.RequiredCapability{{
 				CapabilityID:      "cap.b",
 				VersionConstraint: "*",
-				Scope:             gamev1alpha1.CapabilityScopeWorld,
-				Multiplicity:      gamev1alpha1.MultiplicityOne,
-				DependencyMode:    gamev1alpha1.DependencyModeRequired,
+				Scope:             binderyv1alpha1.CapabilityScopeWorld,
+				Multiplicity:      binderyv1alpha1.MultiplicityOne,
+				DependencyMode:    binderyv1alpha1.DependencyModeRequired,
 			}}),
 		},
 	}

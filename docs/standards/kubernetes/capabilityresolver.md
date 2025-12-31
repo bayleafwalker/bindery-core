@@ -8,7 +8,7 @@ This document defines a Kubernetes controller named **CapabilityResolver**.
 
 **Watches (primary inputs):**
 - `ModuleManifest` (namespaced)
-- `GameDefinition` (namespaced)
+- `Booklet` (namespaced)
 - `WorldInstance` (namespaced)
 - `WorldShard` (namespaced)
 
@@ -25,8 +25,8 @@ This document defines a Kubernetes controller named **CapabilityResolver**.
 
 The controller reconciles **per WorldInstance**.
 
-- `WorldInstance.spec.gameRef.name` selects a `GameDefinition`.
-- `GameDefinition.spec.modules[]` selects the set of `ModuleManifest` resources that participate in the world.
+- `WorldInstance.spec.gameRef.name` selects a `Booklet`.
+- `Booklet.spec.modules[]` selects the set of `ModuleManifest` resources that participate in the world.
 - Bindings are computed for that world and should include `spec.worldRef.name`.
 
 ### Compatibility rules
@@ -64,8 +64,8 @@ Compatibility matrix (v1alpha1):
 For each `WorldInstance` reconcile:
 
 1) Load `WorldInstance`.
-2) Load referenced `GameDefinition`.
-3) Resolve the participating `ModuleManifest` set from `GameDefinition.spec.modules[]`.
+2) Load referenced `Booklet`.
+3) Resolve the participating `ModuleManifest` set from `Booklet.spec.modules[]`.
 4) Build an index of providers by `(capabilityId, scope)`.
 5) For each module in the game:
    - For each `requires[]` entry:
@@ -95,10 +95,10 @@ reconcile(worldKey):
   if world not found:
     return
 
-  game = get(GameDefinition, (world.namespace, world.spec.gameRef.name))
+  game = get(Booklet, (world.namespace, world.spec.gameRef.name))
   if game not found:
     setWorldCondition(world, type="BindingsResolved", status=False,
-                      reason="GameDefinitionNotFound")
+                      reason="BookletNotFound")
     return
 
   moduleNames = [m.name for m in game.spec.modules]
@@ -193,7 +193,7 @@ reconcile(worldKey):
 - Behavior: return error to requeue; do not change status unless safe.
 
 2) **Missing inputs**
-- Missing `GameDefinition`: set `WorldInstance.status.phase=Error` and condition `BindingsResolved=False` with reason `GameDefinitionNotFound`.
+- Missing `Booklet`: set `WorldInstance.status.phase=Error` and condition `BindingsResolved=False` with reason `BookletNotFound`.
 - Missing `ModuleManifest` referenced by the game: set `BindingsResolved=False` with reason `ModuleManifestNotFound` and list missing names in `WorldInstance.status.message`.
 
 3) **Unsatisfied requirements**
@@ -218,7 +218,7 @@ The controller must be fully idempotent:
 ## Eventual consistency model
 
 - The system is **eventually consistent**.
-- Any change to inputs (`ModuleManifest`, `GameDefinition`, `WorldInstance`) will eventually result in the desired set of `CapabilityBinding` resources.
+- Any change to inputs (`ModuleManifest`, `Booklet`, `WorldInstance`) will eventually result in the desired set of `CapabilityBinding` resources.
 - Convergence properties:
   - deterministic provider selection avoids “binding churn”
   - reconcile is level-based (“desired state”), not edge-based
@@ -228,8 +228,8 @@ Recommended mechanics:
 - Use shared informers (cached reads).
 - Reconcile triggers:
   - direct watch on `WorldInstance`
-  - watch `GameDefinition` and enqueue all worlds referencing it
-  - watch `ModuleManifest` and enqueue all worlds whose `GameDefinition` references it
+  - watch `Booklet` and enqueue all worlds referencing it
+  - watch `ModuleManifest` and enqueue all worlds whose `Booklet` references it
 
 ## Debuggability and observability
 
@@ -290,13 +290,13 @@ apiVersion: game.platform/v1alpha1
 kind: CapabilityBinding
 metadata:
   name: physics-requires-timesource
-  namespace: anvil-demo
+  namespace: bindery-demo
 spec:
   capabilityId: time.source
   scope: world
   multiplicity: "1"
   worldRef:
-    name: anvil-sample-world
+    name: bindery-sample-world
   consumer:
     moduleManifestName: core-physics-engine
     requirement:
@@ -314,13 +314,13 @@ apiVersion: game.platform/v1alpha1
 kind: CapabilityBinding
 metadata:
   name: interaction-requires-physics
-  namespace: anvil-demo
+  namespace: bindery-demo
 spec:
   capabilityId: physics.engine
   scope: world-shard
   multiplicity: "1"
   worldRef:
-    name: anvil-sample-world
+    name: bindery-sample-world
   consumer:
     moduleManifestName: core-interaction-engine
     requirement:

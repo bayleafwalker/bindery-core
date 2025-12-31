@@ -6,16 +6,16 @@ import (
 )
 
 var (
-	anvilControllerReconcileTotal = prometheus.NewCounterVec(
+	binderyControllerReconcileTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "anvil_controller_reconcile_total",
+			Name: "bindery_controller_reconcile_total",
 			Help: "Number of reconciliations by controller.",
 		},
 		[]string{"controller"},
 	)
-	anvilControllerReconcileErrorTotal = prometheus.NewCounterVec(
+	binderyControllerReconcileErrorTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "anvil_controller_reconcile_error_total",
+			Name: "bindery_controller_reconcile_error_total",
 			Help: "Number of reconciliation errors by controller.",
 		},
 		[]string{"controller"},
@@ -23,33 +23,33 @@ var (
 
 	capabilityResolverUnresolvedRequired = prometheus.NewGauge(
 		prometheus.GaugeOpts{
-			Name: "anvil_capabilityresolver_unresolved_required",
+			Name: "bindery_capabilityresolver_unresolved_required",
 			Help: "Number of unresolved required requirements observed in the last CapabilityResolver reconcile.",
 		},
 	)
 
 	capabilityResolverBindingsCreatedTotal = prometheus.NewCounter(
 		prometheus.CounterOpts{
-			Name: "anvil_capabilityresolver_bindings_created_total",
+			Name: "bindery_capabilityresolver_bindings_created_total",
 			Help: "Total number of CapabilityBindings created by CapabilityResolver.",
 		},
 	)
 	capabilityResolverBindingsUpdatedTotal = prometheus.NewCounter(
 		prometheus.CounterOpts{
-			Name: "anvil_capabilityresolver_bindings_updated_total",
+			Name: "bindery_capabilityresolver_bindings_updated_total",
 			Help: "Total number of CapabilityBindings updated by CapabilityResolver.",
 		},
 	)
 	capabilityResolverBindingsDeletedTotal = prometheus.NewCounter(
 		prometheus.CounterOpts{
-			Name: "anvil_capabilityresolver_bindings_deleted_total",
+			Name: "bindery_capabilityresolver_bindings_deleted_total",
 			Help: "Total number of CapabilityBindings deleted by CapabilityResolver.",
 		},
 	)
 
 	capabilityResolverResolutionDuration = prometheus.NewHistogram(
 		prometheus.HistogramOpts{
-			Name:    "anvil_capabilityresolver_resolution_duration_seconds",
+			Name:    "bindery_capabilityresolver_resolution_duration_seconds",
 			Help:    "Time taken to resolve capabilities.",
 			Buckets: prometheus.DefBuckets,
 		},
@@ -57,7 +57,7 @@ var (
 
 	runtimeOrchestratorDeploymentDuration = prometheus.NewHistogram(
 		prometheus.HistogramOpts{
-			Name:    "anvil_runtimeorchestrator_deployment_duration_seconds",
+			Name:    "bindery_runtimeorchestrator_deployment_duration_seconds",
 			Help:    "Time taken to ensure deployment.",
 			Buckets: prometheus.DefBuckets,
 		},
@@ -66,8 +66,8 @@ var (
 
 func init() {
 	metrics.Registry.MustRegister(
-		anvilControllerReconcileTotal,
-		anvilControllerReconcileErrorTotal,
+		binderyControllerReconcileTotal,
+		binderyControllerReconcileErrorTotal,
 		capabilityResolverUnresolvedRequired,
 		capabilityResolverBindingsCreatedTotal,
 		capabilityResolverBindingsUpdatedTotal,

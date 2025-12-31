@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	enginev1 "github.com/anvil-platform/anvil/proto/game/engine/v1"
+	enginev1 "github.com/bayleafwalker/bindery-core/contracts/proto/game/engine/v1"
 )
 
 func main() {

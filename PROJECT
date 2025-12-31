@@ -3,18 +3,18 @@
 
 version: "3"
 domain: "platform"
-repo: "github.com/anvil-platform/anvil"
+repo: "github.com/bayleafwalker/bindery-core"
 
 resources:
-  - group: game
+  - group: bindery
     version: v1alpha1
     kind: ModuleManifest
-  - group: game
+  - group: bindery
     version: v1alpha1
-    kind: GameDefinition
-  - group: game
+    kind: Booklet
+  - group: bindery
     version: v1alpha1
     kind: WorldInstance
-  - group: game
+  - group: bindery
     version: v1alpha1
     kind: CapabilityBinding

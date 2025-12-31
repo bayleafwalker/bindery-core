@@ -1,10 +1,10 @@
 apiVersion: game.platform/v1alpha1
-kind: GameDefinition
+kind: Booklet
 metadata:
-  name: anvil-sample
-  namespace: anvil-demo
+  name: bindery-sample
+  namespace: bindery-demo
 spec:
-  gameId: anvil.sample
+  gameId: bindery.sample
   version: "0.1.0"
   description: Minimal demo game composed of physics + interaction modules.
 

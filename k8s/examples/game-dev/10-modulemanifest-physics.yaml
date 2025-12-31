@@ -2,14 +2,14 @@ apiVersion: game.platform/v1alpha1
 kind: ModuleManifest
 metadata:
   name: core-physics-engine
-  namespace: anvil-demo
+  namespace: bindery-demo
   annotations:
-    anvil.dev/runtime-image: alpine:3.20
-    anvil.dev/runtime-port: "50051"
-    anvil.dev/storage-tier: server-low-latency
-    anvil.dev/storage-scope: world-shard
-    anvil.dev/storage-size: "10Gi"
-    anvil.dev/storage-mount-path: /var/anvil/state
+    bindery.dev/runtime-image: alpine:3.20
+    bindery.dev/runtime-port: "50051"
+    bindery.dev/storage-tier: server-low-latency
+    bindery.dev/storage-scope: world-shard
+    bindery.dev/storage-size: "10Gi"
+    bindery.dev/storage-mount-path: /var/bindery/state
 spec:
   module:
     id: core.physics

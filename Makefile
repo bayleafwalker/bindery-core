@@ -27,7 +27,7 @@ envtest:
 	go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
 test-integration: envtest
-	ANVIL_INTEGRATION=1 KUBEBUILDER_ASSETS="$$("$(SETUP_ENVTEST)" use -p path $(ENVTEST_K8S_VERSION))" go test ./... -run Integration
+	BINDERY_INTEGRATION=1 KUBEBUILDER_ASSETS="$$("$(SETUP_ENVTEST)" use -p path $(ENVTEST_K8S_VERSION))" go test ./... -run Integration
 
 tidy:
 	go mod tidy

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CLUSTER_NAME="${1:-anvil}"
+CLUSTER_NAME="${1:-bindery}"
 
 KIND_BIN="kind"
 if ! command -v kind >/dev/null 2>&1; then

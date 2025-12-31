@@ -1,10 +1,10 @@
 # Shard Autoscaling Standard (v0.1)
 
-This document defines the standard for dynamic sharding of World Instances in Anvil.
+This document defines the standard for dynamic sharding of World Instances in Bindery.
 
 ## Overview
 
-Anvil supports partitioning a World Instance into multiple "shards" to handle scale. Each shard is an isolated slice of the world (e.g., a spatial partition or a load-balanced bucket) that runs its own set of module providers.
+Bindery supports partitioning a World Instance into multiple "shards" to handle scale. Each shard is an isolated slice of the world (e.g., a spatial partition or a load-balanced bucket) that runs its own set of module providers.
 
 The `ShardAutoscaler` resource allows operators to define policies for automatically adjusting the number of shards (`WorldInstance.spec.shardCount`) based on real-time metrics.
 
@@ -56,8 +56,8 @@ To ensure player experience is preserved, modules running in sharded environment
 ### Module Requirements
 
 1.  **Handle SIGTERM**: When a shard is deleted, its pods receive `SIGTERM`. The application should stop accepting new requests and flush state.
-2.  **PreStop Hooks**: Use the `anvil.dev/pre-stop-command` annotation in your `ModuleManifest` to run a script before the process receives `SIGTERM` (e.g., to notify a matchmaker that the shard is draining).
-3.  **Grace Period**: Use `anvil.dev/termination-grace-period` to request sufficient time (e.g., 60s) for the draining process.
+2.  **PreStop Hooks**: Use the `bindery.dev/pre-stop-command` annotation in your `ModuleManifest` to run a script before the process receives `SIGTERM` (e.g., to notify a matchmaker that the shard is draining).
+3.  **Grace Period**: Use `bindery.dev/termination-grace-period` to request sufficient time (e.g., 60s) for the draining process.
 
 ### Example Manifest
 
@@ -67,9 +67,9 @@ kind: ModuleManifest
 metadata:
   name: physics-engine
   annotations:
-    anvil.dev/runtime-image: "physics:v2"
-    anvil.dev/termination-grace-period: "60"
-    anvil.dev/pre-stop-command: "/bin/drain.sh"
+    bindery.dev/runtime-image: "physics:v2"
+    bindery.dev/termination-grace-period: "60"
+    bindery.dev/pre-stop-command: "/bin/drain.sh"
 spec:
   # ...
 ```

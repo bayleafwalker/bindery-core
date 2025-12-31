@@ -1,0 +1,12 @@
+apiVersion: bindery.platform/v1alpha1
+kind: WorldInstance
+metadata:
+  name: bindery-sample-world
+  namespace: default
+spec:
+  gameRef:
+    name: bindery-sample
+  worldId: world-001
+  region: local
+  shardCount: 1
+  desiredState: Running

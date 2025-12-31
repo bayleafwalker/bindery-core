@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/anvil-platform/anvil/api/v1alpha1"
-	"github.com/anvil-platform/anvil/internal/resolver"
+	"github.com/bayleafwalker/bindery-core/api/v1alpha1"
+	"github.com/bayleafwalker/bindery-core/internal/resolver"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -14,8 +14,8 @@ import (
 )
 
 func TestStableBindingName_DeterministicAndSafe(t *testing.T) {
-	name1 := stableBindingName("anvil-sample-world", "core-interaction-engine", "physics.engine", v1alpha1.CapabilityScopeWorldShard, v1alpha1.MultiplicityOne)
-	name2 := stableBindingName("anvil-sample-world", "core-interaction-engine", "physics.engine", v1alpha1.CapabilityScopeWorldShard, v1alpha1.MultiplicityOne)
+	name1 := stableBindingName("bindery-sample-world", "core-interaction-engine", "physics.engine", v1alpha1.CapabilityScopeWorldShard, v1alpha1.MultiplicityOne)
+	name2 := stableBindingName("bindery-sample-world", "core-interaction-engine", "physics.engine", v1alpha1.CapabilityScopeWorldShard, v1alpha1.MultiplicityOne)
 	if name1 != name2 {
 		t.Fatalf("expected deterministic name, got %q vs %q", name1, name2)
 	}
@@ -36,10 +36,10 @@ func TestCapabilityResolverReconcile_CreatesManagedBinding(t *testing.T) {
 	}
 
 	world := &v1alpha1.WorldInstance{
-		TypeMeta:   metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "WorldInstance"},
-		ObjectMeta: metav1.ObjectMeta{Name: "anvil-sample-world", Namespace: "anvil-demo", UID: types.UID("world-uid")},
+		TypeMeta:   metav1.TypeMeta{APIVersion: "bindery.platform/v1alpha1", Kind: "WorldInstance"},
+		ObjectMeta: metav1.ObjectMeta{Name: "bindery-sample-world", Namespace: "bindery-demo", UID: types.UID("world-uid")},
 		Spec: v1alpha1.WorldInstanceSpec{
-			GameRef:      v1alpha1.ObjectRef{Name: "anvil-sample"},
+			BookletRef:      v1alpha1.ObjectRef{Name: "bindery-sample"},
 			WorldID:      "world-001",
 			Region:       "us-test-1",
 			ShardCount:   2,
@@ -47,13 +47,13 @@ func TestCapabilityResolverReconcile_CreatesManagedBinding(t *testing.T) {
 		},
 	}
 
-	game := &v1alpha1.GameDefinition{
-		TypeMeta:   metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "GameDefinition"},
-		ObjectMeta: metav1.ObjectMeta{Name: "anvil-sample", Namespace: "anvil-demo"},
-		Spec: v1alpha1.GameDefinitionSpec{
-			GameID:  "anvil.sample",
+	game := &v1alpha1.Booklet{
+		TypeMeta:   metav1.TypeMeta{APIVersion: "bindery.platform/v1alpha1", Kind: "Booklet"},
+		ObjectMeta: metav1.ObjectMeta{Name: "bindery-sample", Namespace: "bindery-demo"},
+		Spec: v1alpha1.BookletSpec{
+			BookletID:  "bindery.sample",
 			Version: "0.1.0",
-			Modules: []v1alpha1.GameModuleRef{
+			Modules: []v1alpha1.BookletModuleRef{
 				{Name: "core-physics-engine", Required: true},
 				{Name: "core-interaction-engine", Required: true},
 			},
@@ -61,8 +61,8 @@ func TestCapabilityResolverReconcile_CreatesManagedBinding(t *testing.T) {
 	}
 
 	physics := &v1alpha1.ModuleManifest{
-		TypeMeta:   metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "ModuleManifest"},
-		ObjectMeta: metav1.ObjectMeta{Name: "core-physics-engine", Namespace: "anvil-demo"},
+		TypeMeta:   metav1.TypeMeta{APIVersion: "bindery.platform/v1alpha1", Kind: "ModuleManifest"},
+		ObjectMeta: metav1.ObjectMeta{Name: "core-physics-engine", Namespace: "bindery-demo"},
 		Spec: v1alpha1.ModuleManifestSpec{
 			Module: v1alpha1.ModuleIdentity{ID: "core.physics", Version: "1.3.0"},
 			Provides: []v1alpha1.ProvidedCapability{
@@ -74,8 +74,8 @@ func TestCapabilityResolverReconcile_CreatesManagedBinding(t *testing.T) {
 	}
 
 	interaction := &v1alpha1.ModuleManifest{
-		TypeMeta:   metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "ModuleManifest"},
-		ObjectMeta: metav1.ObjectMeta{Name: "core-interaction-engine", Namespace: "anvil-demo"},
+		TypeMeta:   metav1.TypeMeta{APIVersion: "bindery.platform/v1alpha1", Kind: "ModuleManifest"},
+		ObjectMeta: metav1.ObjectMeta{Name: "core-interaction-engine", Namespace: "bindery-demo"},
 		Spec: v1alpha1.ModuleManifestSpec{
 			Module: v1alpha1.ModuleIdentity{ID: "core.interaction", Version: "0.9.0"},
 			Provides: []v1alpha1.ProvidedCapability{
@@ -89,20 +89,20 @@ func TestCapabilityResolverReconcile_CreatesManagedBinding(t *testing.T) {
 	}
 
 	shard0 := &v1alpha1.WorldShard{
-		TypeMeta:   metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "WorldShard"},
-		ObjectMeta: metav1.ObjectMeta{Name: stableWorldShardName(world.Name, 0), Namespace: "anvil-demo", Labels: map[string]string{labelWorldName: world.Name}},
+		TypeMeta:   metav1.TypeMeta{APIVersion: "bindery.platform/v1alpha1", Kind: "WorldShard"},
+		ObjectMeta: metav1.ObjectMeta{Name: stableWorldShardName(world.Name, 0), Namespace: "bindery-demo", Labels: map[string]string{labelWorldName: world.Name}},
 		Spec:       v1alpha1.WorldShardSpec{WorldRef: v1alpha1.ObjectRef{Name: world.Name}, ShardID: 0},
 	}
 	shard1 := &v1alpha1.WorldShard{
-		TypeMeta:   metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "WorldShard"},
-		ObjectMeta: metav1.ObjectMeta{Name: stableWorldShardName(world.Name, 1), Namespace: "anvil-demo", Labels: map[string]string{labelWorldName: world.Name}},
+		TypeMeta:   metav1.TypeMeta{APIVersion: "bindery.platform/v1alpha1", Kind: "WorldShard"},
+		ObjectMeta: metav1.ObjectMeta{Name: stableWorldShardName(world.Name, 1), Namespace: "bindery-demo", Labels: map[string]string{labelWorldName: world.Name}},
 		Spec:       v1alpha1.WorldShardSpec{WorldRef: v1alpha1.ObjectRef{Name: world.Name}, ShardID: 1},
 	}
 
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(world, game, physics, interaction, shard0, shard1).Build()
 
 	r := &CapabilityResolverReconciler{Client: cl, Scheme: scheme, Resolver: resolver.NewDefault()}
-	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: "anvil-demo", Name: "anvil-sample-world"}})
+	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: "bindery-demo", Name: "bindery-sample-world"}})
 	if err == nil {
 		// continue
 	} else {
@@ -110,9 +110,9 @@ func TestCapabilityResolverReconcile_CreatesManagedBinding(t *testing.T) {
 	}
 
 	for _, shardID := range []int32{0, 1} {
-		bindingName := stableShardBindingName("anvil-sample-world", shardID, "core-interaction-engine", "physics.engine", v1alpha1.CapabilityScopeWorldShard, v1alpha1.MultiplicityOne)
+		bindingName := stableShardBindingName("bindery-sample-world", shardID, "core-interaction-engine", "physics.engine", v1alpha1.CapabilityScopeWorldShard, v1alpha1.MultiplicityOne)
 		var binding v1alpha1.CapabilityBinding
-		if err := cl.Get(ctx, types.NamespacedName{Namespace: "anvil-demo", Name: bindingName}, &binding); err != nil {
+		if err := cl.Get(ctx, types.NamespacedName{Namespace: "bindery-demo", Name: bindingName}, &binding); err != nil {
 			t.Fatalf("expected binding to be created (shard %d): %v", shardID, err)
 		}
 		if binding.Spec.Consumer.ModuleManifestName != "core-interaction-engine" {
@@ -124,7 +124,7 @@ func TestCapabilityResolverReconcile_CreatesManagedBinding(t *testing.T) {
 		if binding.Labels[labelManagedBy] != managedByCapabilityResolver {
 			t.Fatalf("expected managed-by label")
 		}
-		if binding.Labels[labelWorldName] != "anvil-sample-world" {
+		if binding.Labels[labelWorldName] != "bindery-sample-world" {
 			t.Fatalf("expected world label")
 		}
 		if binding.Labels[labelShardID] == "" {

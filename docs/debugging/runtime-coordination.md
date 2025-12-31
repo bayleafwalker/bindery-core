@@ -17,7 +17,7 @@ Look for:
 ## 2. Trace the Flow
 
 ### Scenario: "My Game Server isn't starting"
-1.  **Check GameDefinition**: Is the module listed?
+1.  **Check Booklet**: Is the module listed?
 2.  **Check CapabilityResolver**:
     - Did it create a binding?
     - If not, check `WorldInstance` status for `ModuleManifestNotFound` or resolution errors.
@@ -25,7 +25,7 @@ Look for:
 3.  **Check RuntimeOrchestrator**:
     - If binding exists, is there a Deployment?
     - `kubectl get deployment -l game.platform/module=<module-name>`
-    - If no deployment, check `RuntimeOrchestrator` logs. Does the module have `anvil.dev/runtime-image` annotation?
+    - If no deployment, check `RuntimeOrchestrator` logs. Does the module have `bindery.dev/runtime-image` annotation?
 
 ### Scenario: "My module crashes on startup"
 1.  **Check Init Containers**:
@@ -44,5 +44,5 @@ If a global service is missing:
 
 ## 4. Metrics
 Prometheus metrics available:
-- `anvil_capabilityresolver_resolution_duration_seconds`
-- `anvil_runtimeorchestrator_deployment_duration_seconds`
+- `bindery_capabilityresolver_resolution_duration_seconds`
+- `bindery_runtimeorchestrator_deployment_duration_seconds`

@@ -13,9 +13,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	gamev1alpha1 "github.com/anvil-platform/anvil/api/v1alpha1"
-	"github.com/anvil-platform/anvil/controllers"
-	"github.com/anvil-platform/anvil/internal/resolver"
+	binderyv1alpha1 "github.com/bayleafwalker/bindery-core/api/v1alpha1"
+	"github.com/bayleafwalker/bindery-core/controllers"
+	"github.com/bayleafwalker/bindery-core/internal/resolver"
 )
 
 var (
@@ -25,7 +25,7 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(gamev1alpha1.AddToScheme(scheme))
+	utilruntime.Must(binderyv1alpha1.AddToScheme(scheme))
 }
 
 func main() {
@@ -48,7 +48,7 @@ func main() {
 		Metrics:                metricsserver.Options{BindAddress: metricsAddr},
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "capabilityresolver.game.platform",
+		LeaderElectionID:       "capabilityresolver.bindery.platform",
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")

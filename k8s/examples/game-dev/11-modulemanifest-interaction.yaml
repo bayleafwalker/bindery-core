@@ -2,11 +2,11 @@ apiVersion: game.platform/v1alpha1
 kind: ModuleManifest
 metadata:
   name: core-interaction-engine
-  namespace: anvil-demo
+  namespace: bindery-demo
   annotations:
-    anvil.dev/storage-tier: client-low-latency
-    anvil.dev/storage-scope: world-shard
-    anvil.dev/storage-size: "1Gi"
+    bindery.dev/storage-tier: client-low-latency
+    bindery.dev/storage-scope: world-shard
+    bindery.dev/storage-size: "1Gi"
 spec:
   module:
     id: core.interaction

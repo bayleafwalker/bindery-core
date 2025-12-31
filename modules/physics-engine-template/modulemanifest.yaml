@@ -1,0 +1,74 @@
+apiVersion: game.platform/v1alpha1
+kind: ModuleManifest
+metadata:
+  name: physics-engine-template
+  namespace: bindery-demo
+  labels:
+    tier: dev
+    domain: physics
+spec:
+  module:
+    id: dev.physics
+    version: "0.1.0"
+    description: Reference template for a physics engine module.
+    owners: ["platform-sim@studio.example"]
+    repo: https://example.invalid/repos/dev-physics-template
+
+  provides:
+    - capabilityId: physics.engine
+      version: "1.0.0"
+      scope: world-shard
+      multiplicity: "1"
+      interfaces:
+        grpc:
+          - package: game.engine.v1
+            service: EngineModule
+            protoRef: repo://proto/game/engine/v1/engine.proto
+            methods:
+              - name: InitializeWorld
+                request: InitializeWorldRequest
+                response: InitializeWorldResponse
+              - name: ApplyCommand
+                request: ApplyCommandRequest
+                response: ApplyCommandResponse
+              - name: Tick
+                request: TickRequest
+                response: TickResponse
+              - name: GetStateSnapshot
+                request: GetStateSnapshotRequest
+                response: GetStateSnapshotResponse
+        events:
+          - name: physics.state.v1
+            direction: publish
+            schema:
+              id: game.physics.state
+              version: "1.0.0"
+              format: protobuf
+              schemaRef: TODO://define-schema-registry-ref
+            orderingKey: worldShardId
+
+  requires:
+    - capabilityId: time.source
+      versionConstraint: ">=1.0.0 <2.0.0"
+      scope: world-shard
+      multiplicity: "1"
+      dependencyMode: required
+
+    - capabilityId: messaging.bus
+      versionConstraint: ">=1.0.0 <2.0.0"
+      scope: cluster
+      multiplicity: many
+      dependencyMode: required
+
+  scaling:
+    defaultScope: world-shard
+    statefulness: stateful
+    sharding:
+      strategy: world-shard
+      key: worldShardId
+    autoscaling:
+      minReplicas: 1
+      maxReplicas: 1
+      metricHints:
+        - type: tick-lag
+          target: p95<5ms

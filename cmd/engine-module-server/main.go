@@ -11,7 +11,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	enginev1 "github.com/anvil-platform/anvil/proto/game/engine/v1"
+	enginev1 "github.com/bayleafwalker/bindery-core/contracts/proto/game/engine/v1"
 )
 
 type server struct {
@@ -131,12 +131,12 @@ func main() {
 
 	// gRPC Options
 	var opts []grpc.ServerOption
-	if s := os.Getenv("ANVIL_GRPC_INITIAL_WINDOW_SIZE"); s != "" {
+	if s := os.Getenv("BINDERY_GRPC_INITIAL_WINDOW_SIZE"); s != "" {
 		if v, err := strconv.Atoi(s); err == nil {
 			opts = append(opts, grpc.InitialWindowSize(int32(v)))
 		}
 	}
-	if s := os.Getenv("ANVIL_GRPC_INITIAL_CONN_WINDOW_SIZE"); s != "" {
+	if s := os.Getenv("BINDERY_GRPC_INITIAL_CONN_WINDOW_SIZE"); s != "" {
 		if v, err := strconv.Atoi(s); err == nil {
 			opts = append(opts, grpc.InitialConnWindowSize(int32(v)))
 		}
@@ -146,8 +146,8 @@ func main() {
 	enginev1.RegisterEngineModuleServer(grpcServer, &server{})
 
 	// UDS Listener
-	udsDir := os.Getenv("ANVIL_UDS_DIR")
-	moduleName := os.Getenv("ANVIL_MODULE_NAME")
+	udsDir := os.Getenv("BINDERY_UDS_DIR")
+	moduleName := os.Getenv("BINDERY_MODULE_NAME")
 	if udsDir != "" && moduleName != "" {
 		socketPath := filepath.Join(udsDir, moduleName+".sock")
 		_ = os.Remove(socketPath)

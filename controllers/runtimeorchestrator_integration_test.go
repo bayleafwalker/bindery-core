@@ -18,15 +18,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
-	gamev1alpha1 "github.com/anvil-platform/anvil/api/v1alpha1"
+	binderyv1alpha1 "github.com/bayleafwalker/bindery-core/api/v1alpha1"
 )
 
 func TestIntegration_RuntimeOrchestrator_PublishesEndpointToStatus(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in -short")
 	}
-	if os.Getenv("ANVIL_INTEGRATION") != "1" {
-		t.Skip("set ANVIL_INTEGRATION=1 (or run `make test-integration`) to enable envtest integration tests")
+	if os.Getenv("BINDERY_INTEGRATION") != "1" {
+		t.Skip("set BINDERY_INTEGRATION=1 (or run `make test-integration`) to enable envtest integration tests")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -51,7 +51,7 @@ func TestIntegration_RuntimeOrchestrator_PublishesEndpointToStatus(t *testing.T)
 	if err := clientgoscheme.AddToScheme(scheme); err != nil {
 		t.Fatalf("AddToScheme(client-go): %v", err)
 	}
-	if err := gamev1alpha1.AddToScheme(scheme); err != nil {
+	if err := binderyv1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("AddToScheme(game): %v", err)
 	}
 	if err := appsv1.AddToScheme(scheme); err != nil {
@@ -66,16 +66,16 @@ func TestIntegration_RuntimeOrchestrator_PublishesEndpointToStatus(t *testing.T)
 		t.Fatalf("new client: %v", err)
 	}
 
-	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "anvil-integration"}}
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "bindery-integration"}}
 	if err := k8sClient.Create(ctx, ns); err != nil {
 		t.Fatalf("create namespace: %v", err)
 	}
 
-	world := &gamev1alpha1.WorldInstance{
-		TypeMeta:   metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "WorldInstance"},
+	world := &binderyv1alpha1.WorldInstance{
+		TypeMeta:   metav1.TypeMeta{APIVersion: "bindery.platform/v1alpha1", Kind: "WorldInstance"},
 		ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: ns.Name},
-		Spec: gamev1alpha1.WorldInstanceSpec{
-			GameRef:      gamev1alpha1.ObjectRef{Name: "game-1"},
+		Spec: binderyv1alpha1.WorldInstanceSpec{
+			BookletRef:      binderyv1alpha1.ObjectRef{Name: "game-1"},
 			WorldID:      "world-001",
 			Region:       "test-1",
 			ShardCount:   1,
@@ -86,8 +86,8 @@ func TestIntegration_RuntimeOrchestrator_PublishesEndpointToStatus(t *testing.T)
 		t.Fatalf("create world: %v", err)
 	}
 
-	provider := &gamev1alpha1.ModuleManifest{
-		TypeMeta: metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "ModuleManifest"},
+	provider := &binderyv1alpha1.ModuleManifest{
+		TypeMeta: metav1.TypeMeta{APIVersion: "bindery.platform/v1alpha1", Kind: "ModuleManifest"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "core-physics-engine",
 			Namespace: ns.Name,
@@ -96,32 +96,32 @@ func TestIntegration_RuntimeOrchestrator_PublishesEndpointToStatus(t *testing.T)
 				annRuntimePort:  "50051",
 			},
 		},
-		Spec: gamev1alpha1.ModuleManifestSpec{
-			Module: gamev1alpha1.ModuleIdentity{ID: "core.physics", Version: "1.3.0"},
-			Provides: []gamev1alpha1.ProvidedCapability{{
+		Spec: binderyv1alpha1.ModuleManifestSpec{
+			Module: binderyv1alpha1.ModuleIdentity{ID: "core.physics", Version: "1.3.0"},
+			Provides: []binderyv1alpha1.ProvidedCapability{{
 				CapabilityID: "physics.engine",
 				Version:      "1.3.0",
-				Scope:        gamev1alpha1.CapabilityScopeWorldShard,
-				Multiplicity: gamev1alpha1.MultiplicityOne,
+				Scope:        binderyv1alpha1.CapabilityScopeWorldShard,
+				Multiplicity: binderyv1alpha1.MultiplicityOne,
 			}},
-			Requires: []gamev1alpha1.RequiredCapability{},
-			Scaling:  gamev1alpha1.ModuleScaling{DefaultScope: gamev1alpha1.CapabilityScopeWorldShard, Statefulness: "stateless"},
+			Requires: []binderyv1alpha1.RequiredCapability{},
+			Scaling:  binderyv1alpha1.ModuleScaling{DefaultScope: binderyv1alpha1.CapabilityScopeWorldShard, Statefulness: "stateless"},
 		},
 	}
 	if err := k8sClient.Create(ctx, provider); err != nil {
 		t.Fatalf("create provider modulemanifest: %v", err)
 	}
 
-	binding := &gamev1alpha1.CapabilityBinding{
-		TypeMeta:   metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "CapabilityBinding"},
+	binding := &binderyv1alpha1.CapabilityBinding{
+		TypeMeta:   metav1.TypeMeta{APIVersion: "bindery.platform/v1alpha1", Kind: "CapabilityBinding"},
 		ObjectMeta: metav1.ObjectMeta{Name: "binding-1", Namespace: ns.Name},
-		Spec: gamev1alpha1.CapabilityBindingSpec{
+		Spec: binderyv1alpha1.CapabilityBindingSpec{
 			CapabilityID: "physics.engine",
-			Scope:        gamev1alpha1.CapabilityScopeWorldShard,
-			Multiplicity: gamev1alpha1.MultiplicityOne,
-			WorldRef:     &gamev1alpha1.WorldRef{Name: world.Name},
-			Consumer:     gamev1alpha1.ConsumerRef{ModuleManifestName: "core-interaction-engine"},
-			Provider:     gamev1alpha1.ProviderRef{ModuleManifestName: provider.Name, CapabilityVersion: "1.3.0"},
+			Scope:        binderyv1alpha1.CapabilityScopeWorldShard,
+			Multiplicity: binderyv1alpha1.MultiplicityOne,
+			WorldRef:     &binderyv1alpha1.WorldRef{Name: world.Name},
+			Consumer:     binderyv1alpha1.ConsumerRef{ModuleManifestName: "core-interaction-engine"},
+			Provider:     binderyv1alpha1.ProviderRef{ModuleManifestName: provider.Name, CapabilityVersion: "1.3.0"},
 		},
 	}
 	if err := k8sClient.Create(ctx, binding); err != nil {
@@ -143,7 +143,7 @@ func TestIntegration_RuntimeOrchestrator_PublishesEndpointToStatus(t *testing.T)
 		var dep appsv1.Deployment
 		depErr := k8sClient.Get(ctx, types.NamespacedName{Namespace: ns.Name, Name: workloadName}, &dep)
 
-		var got gamev1alpha1.CapabilityBinding
+		var got binderyv1alpha1.CapabilityBinding
 		bindErr := k8sClient.Get(ctx, types.NamespacedName{Namespace: ns.Name, Name: binding.Name}, &got)
 
 		ready := svcErr == nil && depErr == nil && bindErr == nil &&
@@ -162,8 +162,8 @@ func TestIntegration_RuntimeOrchestrator_ShardStorage_CreatesClaimMountAndPVC(t 
 	if testing.Short() {
 		t.Skip("skipping integration test in -short")
 	}
-	if os.Getenv("ANVIL_INTEGRATION") != "1" {
-		t.Skip("set ANVIL_INTEGRATION=1 (or run `make test-integration`) to enable envtest integration tests")
+	if os.Getenv("BINDERY_INTEGRATION") != "1" {
+		t.Skip("set BINDERY_INTEGRATION=1 (or run `make test-integration`) to enable envtest integration tests")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -187,7 +187,7 @@ func TestIntegration_RuntimeOrchestrator_ShardStorage_CreatesClaimMountAndPVC(t 
 	if err := clientgoscheme.AddToScheme(scheme); err != nil {
 		t.Fatalf("AddToScheme(client-go): %v", err)
 	}
-	if err := gamev1alpha1.AddToScheme(scheme); err != nil {
+	if err := binderyv1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("AddToScheme(game): %v", err)
 	}
 	if err := appsv1.AddToScheme(scheme); err != nil {
@@ -202,16 +202,16 @@ func TestIntegration_RuntimeOrchestrator_ShardStorage_CreatesClaimMountAndPVC(t 
 		t.Fatalf("new client: %v", err)
 	}
 
-	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "anvil-integration"}}
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "bindery-integration"}}
 	if err := k8sClient.Create(ctx, ns); err != nil {
 		t.Fatalf("create namespace: %v", err)
 	}
 
-	world := &gamev1alpha1.WorldInstance{
-		TypeMeta:   metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "WorldInstance"},
+	world := &binderyv1alpha1.WorldInstance{
+		TypeMeta:   metav1.TypeMeta{APIVersion: "bindery.platform/v1alpha1", Kind: "WorldInstance"},
 		ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: ns.Name},
-		Spec: gamev1alpha1.WorldInstanceSpec{
-			GameRef:      gamev1alpha1.ObjectRef{Name: "game-1"},
+		Spec: binderyv1alpha1.WorldInstanceSpec{
+			BookletRef:      binderyv1alpha1.ObjectRef{Name: "game-1"},
 			WorldID:      "world-001",
 			Region:       "test-1",
 			ShardCount:   2,
@@ -223,8 +223,8 @@ func TestIntegration_RuntimeOrchestrator_ShardStorage_CreatesClaimMountAndPVC(t 
 	}
 
 	shardName := stableWorldShardName(world.Name, 0)
-	shard := &gamev1alpha1.WorldShard{
-		TypeMeta: metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "WorldShard"},
+	shard := &binderyv1alpha1.WorldShard{
+		TypeMeta: metav1.TypeMeta{APIVersion: "bindery.platform/v1alpha1", Kind: "WorldShard"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      shardName,
 			Namespace: ns.Name,
@@ -232,14 +232,14 @@ func TestIntegration_RuntimeOrchestrator_ShardStorage_CreatesClaimMountAndPVC(t 
 				labelWorldName: world.Name,
 			},
 		},
-		Spec: gamev1alpha1.WorldShardSpec{WorldRef: gamev1alpha1.ObjectRef{Name: world.Name}, ShardID: 0},
+		Spec: binderyv1alpha1.WorldShardSpec{WorldRef: binderyv1alpha1.ObjectRef{Name: world.Name}, ShardID: 0},
 	}
 	if err := k8sClient.Create(ctx, shard); err != nil {
 		t.Fatalf("create shard: %v", err)
 	}
 
-	provider := &gamev1alpha1.ModuleManifest{
-		TypeMeta: metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "ModuleManifest"},
+	provider := &binderyv1alpha1.ModuleManifest{
+		TypeMeta: metav1.TypeMeta{APIVersion: "bindery.platform/v1alpha1", Kind: "ModuleManifest"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "core-physics-engine",
 			Namespace: ns.Name,
@@ -253,24 +253,24 @@ func TestIntegration_RuntimeOrchestrator_ShardStorage_CreatesClaimMountAndPVC(t 
 				annStorageAccessModes: "ReadWriteOnce",
 			},
 		},
-		Spec: gamev1alpha1.ModuleManifestSpec{
-			Module: gamev1alpha1.ModuleIdentity{ID: "core.physics", Version: "1.3.0"},
-			Provides: []gamev1alpha1.ProvidedCapability{{
+		Spec: binderyv1alpha1.ModuleManifestSpec{
+			Module: binderyv1alpha1.ModuleIdentity{ID: "core.physics", Version: "1.3.0"},
+			Provides: []binderyv1alpha1.ProvidedCapability{{
 				CapabilityID: "physics.engine",
 				Version:      "1.3.0",
-				Scope:        gamev1alpha1.CapabilityScopeWorldShard,
-				Multiplicity: gamev1alpha1.MultiplicityOne,
+				Scope:        binderyv1alpha1.CapabilityScopeWorldShard,
+				Multiplicity: binderyv1alpha1.MultiplicityOne,
 			}},
-			Requires: []gamev1alpha1.RequiredCapability{},
-			Scaling:  gamev1alpha1.ModuleScaling{DefaultScope: gamev1alpha1.CapabilityScopeWorldShard, Statefulness: "stateful"},
+			Requires: []binderyv1alpha1.RequiredCapability{},
+			Scaling:  binderyv1alpha1.ModuleScaling{DefaultScope: binderyv1alpha1.CapabilityScopeWorldShard, Statefulness: "stateful"},
 		},
 	}
 	if err := k8sClient.Create(ctx, provider); err != nil {
 		t.Fatalf("create provider modulemanifest: %v", err)
 	}
 
-	binding := &gamev1alpha1.CapabilityBinding{
-		TypeMeta: metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "CapabilityBinding"},
+	binding := &binderyv1alpha1.CapabilityBinding{
+		TypeMeta: metav1.TypeMeta{APIVersion: "bindery.platform/v1alpha1", Kind: "CapabilityBinding"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "binding-1",
 			Namespace: ns.Name,
@@ -278,13 +278,13 @@ func TestIntegration_RuntimeOrchestrator_ShardStorage_CreatesClaimMountAndPVC(t 
 				labelShardID: "0",
 			},
 		},
-		Spec: gamev1alpha1.CapabilityBindingSpec{
+		Spec: binderyv1alpha1.CapabilityBindingSpec{
 			CapabilityID: "physics.engine",
-			Scope:        gamev1alpha1.CapabilityScopeWorldShard,
-			Multiplicity: gamev1alpha1.MultiplicityOne,
-			WorldRef:     &gamev1alpha1.WorldRef{Name: world.Name},
-			Consumer:     gamev1alpha1.ConsumerRef{ModuleManifestName: "core-interaction-engine"},
-			Provider:     gamev1alpha1.ProviderRef{ModuleManifestName: provider.Name, CapabilityVersion: "1.3.0"},
+			Scope:        binderyv1alpha1.CapabilityScopeWorldShard,
+			Multiplicity: binderyv1alpha1.MultiplicityOne,
+			WorldRef:     &binderyv1alpha1.WorldRef{Name: world.Name},
+			Consumer:     binderyv1alpha1.ConsumerRef{ModuleManifestName: "core-interaction-engine"},
+			Provider:     binderyv1alpha1.ProviderRef{ModuleManifestName: provider.Name, CapabilityVersion: "1.3.0"},
 		},
 	}
 	if err := k8sClient.Create(ctx, binding); err != nil {
@@ -302,11 +302,11 @@ func TestIntegration_RuntimeOrchestrator_ShardStorage_CreatesClaimMountAndPVC(t 
 
 	// Wait for the runtime reconciler's writes to be observable.
 	if err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 10*time.Second, true, func(ctx context.Context) (bool, error) {
-		var claim gamev1alpha1.WorldStorageClaim
+		var claim binderyv1alpha1.WorldStorageClaim
 		if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: ns.Name, Name: claimName}, &claim); err != nil {
 			return false, client.IgnoreNotFound(err)
 		}
-		if claim.Spec.Scope != gamev1alpha1.WorldStorageScopeWorldShard {
+		if claim.Spec.Scope != binderyv1alpha1.WorldStorageScopeWorldShard {
 			return false, nil
 		}
 		if claim.Spec.ShardRef == nil || claim.Spec.ShardRef.Name != shardName {
@@ -319,7 +319,7 @@ func TestIntegration_RuntimeOrchestrator_ShardStorage_CreatesClaimMountAndPVC(t 
 		}
 		foundVol := false
 		for _, v := range dep.Spec.Template.Spec.Volumes {
-			if v.Name == "anvil-state" && v.PersistentVolumeClaim != nil && v.PersistentVolumeClaim.ClaimName == expectedPVC {
+			if v.Name == "bindery-state" && v.PersistentVolumeClaim != nil && v.PersistentVolumeClaim.ClaimName == expectedPVC {
 				foundVol = true
 				break
 			}
@@ -332,7 +332,7 @@ func TestIntegration_RuntimeOrchestrator_ShardStorage_CreatesClaimMountAndPVC(t 
 		}
 		foundMount := false
 		for _, m := range dep.Spec.Template.Spec.Containers[0].VolumeMounts {
-			if m.Name == "anvil-state" && m.MountPath == "/data" {
+			if m.Name == "bindery-state" && m.MountPath == "/data" {
 				foundMount = true
 				break
 			}
@@ -341,7 +341,7 @@ func TestIntegration_RuntimeOrchestrator_ShardStorage_CreatesClaimMountAndPVC(t 
 			return false, nil
 		}
 
-		var got gamev1alpha1.CapabilityBinding
+		var got binderyv1alpha1.CapabilityBinding
 		if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: ns.Name, Name: binding.Name}, &got); err != nil {
 			return false, client.IgnoreNotFound(err)
 		}
@@ -376,8 +376,8 @@ func TestIntegration_RuntimeOrchestrator_InjectsEndpoints(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in -short")
 	}
-	if os.Getenv("ANVIL_INTEGRATION") != "1" {
-		t.Skip("set ANVIL_INTEGRATION=1 (or run `make test-integration`) to enable envtest integration tests")
+	if os.Getenv("BINDERY_INTEGRATION") != "1" {
+		t.Skip("set BINDERY_INTEGRATION=1 (or run `make test-integration`) to enable envtest integration tests")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -397,7 +397,7 @@ func TestIntegration_RuntimeOrchestrator_InjectsEndpoints(t *testing.T) {
 
 	scheme := runtime.NewScheme()
 	_ = clientgoscheme.AddToScheme(scheme)
-	_ = gamev1alpha1.AddToScheme(scheme)
+	_ = binderyv1alpha1.AddToScheme(scheme)
 	_ = appsv1.AddToScheme(scheme)
 	_ = corev1.AddToScheme(scheme)
 
@@ -427,15 +427,15 @@ func TestIntegration_RuntimeOrchestrator_InjectsEndpoints(t *testing.T) {
 		}
 	}()
 
-	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "anvil-integration-inject"}}
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "bindery-integration-inject"}}
 	if err := k8sClient.Create(ctx, ns); err != nil {
 		t.Fatalf("create namespace: %v", err)
 	}
 
-	world := &gamev1alpha1.WorldInstance{
+	world := &binderyv1alpha1.WorldInstance{
 		ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: ns.Name},
-		Spec: gamev1alpha1.WorldInstanceSpec{
-			GameRef: gamev1alpha1.ObjectRef{Name: "game-1"},
+		Spec: binderyv1alpha1.WorldInstanceSpec{
+			BookletRef: binderyv1alpha1.ObjectRef{Name: "game-1"},
 			WorldID: "world-001",
 		},
 	}
@@ -444,10 +444,10 @@ func TestIntegration_RuntimeOrchestrator_InjectsEndpoints(t *testing.T) {
 	}
 
 	// 1. Create Provider (Physics)
-	physicsMM := &gamev1alpha1.ModuleManifest{
+	physicsMM := &binderyv1alpha1.ModuleManifest{
 		ObjectMeta: metav1.ObjectMeta{Name: "physics-mod", Namespace: ns.Name},
-		Spec: gamev1alpha1.ModuleManifestSpec{
-			Module: gamev1alpha1.ModuleIdentity{ID: "core.physics", Version: "1.0.0"},
+		Spec: binderyv1alpha1.ModuleManifestSpec{
+			Module: binderyv1alpha1.ModuleIdentity{ID: "core.physics", Version: "1.0.0"},
 		},
 	}
 	if err := k8sClient.Create(ctx, physicsMM); err != nil {
@@ -455,7 +455,7 @@ func TestIntegration_RuntimeOrchestrator_InjectsEndpoints(t *testing.T) {
 	}
 
 	// 2. Create Consumer (Game)
-	gameMM := &gamev1alpha1.ModuleManifest{
+	gameMM := &binderyv1alpha1.ModuleManifest{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "game-mod",
 			Namespace: ns.Name,
@@ -463,8 +463,8 @@ func TestIntegration_RuntimeOrchestrator_InjectsEndpoints(t *testing.T) {
 				annRuntimeImage: "game:latest",
 			},
 		},
-		Spec: gamev1alpha1.ModuleManifestSpec{
-			Module: gamev1alpha1.ModuleIdentity{ID: "game.logic", Version: "1.0.0"},
+		Spec: binderyv1alpha1.ModuleManifestSpec{
+			Module: binderyv1alpha1.ModuleIdentity{ID: "game.logic", Version: "1.0.0"},
 		},
 	}
 	if err := k8sClient.Create(ctx, gameMM); err != nil {
@@ -473,13 +473,13 @@ func TestIntegration_RuntimeOrchestrator_InjectsEndpoints(t *testing.T) {
 
 	// 3. Create Binding for Physics (Dependency)
 	// Initially NO endpoint.
-	bindingDep := &gamev1alpha1.CapabilityBinding{
+	bindingDep := &binderyv1alpha1.CapabilityBinding{
 		ObjectMeta: metav1.ObjectMeta{Name: "binding-dep", Namespace: ns.Name},
-		Spec: gamev1alpha1.CapabilityBindingSpec{
+		Spec: binderyv1alpha1.CapabilityBindingSpec{
 			CapabilityID: "physics.engine",
-			WorldRef:     &gamev1alpha1.WorldRef{Name: world.Name},
-			Consumer:     gamev1alpha1.ConsumerRef{ModuleManifestName: "game-mod"},
-			Provider:     gamev1alpha1.ProviderRef{ModuleManifestName: "physics-mod"},
+			WorldRef:     &binderyv1alpha1.WorldRef{Name: world.Name},
+			Consumer:     binderyv1alpha1.ConsumerRef{ModuleManifestName: "game-mod"},
+			Provider:     binderyv1alpha1.ProviderRef{ModuleManifestName: "physics-mod"},
 		},
 	}
 	if err := k8sClient.Create(ctx, bindingDep); err != nil {
@@ -487,12 +487,12 @@ func TestIntegration_RuntimeOrchestrator_InjectsEndpoints(t *testing.T) {
 	}
 
 	// 4. Create Binding for Game (Consumer)
-	bindingGame := &gamev1alpha1.CapabilityBinding{
+	bindingGame := &binderyv1alpha1.CapabilityBinding{
 		ObjectMeta: metav1.ObjectMeta{Name: "binding-game", Namespace: ns.Name},
-		Spec: gamev1alpha1.CapabilityBindingSpec{
+		Spec: binderyv1alpha1.CapabilityBindingSpec{
 			CapabilityID: "game.logic",
-			WorldRef:     &gamev1alpha1.WorldRef{Name: world.Name},
-			Provider:     gamev1alpha1.ProviderRef{ModuleManifestName: "game-mod"},
+			WorldRef:     &binderyv1alpha1.WorldRef{Name: world.Name},
+			Provider:     binderyv1alpha1.ProviderRef{ModuleManifestName: "game-mod"},
 		},
 	}
 	if err := k8sClient.Create(ctx, bindingGame); err != nil {
@@ -513,8 +513,8 @@ func TestIntegration_RuntimeOrchestrator_InjectsEndpoints(t *testing.T) {
 
 	// 5. Update Physics Binding with Endpoint
 	// This should trigger the watch -> reconcile Game -> update Deployment
-	bindingDep.Status.Provider = &gamev1alpha1.ProviderStatus{
-		Endpoint: &gamev1alpha1.EndpointRef{
+	bindingDep.Status.Provider = &binderyv1alpha1.ProviderStatus{
+		Endpoint: &binderyv1alpha1.EndpointRef{
 			Type:  "kubernetesService",
 			Value: "physics-svc",
 			Port:  8080,
@@ -531,7 +531,7 @@ func TestIntegration_RuntimeOrchestrator_InjectsEndpoints(t *testing.T) {
 			return false, client.IgnoreNotFound(err)
 		}
 		for _, env := range dep.Spec.Template.Spec.Containers[0].Env {
-			if env.Name == "ANVIL_CAPABILITY_PHYSICS_ENGINE_ENDPOINT" && env.Value == "physics-svc:8080" {
+			if env.Name == "BINDERY_CAPABILITY_PHYSICS_ENGINE_ENDPOINT" && env.Value == "physics-svc:8080" {
 				return true, nil
 			}
 		}

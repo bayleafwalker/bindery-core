@@ -19,7 +19,7 @@ Recommended validation options:
 1) Local ephemeral cluster (fastest):
 
 ```bash
-./k8s/dev/kind-demo.sh anvil-crds
+./k8s/dev/kind-demo.sh bindery-crds
 ```
 
 2) Real cluster later:
@@ -529,24 +529,24 @@ spec:
                         format: date-time
 ```
 
-## 3) GameDefinition CRD
+## 3) Booklet CRD
 
 **Purpose:** Declares a game configuration composed of modules, plus environment defaults (region/shards/tick rate).
 
-**File:** `k8s/crds/gamedefinitions.game.platform.yaml`
+**File:** `k8s/crds/bookletinitions.game.platform.yaml`
 
 ```yaml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: gamedefinitions.game.platform
+  name: bookletinitions.game.platform
 spec:
   group: game.platform
   scope: Namespaced
   names:
-    plural: gamedefinitions
-    singular: gamedefinition
-    kind: GameDefinition
+    plural: bookletinitions
+    singular: bookletinition
+    kind: Booklet
     shortNames:
       - game
   versions:
@@ -664,7 +664,7 @@ spec:
 
 ## 4) WorldInstance CRD
 
-**Purpose:** Declares a concrete world instance created from a GameDefinition (including shard count and desired state).
+**Purpose:** Declares a concrete world instance created from a Booklet (including shard count and desired state).
 
 **File:** `k8s/crds/worldinstances.game.platform.yaml`
 
@@ -691,7 +691,7 @@ spec:
       schema:
         openAPIV3Schema:
           type: object
-          description: An instantiated world (or realm) created from a GameDefinition.
+          description: An instantiated world (or realm) created from a Booklet.
           required: [spec]
           properties:
             apiVersion:
@@ -715,7 +715,7 @@ spec:
                     name:
                       type: string
                       minLength: 1
-                      description: Name of a GameDefinition in the same namespace.
+                      description: Name of a Booklet in the same namespace.
                 worldId:
                   type: string
                   minLength: 1

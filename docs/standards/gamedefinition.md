@@ -1,10 +1,10 @@
-# `GameDefinition` Standard (v0.1)
+# `Booklet` Standard (v0.1)
 
 This document defines the YAML manifest schema that defines a game composed of modules.
 
 ## 1) High-level shape
 
-A `GameDefinition` is a declarative document that:
+A `Booklet` is a declarative document that:
 
 - Defines the game identity and version.
 - Lists the modules that constitute the game.
@@ -15,7 +15,7 @@ A `GameDefinition` is a declarative document that:
 
 ```yaml
 apiVersion: game.platform/v0.1
-kind: GameDefinition
+kind: Booklet
 metadata:
   name: string                  # DNS-like name
   labels:                       # arbitrary tags
@@ -53,15 +53,15 @@ The `colocation` field allows optimizing inter-module latency by grouping module
 - **Pod**: Merges modules into a single Pod (sidecar pattern). This allows communication via Unix Domain Sockets (UDS) or localhost, providing the lowest possible latency.
 
 When `strategy: Pod` is used, the platform injects:
-- A shared volume at `/var/run/anvil`.
-- Environment variables `ANVIL_UDS_DIR` and `ANVIL_MODULE_NAME`.
-- Environment variables for dependencies: `ANVIL_UDS_<CAPABILITY_ID>`.
+- A shared volume at `/var/run/bindery`.
+- Environment variables `BINDERY_UDS_DIR` and `BINDERY_MODULE_NAME`.
+- Environment variables for dependencies: `BINDERY_UDS_<CAPABILITY_ID>`.
 
 ## 4) Examples
 
 ```yaml
 apiVersion: game.platform/v1alpha1
-kind: GameDefinition
+kind: Booklet
 metadata:
   name: my-game
 spec:

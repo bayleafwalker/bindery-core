@@ -6,7 +6,7 @@ metadata:
   name: capabilityresolver
 rules:
   - apiGroups: ["game.platform"]
-    resources: ["modulemanifests", "gamedefinitions", "worldinstances", "worldshards", "worldstorageclaims"]
+    resources: ["modulemanifests", "bookletinitions", "worldinstances", "worldshards", "worldstorageclaims"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["game.platform"]
     resources: ["worldshards", "worldstorageclaims"]

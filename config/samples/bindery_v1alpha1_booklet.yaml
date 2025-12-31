@@ -1,0 +1,11 @@
+apiVersion: bindery.platform/v1alpha1
+kind: Booklet
+metadata:
+  name: bindery-sample
+  namespace: default
+spec:
+  gameId: bindery.sample
+  version: 1.0.0
+  modules:
+    - name: core-physics-engine
+      required: true

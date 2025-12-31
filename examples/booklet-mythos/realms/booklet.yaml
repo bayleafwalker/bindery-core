@@ -1,0 +1,13 @@
+apiVersion: bindery.platform/v1alpha1
+kind: Booklet
+metadata:
+  name: mythos
+  namespace: default
+spec:
+  bookletId: "mythos-v1"
+  version: "1.0.0"
+  modules:
+    - name: physics-engine
+      required: true
+    - name: spell-engine
+      required: true

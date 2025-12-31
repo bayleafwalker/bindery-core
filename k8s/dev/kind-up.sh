@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CLUSTER_NAME="${1:-anvil}"
+CLUSTER_NAME="${1:-bindery}"
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "docker is required" >&2

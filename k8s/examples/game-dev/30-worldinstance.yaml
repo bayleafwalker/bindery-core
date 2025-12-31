@@ -1,11 +1,11 @@
 apiVersion: game.platform/v1alpha1
 kind: WorldInstance
 metadata:
-  name: anvil-sample-world
-  namespace: anvil-demo
+  name: bindery-sample-world
+  namespace: bindery-demo
 spec:
   gameRef:
-    name: anvil-sample
+    name: bindery-sample
   worldId: world-001
   region: us-test-1
   shardCount: 2

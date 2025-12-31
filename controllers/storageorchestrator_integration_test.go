@@ -18,15 +18,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
-	gamev1alpha1 "github.com/anvil-platform/anvil/api/v1alpha1"
+	binderyv1alpha1 "github.com/bayleafwalker/bindery-core/api/v1alpha1"
 )
 
 func TestIntegration_StorageOrchestrator_ClientTier_SetsExternalStatusAndNoPVC(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in -short")
 	}
-	if os.Getenv("ANVIL_INTEGRATION") != "1" {
-		t.Skip("set ANVIL_INTEGRATION=1 (or run `make test-integration`) to enable envtest integration tests")
+	if os.Getenv("BINDERY_INTEGRATION") != "1" {
+		t.Skip("set BINDERY_INTEGRATION=1 (or run `make test-integration`) to enable envtest integration tests")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -50,7 +50,7 @@ func TestIntegration_StorageOrchestrator_ClientTier_SetsExternalStatusAndNoPVC(t
 	if err := clientgoscheme.AddToScheme(scheme); err != nil {
 		t.Fatalf("AddToScheme(client-go): %v", err)
 	}
-	if err := gamev1alpha1.AddToScheme(scheme); err != nil {
+	if err := binderyv1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("AddToScheme(game): %v", err)
 	}
 	if err := corev1.AddToScheme(scheme); err != nil {
@@ -62,7 +62,7 @@ func TestIntegration_StorageOrchestrator_ClientTier_SetsExternalStatusAndNoPVC(t
 		t.Fatalf("new client: %v", err)
 	}
 
-	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "anvil-integration"}}
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "bindery-integration"}}
 	if err := k8sClient.Create(ctx, ns); err != nil {
 		t.Fatalf("create namespace: %v", err)
 	}
@@ -71,14 +71,14 @@ func TestIntegration_StorageOrchestrator_ClientTier_SetsExternalStatusAndNoPVC(t
 	shardName := "world-1-shard-0"
 	claimName := "claim-client"
 
-	claim := &gamev1alpha1.WorldStorageClaim{
-		TypeMeta:   metav1.TypeMeta{APIVersion: "game.platform/v1alpha1", Kind: "WorldStorageClaim"},
+	claim := &binderyv1alpha1.WorldStorageClaim{
+		TypeMeta:   metav1.TypeMeta{APIVersion: "bindery.platform/v1alpha1", Kind: "WorldStorageClaim"},
 		ObjectMeta: metav1.ObjectMeta{Name: claimName, Namespace: ns.Name},
-		Spec: gamev1alpha1.WorldStorageClaimSpec{
-			Scope:    gamev1alpha1.WorldStorageScopeWorldShard,
-			Tier:     gamev1alpha1.WorldStorageTierClientLowLatency,
-			WorldRef: gamev1alpha1.ObjectRef{Name: worldName},
-			ShardRef: &gamev1alpha1.ObjectRef{Name: shardName},
+		Spec: binderyv1alpha1.WorldStorageClaimSpec{
+			Scope:    binderyv1alpha1.WorldStorageScopeWorldShard,
+			Tier:     binderyv1alpha1.WorldStorageTierClientLowLatency,
+			WorldRef: binderyv1alpha1.ObjectRef{Name: worldName},
+			ShardRef: &binderyv1alpha1.ObjectRef{Name: shardName},
 			Size:     "1Gi",
 			AccessModes: []string{
 				"ReadWriteOnce",
@@ -94,10 +94,10 @@ func TestIntegration_StorageOrchestrator_ClientTier_SetsExternalStatusAndNoPVC(t
 		t.Fatalf("reconcile: %v", err)
 	}
 
-	expectedPVC := stablePVCName(worldName, shardName, string(gamev1alpha1.WorldStorageTierClientLowLatency))
+	expectedPVC := stablePVCName(worldName, shardName, string(binderyv1alpha1.WorldStorageTierClientLowLatency))
 
 	if err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 10*time.Second, true, func(ctx context.Context) (bool, error) {
-		var got gamev1alpha1.WorldStorageClaim
+		var got binderyv1alpha1.WorldStorageClaim
 		if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: ns.Name, Name: claimName}, &got); err != nil {
 			return false, client.IgnoreNotFound(err)
 		}

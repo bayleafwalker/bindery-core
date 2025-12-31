@@ -26,30 +26,30 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	gamev1alpha1 "github.com/anvil-platform/anvil/api/v1alpha1"
+	binderyv1alpha1 "github.com/bayleafwalker/bindery-core/api/v1alpha1"
 )
 
 const (
-	rtLabelManagedBy = "game.platform/managed-by"
-	rtLabelWorldName = "game.platform/world"
-	rtLabelModule    = "game.platform/module"
+	rtLabelManagedBy = "bindery.platform/managed-by"
+	rtLabelWorldName = "bindery.platform/world"
+	rtLabelModule    = "bindery.platform/module"
 
 	rtManagedBy = "runtimeorchestrator"
 
 	idxBindingConsumer = "spec.consumer.moduleManifestName"
 	idxBindingProvider = "spec.provider.moduleManifestName"
 
-	annRuntimeImage = "anvil.dev/runtime-image"
-	annRuntimePort  = "anvil.dev/runtime-port"
+	annRuntimeImage = "bindery.dev/runtime-image"
+	annRuntimePort  = "bindery.dev/runtime-port"
 
-	annStorageTier        = "anvil.dev/storage-tier"
-	annStorageSize        = "anvil.dev/storage-size"
-	annStorageScope       = "anvil.dev/storage-scope"
-	annStorageAccessModes = "anvil.dev/storage-access-modes"
-	annStorageMountPath   = "anvil.dev/storage-mount-path"
+	annStorageTier        = "bindery.dev/storage-tier"
+	annStorageSize        = "bindery.dev/storage-size"
+	annStorageScope       = "bindery.dev/storage-scope"
+	annStorageAccessModes = "bindery.dev/storage-access-modes"
+	annStorageMountPath   = "bindery.dev/storage-mount-path"
 
-	annTerminationGracePeriod = "anvil.dev/termination-grace-period"
-	annPreStopCommand         = "anvil.dev/pre-stop-command"
+	annTerminationGracePeriod = "bindery.dev/termination-grace-period"
+	annPreStopCommand         = "bindery.dev/pre-stop-command"
 )
 
 var rtNonDNS = regexp.MustCompile(`[^a-z0-9-]+`)
@@ -64,13 +64,13 @@ var rtNonDNS = regexp.MustCompile(`[^a-z0-9-]+`)
 // Client-side modules are out of scope here (no workloads created).
 //
 // RBAC:
-// +kubebuilder:rbac:groups=game.platform,resources=capabilitybindings,verbs=get;list;watch
-// +kubebuilder:rbac:groups=game.platform,resources=capabilitybindings/status,verbs=update;patch
-// +kubebuilder:rbac:groups=game.platform,resources=worldinstances,verbs=get;list;watch
-// +kubebuilder:rbac:groups=game.platform,resources=worldshards,verbs=get;list;watch
-// +kubebuilder:rbac:groups=game.platform,resources=modulemanifests,verbs=get;list;watch
-// +kubebuilder:rbac:groups=game.platform,resources=worldstorageclaims,verbs=get;list;watch;create;update;patch
-// +kubebuilder:rbac:groups=game.platform,resources=worldstorageclaims/status,verbs=get
+// +kubebuilder:rbac:groups=bindery.platform,resources=capabilitybindings,verbs=get;list;watch
+// +kubebuilder:rbac:groups=bindery.platform,resources=capabilitybindings/status,verbs=update;patch
+// +kubebuilder:rbac:groups=bindery.platform,resources=worldinstances,verbs=get;list;watch
+// +kubebuilder:rbac:groups=bindery.platform,resources=worldshards,verbs=get;list;watch
+// +kubebuilder:rbac:groups=bindery.platform,resources=modulemanifests,verbs=get;list;watch
+// +kubebuilder:rbac:groups=bindery.platform,resources=worldstorageclaims,verbs=get;list;watch;create;update;patch
+// +kubebuilder:rbac:groups=bindery.platform,resources=worldstorageclaims/status,verbs=get
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch;update
@@ -81,7 +81,7 @@ type RuntimeOrchestratorReconciler struct {
 }
 
 func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	anvilControllerReconcileTotal.WithLabelValues("RuntimeOrchestrator").Inc()
+	binderyControllerReconcileTotal.WithLabelValues("RuntimeOrchestrator").Inc()
 
 	logger := log.FromContext(ctx).WithValues(
 		"controller", "RuntimeOrchestrator",
@@ -89,12 +89,12 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 		"binding", req.Name,
 	)
 
-	var binding gamev1alpha1.CapabilityBinding
+	var binding binderyv1alpha1.CapabilityBinding
 	if err := r.Get(ctx, req.NamespacedName, &binding); err != nil {
 		if client.IgnoreNotFound(err) == nil {
 			return ctrl.Result{}, nil
 		}
-		anvilControllerReconcileErrorTotal.WithLabelValues("RuntimeOrchestrator").Inc()
+		binderyControllerReconcileErrorTotal.WithLabelValues("RuntimeOrchestrator").Inc()
 		return ctrl.Result{}, err
 	}
 
@@ -113,7 +113,7 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 
 	// Only orchestrate bindings that are scoped to a world, unless they are global.
-	isGlobal := binding.Spec.Scope == gamev1alpha1.CapabilityScopeCluster || binding.Spec.Scope == gamev1alpha1.CapabilityScopeRegion || binding.Spec.Scope == gamev1alpha1.CapabilityScopeRealm
+	isGlobal := binding.Spec.Scope == binderyv1alpha1.CapabilityScopeCluster || binding.Spec.Scope == binderyv1alpha1.CapabilityScopeRegion || binding.Spec.Scope == binderyv1alpha1.CapabilityScopeRealm
 	if !isGlobal && (binding.Spec.WorldRef == nil || binding.Spec.WorldRef.Name == "") {
 		logger.V(1).Info("skipping binding without world")
 		return ctrl.Result{}, nil
@@ -123,7 +123,7 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 
 	// Load owning world (needed for ownerRefs/labels).
-	var world gamev1alpha1.WorldInstance
+	var world binderyv1alpha1.WorldInstance
 	if !isGlobal {
 		if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: binding.Spec.WorldRef.Name}, &world); err != nil {
 			if apierrors.IsNotFound(err) {
@@ -132,20 +132,20 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 			}
 			logger.Error(err, "failed to load world")
 			r.recordEventf(&binding, "Warning", "GetWorldFailed", "Failed to get WorldInstance %q: %v", binding.Spec.WorldRef.Name, err)
-			anvilControllerReconcileErrorTotal.WithLabelValues("RuntimeOrchestrator").Inc()
+			binderyControllerReconcileErrorTotal.WithLabelValues("RuntimeOrchestrator").Inc()
 			return ctrl.Result{}, err
 		}
 	}
 
-	// Load GameDefinition for colocation logic
-	var gameDef gamev1alpha1.GameDefinition
+	// Load Booklet for colocation logic
+	var booklet binderyv1alpha1.Booklet
 	if !isGlobal {
-		if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: world.Spec.GameRef.Name}, &gameDef); err != nil {
-			logger.V(1).Info("game definition not found; proceeding without colocation logic", "game", world.Spec.GameRef.Name)
+		if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: world.Spec.BookletRef.Name}, &booklet); err != nil {
+			logger.V(1).Info("game definition not found; proceeding without colocation logic", "game", world.Spec.BookletRef.Name)
 		}
 	}
 
-	var shardObj *gamev1alpha1.WorldShard
+	var shardObj *binderyv1alpha1.WorldShard
 	shardName := ""
 	if !isGlobal && shardLabel != "" {
 		id, err := strconv.Atoi(shardLabel)
@@ -154,14 +154,14 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 			shardLabel = ""
 		} else {
 			shardName = stableWorldShardName(world.Name, int32(id))
-			var ws gamev1alpha1.WorldShard
+			var ws binderyv1alpha1.WorldShard
 			if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: shardName}, &ws); err != nil {
 				if apierrors.IsNotFound(err) {
 					logger.V(1).Info("worldshard not found yet; requeue", "worldShard", shardName)
 					return ctrl.Result{Requeue: true}, nil
 				}
 				logger.Error(err, "failed to get worldshard", "worldShard", shardName)
-				anvilControllerReconcileErrorTotal.WithLabelValues("RuntimeOrchestrator").Inc()
+				binderyControllerReconcileErrorTotal.WithLabelValues("RuntimeOrchestrator").Inc()
 				return ctrl.Result{}, err
 			}
 			shardObj = &ws
@@ -174,7 +174,7 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, nil
 	}
 
-	var providerMM gamev1alpha1.ModuleManifest
+	var providerMM binderyv1alpha1.ModuleManifest
 	if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: providerName}, &providerMM); err != nil {
 		if apierrors.IsNotFound(err) {
 			logger.V(1).Info("provider modulemanifest not found; skipping")
@@ -182,7 +182,7 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 		}
 		logger.Error(err, "failed to load provider modulemanifest")
 		r.recordEventf(&binding, "Warning", "GetProviderModuleFailed", "Failed to get provider ModuleManifest %q: %v", providerName, err)
-		anvilControllerReconcileErrorTotal.WithLabelValues("RuntimeOrchestrator").Inc()
+		binderyControllerReconcileErrorTotal.WithLabelValues("RuntimeOrchestrator").Inc()
 		return ctrl.Result{}, err
 	}
 
@@ -213,9 +213,9 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 
 	// Determine colocation
-	var colocGroup *gamev1alpha1.ColocationGroup
+	var colocGroup *binderyv1alpha1.ColocationGroup
 	if !isGlobal {
-		colocGroup = getColocationGroup(&gameDef, providerName)
+		colocGroup = getColocationGroup(&booklet, providerName)
 	}
 	isColocPod := colocGroup != nil && colocGroup.Strategy == "Pod"
 
@@ -247,13 +247,13 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 	serviceLabels := mergeLabels(nil, labels)
 	serviceLabels[rtLabelModule] = providerName
 	if isColocPod {
-		serviceLabels["game.platform/coloc-group"] = colocGroup.Name
+		serviceLabels["bindery.platform/coloc-group"] = colocGroup.Name
 	}
 
 	// Deployment labels
 	deploymentLabels := mergeLabels(nil, labels)
 	if isColocPod {
-		deploymentLabels["game.platform/coloc-group"] = colocGroup.Name
+		deploymentLabels["bindery.platform/coloc-group"] = colocGroup.Name
 	} else {
 		deploymentLabels[rtLabelModule] = providerName
 	}
@@ -266,14 +266,14 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 	storageMountPath := strings.TrimSpace(providerMM.Annotations[annStorageMountPath])
 	if storageMountPath == "" {
-		storageMountPath = "/var/anvil/state"
+		storageMountPath = "/var/bindery/state"
 	}
 	storageScopeRaw := strings.TrimSpace(providerMM.Annotations[annStorageScope])
 	if storageScopeRaw == "" {
 		if shardLabel != "" {
-			storageScopeRaw = string(gamev1alpha1.WorldStorageScopeWorldShard)
+			storageScopeRaw = string(binderyv1alpha1.WorldStorageScopeWorldShard)
 		} else {
-			storageScopeRaw = string(gamev1alpha1.WorldStorageScopeWorld)
+			storageScopeRaw = string(binderyv1alpha1.WorldStorageScopeWorld)
 		}
 	}
 	accessModes := parseCSV(providerMM.Annotations[annStorageAccessModes])
@@ -281,9 +281,9 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 	var volumeToMount *corev1.Volume
 	var mountToUse *corev1.VolumeMount
 	if !isGlobal && storageTierRaw != "" {
-		tier := gamev1alpha1.WorldStorageTier(storageTierRaw)
-		scope := gamev1alpha1.WorldStorageScope(storageScopeRaw)
-		if tier == gamev1alpha1.WorldStorageTierServerLowLatency || tier == gamev1alpha1.WorldStorageTierServerHighLatency {
+		tier := binderyv1alpha1.WorldStorageTier(storageTierRaw)
+		scope := binderyv1alpha1.WorldStorageScope(storageScopeRaw)
+		if tier == binderyv1alpha1.WorldStorageTierServerLowLatency || tier == binderyv1alpha1.WorldStorageTierServerHighLatency {
 			// Ensure claim exists; StorageOrchestrator will materialize the PVC.
 			claimName := stableWSCName(world.Name, shardName, storageTierRaw)
 			if err := r.ensureWorldStorageClaim(ctx, req.Namespace, &world, shardObj, claimName, scope, tier, storageSize, accessModes, shardLabel, shardName); err != nil {
@@ -293,12 +293,12 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 			}
 			pvcName := stablePVCName(world.Name, shardName, storageTierRaw)
 			volumeToMount = &corev1.Volume{
-				Name: "anvil-state",
+				Name: "bindery-state",
 				VolumeSource: corev1.VolumeSource{
 					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName},
 				},
 			}
-			mountToUse = &corev1.VolumeMount{Name: "anvil-state", MountPath: storageMountPath}
+			mountToUse = &corev1.VolumeMount{Name: "bindery-state", MountPath: storageMountPath}
 		} else {
 			logger.V(1).Info("storage tier not supported for server workload; skipping", "tier", storageTierRaw)
 		}
@@ -320,7 +320,7 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 			selector[labelShardID] = shardLabel
 		}
 		if isColocPod {
-			selector["game.platform/coloc-group"] = colocGroup.Name
+			selector["bindery.platform/coloc-group"] = colocGroup.Name
 		} else {
 			selector[rtLabelModule] = providerName
 		}
@@ -344,7 +344,7 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 	if err != nil {
 		logger.Error(err, "failed to ensure service", "service", serviceName)
 		r.recordEventf(&binding, "Warning", "EnsureServiceFailed", "Failed to ensure Service %q: %v", serviceName, err)
-		anvilControllerReconcileErrorTotal.WithLabelValues("RuntimeOrchestrator").Inc()
+		binderyControllerReconcileErrorTotal.WithLabelValues("RuntimeOrchestrator").Inc()
 		return ctrl.Result{}, err
 	}
 
@@ -416,34 +416,34 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 			// Mount volume in container
 			container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
 				Name:      "shared-socket",
-				MountPath: "/var/run/anvil",
+				MountPath: "/var/run/bindery",
 			})
 
 			// Set Env Vars
 			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  "ANVIL_UDS_DIR",
-				Value: "/var/run/anvil",
+				Name:  "BINDERY_UDS_DIR",
+				Value: "/var/run/bindery",
 			})
 			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  "ANVIL_MODULE_NAME",
+				Name:  "BINDERY_MODULE_NAME",
 				Value: providerName,
 			})
 
 			// Inject UDS paths for dependencies if co-located
 			if isColocPod {
-				var allBindings gamev1alpha1.CapabilityBindingList
+				var allBindings binderyv1alpha1.CapabilityBindingList
 				if err := r.List(ctx, &allBindings, client.InNamespace(req.Namespace)); err == nil {
 					for _, b := range allBindings.Items {
 						if b.Spec.Consumer.ModuleManifestName == providerName &&
 							b.Spec.WorldRef != nil && b.Spec.WorldRef.Name == world.Name {
 
 							depProvider := b.Spec.Provider.ModuleManifestName
-							depGroup := getColocationGroup(&gameDef, depProvider)
+							depGroup := getColocationGroup(&booklet, depProvider)
 							if depGroup != nil && depGroup.Name == colocGroup.Name && depGroup.Strategy == "Pod" {
-								envName := fmt.Sprintf("ANVIL_UDS_%s", strings.ToUpper(strings.ReplaceAll(b.Spec.CapabilityID, ".", "_")))
+								envName := fmt.Sprintf("BINDERY_UDS_%s", strings.ToUpper(strings.ReplaceAll(b.Spec.CapabilityID, ".", "_")))
 								container.Env = append(container.Env, corev1.EnvVar{
 									Name:  envName,
-									Value: fmt.Sprintf("/var/run/anvil/%s.sock", depProvider),
+									Value: fmt.Sprintf("/var/run/bindery/%s.sock", depProvider),
 								})
 							}
 						}
@@ -454,7 +454,7 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 
 		// Service Discovery Injection
 		// Find all bindings where this module is the consumer
-		var dependencyBindings gamev1alpha1.CapabilityBindingList
+		var dependencyBindings binderyv1alpha1.CapabilityBindingList
 		if err := r.List(ctx, &dependencyBindings, client.MatchingFields{idxBindingConsumer: providerName}, client.InNamespace(req.Namespace)); err != nil {
 			logger.Error(err, "failed to list dependency bindings for injection")
 		} else {
@@ -469,21 +469,21 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 					ep := b.Status.Provider.Endpoint
 					capID := strings.ToUpper(strings.ReplaceAll(b.Spec.CapabilityID, ".", "_"))
 
-					// ANVIL_CAPABILITY_<ID>_ENDPOINT
+					// BINDERY_CAPABILITY_<ID>_ENDPOINT
 					container.Env = append(container.Env, corev1.EnvVar{
-						Name:  fmt.Sprintf("ANVIL_CAPABILITY_%s_ENDPOINT", capID),
+						Name:  fmt.Sprintf("BINDERY_CAPABILITY_%s_ENDPOINT", capID),
 						Value: fmt.Sprintf("%s:%d", ep.Value, ep.Port),
 					})
 
-					// ANVIL_CAPABILITY_<ID>_HOST
+					// BINDERY_CAPABILITY_<ID>_HOST
 					container.Env = append(container.Env, corev1.EnvVar{
-						Name:  fmt.Sprintf("ANVIL_CAPABILITY_%s_HOST", capID),
+						Name:  fmt.Sprintf("BINDERY_CAPABILITY_%s_HOST", capID),
 						Value: ep.Value,
 					})
 
-					// ANVIL_CAPABILITY_<ID>_PORT
+					// BINDERY_CAPABILITY_<ID>_PORT
 					container.Env = append(container.Env, corev1.EnvVar{
-						Name:  fmt.Sprintf("ANVIL_CAPABILITY_%s_PORT", capID),
+						Name:  fmt.Sprintf("BINDERY_CAPABILITY_%s_PORT", capID),
 						Value: fmt.Sprintf("%d", ep.Port),
 					})
 				}
@@ -491,7 +491,7 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 		}
 
 		// Inject dependency endpoints (Service Discovery)
-		var myDependencies gamev1alpha1.CapabilityBindingList
+		var myDependencies binderyv1alpha1.CapabilityBindingList
 		var waitList []string
 		if err := r.List(ctx, &myDependencies, client.InNamespace(req.Namespace), client.MatchingFields{idxBindingConsumer: providerName}); err == nil {
 			for _, dep := range myDependencies.Items {
@@ -515,7 +515,7 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 				svcName := rtNameWithShard(depWorldName, depShard, depProvider)
 
 				// Fetch provider MM to get port
-				var depMM gamev1alpha1.ModuleManifest
+				var depMM binderyv1alpha1.ModuleManifest
 				if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: depProvider}, &depMM); err == nil {
 					port := int32(50051)
 					if raw := strings.TrimSpace(depMM.Annotations[annRuntimePort]); raw != "" {
@@ -531,19 +531,19 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 					ep := dep.Status.Provider.Endpoint
 					capID := strings.ToUpper(strings.ReplaceAll(dep.Spec.CapabilityID, ".", "_"))
 
-					// ANVIL_CAPABILITY_<ID>_ENDPOINT = host:port
+					// BINDERY_CAPABILITY_<ID>_ENDPOINT = host:port
 					container.Env = append(container.Env, corev1.EnvVar{
-						Name:  fmt.Sprintf("ANVIL_CAPABILITY_%s_ENDPOINT", capID),
+						Name:  fmt.Sprintf("BINDERY_CAPABILITY_%s_ENDPOINT", capID),
 						Value: fmt.Sprintf("%s:%d", ep.Value, ep.Port),
 					})
-					// ANVIL_CAPABILITY_<ID>_HOST = host
+					// BINDERY_CAPABILITY_<ID>_HOST = host
 					container.Env = append(container.Env, corev1.EnvVar{
-						Name:  fmt.Sprintf("ANVIL_CAPABILITY_%s_HOST", capID),
+						Name:  fmt.Sprintf("BINDERY_CAPABILITY_%s_HOST", capID),
 						Value: ep.Value,
 					})
-					// ANVIL_CAPABILITY_<ID>_PORT = port
+					// BINDERY_CAPABILITY_<ID>_PORT = port
 					container.Env = append(container.Env, corev1.EnvVar{
-						Name:  fmt.Sprintf("ANVIL_CAPABILITY_%s_PORT", capID),
+						Name:  fmt.Sprintf("BINDERY_CAPABILITY_%s_PORT", capID),
 						Value: fmt.Sprintf("%d", ep.Port),
 					})
 				}
@@ -627,7 +627,7 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 			}
 
 			matchLabels := map[string]string{
-				"game.platform/coloc-group": colocGroup.Name,
+				"bindery.platform/coloc-group": colocGroup.Name,
 				rtLabelWorldName:            world.Name,
 			}
 			if shardLabel != "" {
@@ -643,8 +643,8 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 			deployment.Spec.Template.Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution = append(deployment.Spec.Template.Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution, term)
 
 			// Ensure labels
-			deployment.Labels["game.platform/coloc-group"] = colocGroup.Name
-			deployment.Spec.Template.ObjectMeta.Labels["game.platform/coloc-group"] = colocGroup.Name
+			deployment.Labels["bindery.platform/coloc-group"] = colocGroup.Name
+			deployment.Spec.Template.ObjectMeta.Labels["bindery.platform/coloc-group"] = colocGroup.Name
 		}
 
 		if shardObj != nil {
@@ -659,12 +659,12 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 	if err != nil {
 		logger.Error(err, "failed to ensure deployment", "deployment", deploymentName)
 		r.recordEventf(&binding, "Warning", "EnsureDeploymentFailed", "Failed to ensure Deployment %q: %v", deploymentName, err)
-		anvilControllerReconcileErrorTotal.WithLabelValues("RuntimeOrchestrator").Inc()
+		binderyControllerReconcileErrorTotal.WithLabelValues("RuntimeOrchestrator").Inc()
 		return ctrl.Result{}, err
 	}
 
 	// 3) Publish the endpoint back onto the binding status.
-	desiredEndpoint := &gamev1alpha1.EndpointRef{
+	desiredEndpoint := &binderyv1alpha1.EndpointRef{
 		Type:  "kubernetesService",
 		Value: serviceName,
 		Port:  port,
@@ -678,7 +678,7 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 	if needEndpointPatch || needCondPatch {
 		before := binding.DeepCopy()
 		binding.Status.ObservedGeneration = binding.Generation
-		binding.Status.Provider = &gamev1alpha1.ProviderStatus{Endpoint: desiredEndpoint}
+		binding.Status.Provider = &binderyv1alpha1.ProviderStatus{Endpoint: desiredEndpoint}
 		setBindingCondition(&binding, metav1.Condition{
 			Type:    BindingConditionRuntimeReady,
 			Status:  metav1.ConditionTrue,
@@ -688,7 +688,7 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 		if err := r.Status().Patch(ctx, &binding, client.MergeFrom(before)); err != nil {
 			logger.Error(err, "failed to publish endpoint to binding status", "service", serviceName, "port", port)
 			r.recordEventf(&binding, "Warning", "PublishEndpointFailed", "Failed to publish endpoint to binding status: %v", err)
-			anvilControllerReconcileErrorTotal.WithLabelValues("RuntimeOrchestrator").Inc()
+			binderyControllerReconcileErrorTotal.WithLabelValues("RuntimeOrchestrator").Inc()
 			return ctrl.Result{}, err
 		}
 		logger.Info("published endpoint", "endpointType", desiredEndpoint.Type, "endpointValue", desiredEndpoint.Value, "endpointPort", desiredEndpoint.Port)
@@ -704,12 +704,12 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 	return ctrl.Result{}, nil
 }
 
-func (r *RuntimeOrchestratorReconciler) updateWorldRuntimeReadyCondition(ctx context.Context, namespace string, world *gamev1alpha1.WorldInstance) error {
+func (r *RuntimeOrchestratorReconciler) updateWorldRuntimeReadyCondition(ctx context.Context, namespace string, world *binderyv1alpha1.WorldInstance) error {
 	if world == nil {
 		return nil
 	}
 
-	var bindings gamev1alpha1.CapabilityBindingList
+	var bindings binderyv1alpha1.CapabilityBindingList
 	if err := r.List(ctx, &bindings,
 		client.InNamespace(namespace),
 		client.MatchingLabels{labelManagedBy: managedByCapabilityResolver, labelWorldName: world.Name},
@@ -726,7 +726,7 @@ func (r *RuntimeOrchestratorReconciler) updateWorldRuntimeReadyCondition(ctx con
 		if provider == "" {
 			continue
 		}
-		var mm gamev1alpha1.ModuleManifest
+		var mm binderyv1alpha1.ModuleManifest
 		if err := r.Get(ctx, types.NamespacedName{Namespace: namespace, Name: provider}, &mm); err != nil {
 			if apierrors.IsNotFound(err) {
 				missingProviders++
@@ -783,7 +783,7 @@ func (r *RuntimeOrchestratorReconciler) recordEventf(obj client.Object, eventTyp
 }
 
 func (r *RuntimeOrchestratorReconciler) findConsumersForBinding(ctx context.Context, obj client.Object) []reconcile.Request {
-	binding, ok := obj.(*gamev1alpha1.CapabilityBinding)
+	binding, ok := obj.(*binderyv1alpha1.CapabilityBinding)
 	if !ok {
 		return nil
 	}
@@ -796,7 +796,7 @@ func (r *RuntimeOrchestratorReconciler) findConsumersForBinding(ctx context.Cont
 	}
 
 	// Find bindings where Provider == consumerModule
-	var bindings gamev1alpha1.CapabilityBindingList
+	var bindings binderyv1alpha1.CapabilityBindingList
 	if err := r.List(ctx, &bindings, client.MatchingFields{idxBindingProvider: consumerModule}, client.InNamespace(binding.Namespace)); err != nil {
 		return nil
 	}
@@ -810,8 +810,8 @@ func (r *RuntimeOrchestratorReconciler) findConsumersForBinding(ctx context.Cont
 
 func (r *RuntimeOrchestratorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Index spec.consumer.moduleManifestName
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gamev1alpha1.CapabilityBinding{}, idxBindingConsumer, func(rawObj client.Object) []string {
-		binding := rawObj.(*gamev1alpha1.CapabilityBinding)
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &binderyv1alpha1.CapabilityBinding{}, idxBindingConsumer, func(rawObj client.Object) []string {
+		binding := rawObj.(*binderyv1alpha1.CapabilityBinding)
 		if binding.Spec.Consumer.ModuleManifestName == "" {
 			return nil
 		}
@@ -821,8 +821,8 @@ func (r *RuntimeOrchestratorReconciler) SetupWithManager(mgr ctrl.Manager) error
 	}
 
 	// Index spec.provider.moduleManifestName
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gamev1alpha1.CapabilityBinding{}, idxBindingProvider, func(rawObj client.Object) []string {
-		binding := rawObj.(*gamev1alpha1.CapabilityBinding)
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &binderyv1alpha1.CapabilityBinding{}, idxBindingProvider, func(rawObj client.Object) []string {
+		binding := rawObj.(*binderyv1alpha1.CapabilityBinding)
 		if binding.Spec.Provider.ModuleManifestName == "" {
 			return nil
 		}
@@ -832,11 +832,11 @@ func (r *RuntimeOrchestratorReconciler) SetupWithManager(mgr ctrl.Manager) error
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&gamev1alpha1.CapabilityBinding{}).
+		For(&binderyv1alpha1.CapabilityBinding{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Service{}).
 		Watches(
-			&gamev1alpha1.CapabilityBinding{},
+			&binderyv1alpha1.CapabilityBinding{},
 			handler.EnqueueRequestsFromMapFunc(r.findConsumersForBinding),
 		).
 		Complete(r)
@@ -941,17 +941,17 @@ func stableWSCName(worldName, shardName, tier string) string {
 func (r *RuntimeOrchestratorReconciler) ensureWorldStorageClaim(
 	ctx context.Context,
 	namespace string,
-	world *gamev1alpha1.WorldInstance,
-	shard *gamev1alpha1.WorldShard,
+	world *binderyv1alpha1.WorldInstance,
+	shard *binderyv1alpha1.WorldShard,
 	name string,
-	scope gamev1alpha1.WorldStorageScope,
-	tier gamev1alpha1.WorldStorageTier,
+	scope binderyv1alpha1.WorldStorageScope,
+	tier binderyv1alpha1.WorldStorageTier,
 	size string,
 	accessModes []string,
 	shardIDLabel string,
 	shardObjectName string,
 ) error {
-	claim := &gamev1alpha1.WorldStorageClaim{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}}
+	claim := &binderyv1alpha1.WorldStorageClaim{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}}
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, claim, func() error {
 		if claim.Labels == nil {
 			claim.Labels = map[string]string{}
@@ -963,9 +963,9 @@ func (r *RuntimeOrchestratorReconciler) ensureWorldStorageClaim(
 		}
 		claim.Spec.Scope = scope
 		claim.Spec.Tier = tier
-		claim.Spec.WorldRef = gamev1alpha1.ObjectRef{Name: world.Name}
-		if scope == gamev1alpha1.WorldStorageScopeWorldShard {
-			claim.Spec.ShardRef = &gamev1alpha1.ObjectRef{Name: shardObjectName}
+		claim.Spec.WorldRef = binderyv1alpha1.ObjectRef{Name: world.Name}
+		if scope == binderyv1alpha1.WorldStorageScopeWorldShard {
+			claim.Spec.ShardRef = &binderyv1alpha1.ObjectRef{Name: shardObjectName}
 		} else {
 			claim.Spec.ShardRef = nil
 		}
@@ -979,7 +979,7 @@ func (r *RuntimeOrchestratorReconciler) ensureWorldStorageClaim(
 	return err
 }
 
-func getColocationGroup(game *gamev1alpha1.GameDefinition, moduleName string) *gamev1alpha1.ColocationGroup {
+func getColocationGroup(game *binderyv1alpha1.Booklet, moduleName string) *binderyv1alpha1.ColocationGroup {
 	if game == nil {
 		return nil
 	}

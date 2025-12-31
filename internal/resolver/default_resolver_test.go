@@ -4,15 +4,15 @@ import (
 	"context"
 	"testing"
 
-	gamev1alpha1 "github.com/anvil-platform/anvil/api/v1alpha1"
+	binderyv1alpha1 "github.com/bayleafwalker/bindery-core/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func mm(name string, provides []gamev1alpha1.ProvidedCapability, requires []gamev1alpha1.RequiredCapability) gamev1alpha1.ModuleManifest {
-	return gamev1alpha1.ModuleManifest{
+func mm(name string, provides []binderyv1alpha1.ProvidedCapability, requires []binderyv1alpha1.RequiredCapability) binderyv1alpha1.ModuleManifest {
+	return binderyv1alpha1.ModuleManifest{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
-		Spec: gamev1alpha1.ModuleManifestSpec{
-			Module:   gamev1alpha1.ModuleIdentity{ID: name, Version: "0.0.0"},
+		Spec: binderyv1alpha1.ModuleManifestSpec{
+			Module:   binderyv1alpha1.ModuleIdentity{ID: name, Version: "0.0.0"},
 			Provides: provides,
 			Requires: requires,
 		},
@@ -23,26 +23,26 @@ func TestDefaultResolver_SelectsHighestCompatibleProvider(t *testing.T) {
 	r := NewDefault()
 
 	in := Input{
-		World: gamev1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
-		Modules: []gamev1alpha1.ModuleManifest{
-			mm("physics-a", []gamev1alpha1.ProvidedCapability{{
+		World: binderyv1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
+		Modules: []binderyv1alpha1.ModuleManifest{
+			mm("physics-a", []binderyv1alpha1.ProvidedCapability{{
 				CapabilityID: "cap.physics",
 				Version:      "1.0.0",
-				Scope:        gamev1alpha1.CapabilityScopeWorld,
-				Multiplicity: gamev1alpha1.MultiplicityOne,
+				Scope:        binderyv1alpha1.CapabilityScopeWorld,
+				Multiplicity: binderyv1alpha1.MultiplicityOne,
 			}}, nil),
-			mm("physics-b", []gamev1alpha1.ProvidedCapability{{
+			mm("physics-b", []binderyv1alpha1.ProvidedCapability{{
 				CapabilityID: "cap.physics",
 				Version:      "1.5.0",
-				Scope:        gamev1alpha1.CapabilityScopeWorld,
-				Multiplicity: gamev1alpha1.MultiplicityOne,
+				Scope:        binderyv1alpha1.CapabilityScopeWorld,
+				Multiplicity: binderyv1alpha1.MultiplicityOne,
 			}}, nil),
-			mm("interaction", nil, []gamev1alpha1.RequiredCapability{{
+			mm("interaction", nil, []binderyv1alpha1.RequiredCapability{{
 				CapabilityID:      "cap.physics",
 				VersionConstraint: ">=1.0.0 <2.0.0",
-				Scope:             gamev1alpha1.CapabilityScopeWorld,
-				Multiplicity:      gamev1alpha1.MultiplicityOne,
-				DependencyMode:    gamev1alpha1.DependencyModeRequired,
+				Scope:             binderyv1alpha1.CapabilityScopeWorld,
+				Multiplicity:      binderyv1alpha1.MultiplicityOne,
+				DependencyMode:    binderyv1alpha1.DependencyModeRequired,
 			}}),
 		},
 	}
@@ -56,7 +56,7 @@ func TestDefaultResolver_SelectsHighestCompatibleProvider(t *testing.T) {
 	}
 
 	// Find the explicit binding for interaction -> physics
-	var b *gamev1alpha1.CapabilityBindingSpec
+	var b *binderyv1alpha1.CapabilityBindingSpec
 	for i := range plan.DesiredBindings {
 		if plan.DesiredBindings[i].Spec.Consumer.ModuleManifestName == "interaction" {
 			b = &plan.DesiredBindings[i].Spec
@@ -80,26 +80,26 @@ func TestDefaultResolver_TieBreaksByModuleName(t *testing.T) {
 	r := NewDefault()
 
 	in := Input{
-		World: gamev1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
-		Modules: []gamev1alpha1.ModuleManifest{
-			mm("provider-b", []gamev1alpha1.ProvidedCapability{{
+		World: binderyv1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
+		Modules: []binderyv1alpha1.ModuleManifest{
+			mm("provider-b", []binderyv1alpha1.ProvidedCapability{{
 				CapabilityID: "cap.time",
 				Version:      "1.0.0",
-				Scope:        gamev1alpha1.CapabilityScopeWorld,
-				Multiplicity: gamev1alpha1.MultiplicityOne,
+				Scope:        binderyv1alpha1.CapabilityScopeWorld,
+				Multiplicity: binderyv1alpha1.MultiplicityOne,
 			}}, nil),
-			mm("provider-a", []gamev1alpha1.ProvidedCapability{{
+			mm("provider-a", []binderyv1alpha1.ProvidedCapability{{
 				CapabilityID: "cap.time",
 				Version:      "1.0.0",
-				Scope:        gamev1alpha1.CapabilityScopeWorld,
-				Multiplicity: gamev1alpha1.MultiplicityOne,
+				Scope:        binderyv1alpha1.CapabilityScopeWorld,
+				Multiplicity: binderyv1alpha1.MultiplicityOne,
 			}}, nil),
-			mm("consumer", nil, []gamev1alpha1.RequiredCapability{{
+			mm("consumer", nil, []binderyv1alpha1.RequiredCapability{{
 				CapabilityID:      "cap.time",
 				VersionConstraint: "=1.0.0",
-				Scope:             gamev1alpha1.CapabilityScopeWorld,
-				Multiplicity:      gamev1alpha1.MultiplicityOne,
-				DependencyMode:    gamev1alpha1.DependencyModeRequired,
+				Scope:             binderyv1alpha1.CapabilityScopeWorld,
+				Multiplicity:      binderyv1alpha1.MultiplicityOne,
+				DependencyMode:    binderyv1alpha1.DependencyModeRequired,
 			}}),
 		},
 	}
@@ -110,7 +110,7 @@ func TestDefaultResolver_TieBreaksByModuleName(t *testing.T) {
 	}
 
 	// Find the explicit binding
-	var b *gamev1alpha1.CapabilityBindingSpec
+	var b *binderyv1alpha1.CapabilityBindingSpec
 	for i := range plan.DesiredBindings {
 		if plan.DesiredBindings[i].Spec.Consumer.ModuleManifestName == "consumer" {
 			b = &plan.DesiredBindings[i].Spec
@@ -131,26 +131,26 @@ func TestDefaultResolver_MultiplicityManySelectsAll(t *testing.T) {
 	r := NewDefault()
 
 	in := Input{
-		World: gamev1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
-		Modules: []gamev1alpha1.ModuleManifest{
-			mm("p1", []gamev1alpha1.ProvidedCapability{{
+		World: binderyv1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
+		Modules: []binderyv1alpha1.ModuleManifest{
+			mm("p1", []binderyv1alpha1.ProvidedCapability{{
 				CapabilityID: "cap.events",
 				Version:      "1.0.0",
-				Scope:        gamev1alpha1.CapabilityScopeWorld,
-				Multiplicity: gamev1alpha1.MultiplicityMany,
+				Scope:        binderyv1alpha1.CapabilityScopeWorld,
+				Multiplicity: binderyv1alpha1.MultiplicityMany,
 			}}, nil),
-			mm("p2", []gamev1alpha1.ProvidedCapability{{
+			mm("p2", []binderyv1alpha1.ProvidedCapability{{
 				CapabilityID: "cap.events",
 				Version:      "1.1.0",
-				Scope:        gamev1alpha1.CapabilityScopeWorld,
-				Multiplicity: gamev1alpha1.MultiplicityMany,
+				Scope:        binderyv1alpha1.CapabilityScopeWorld,
+				Multiplicity: binderyv1alpha1.MultiplicityMany,
 			}}, nil),
-			mm("c", nil, []gamev1alpha1.RequiredCapability{{
+			mm("c", nil, []binderyv1alpha1.RequiredCapability{{
 				CapabilityID:      "cap.events",
 				VersionConstraint: ">=1.0.0 <2.0.0",
-				Scope:             gamev1alpha1.CapabilityScopeWorld,
-				Multiplicity:      gamev1alpha1.MultiplicityMany,
-				DependencyMode:    gamev1alpha1.DependencyModeRequired,
+				Scope:             binderyv1alpha1.CapabilityScopeWorld,
+				Multiplicity:      binderyv1alpha1.MultiplicityMany,
+				DependencyMode:    binderyv1alpha1.DependencyModeRequired,
 			}}),
 		},
 	}
@@ -161,7 +161,7 @@ func TestDefaultResolver_MultiplicityManySelectsAll(t *testing.T) {
 	}
 
 	// Find explicit bindings for consumer 'c'
-	var bindings []gamev1alpha1.CapabilityBindingSpec
+	var bindings []binderyv1alpha1.CapabilityBindingSpec
 	for _, b := range plan.DesiredBindings {
 		if b.Spec.Consumer.ModuleManifestName == "c" {
 			bindings = append(bindings, b.Spec)
@@ -185,14 +185,14 @@ func TestDefaultResolver_UnresolvedOptionalRecorded(t *testing.T) {
 	r := NewDefault()
 
 	in := Input{
-		World: gamev1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
-		Modules: []gamev1alpha1.ModuleManifest{
-			mm("consumer", nil, []gamev1alpha1.RequiredCapability{{
+		World: binderyv1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
+		Modules: []binderyv1alpha1.ModuleManifest{
+			mm("consumer", nil, []binderyv1alpha1.RequiredCapability{{
 				CapabilityID:      "cap.logging",
 				VersionConstraint: ">=1.0.0",
-				Scope:             gamev1alpha1.CapabilityScopeWorld,
-				Multiplicity:      gamev1alpha1.MultiplicityOne,
-				DependencyMode:    gamev1alpha1.DependencyModeOptional,
+				Scope:             binderyv1alpha1.CapabilityScopeWorld,
+				Multiplicity:      binderyv1alpha1.MultiplicityOne,
+				DependencyMode:    binderyv1alpha1.DependencyModeOptional,
 			}}),
 		},
 	}
@@ -212,14 +212,14 @@ func TestDefaultResolver_UnresolvedRequiredRecorded(t *testing.T) {
 	r := NewDefault()
 
 	in := Input{
-		World: gamev1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
-		Modules: []gamev1alpha1.ModuleManifest{
-			mm("consumer", nil, []gamev1alpha1.RequiredCapability{{
+		World: binderyv1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
+		Modules: []binderyv1alpha1.ModuleManifest{
+			mm("consumer", nil, []binderyv1alpha1.RequiredCapability{{
 				CapabilityID:      "cap.missing",
 				VersionConstraint: ">=1.0.0",
-				Scope:             gamev1alpha1.CapabilityScopeWorld,
-				Multiplicity:      gamev1alpha1.MultiplicityOne,
-				DependencyMode:    gamev1alpha1.DependencyModeRequired,
+				Scope:             binderyv1alpha1.CapabilityScopeWorld,
+				Multiplicity:      binderyv1alpha1.MultiplicityOne,
+				DependencyMode:    binderyv1alpha1.DependencyModeRequired,
 			}}),
 		},
 	}
@@ -241,20 +241,20 @@ func TestDefaultResolver_VersionIncompatibleRequired(t *testing.T) {
 	r := NewDefault()
 
 	in := Input{
-		World: gamev1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
-		Modules: []gamev1alpha1.ModuleManifest{
-			mm("provider", []gamev1alpha1.ProvidedCapability{{
+		World: binderyv1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
+		Modules: []binderyv1alpha1.ModuleManifest{
+			mm("provider", []binderyv1alpha1.ProvidedCapability{{
 				CapabilityID: "cap.physics",
 				Version:      "1.0.0",
-				Scope:        gamev1alpha1.CapabilityScopeWorld,
-				Multiplicity: gamev1alpha1.MultiplicityOne,
+				Scope:        binderyv1alpha1.CapabilityScopeWorld,
+				Multiplicity: binderyv1alpha1.MultiplicityOne,
 			}}, nil),
-			mm("consumer", nil, []gamev1alpha1.RequiredCapability{{
+			mm("consumer", nil, []binderyv1alpha1.RequiredCapability{{
 				CapabilityID:      "cap.physics",
 				VersionConstraint: ">=2.0.0",
-				Scope:             gamev1alpha1.CapabilityScopeWorld,
-				Multiplicity:      gamev1alpha1.MultiplicityOne,
-				DependencyMode:    gamev1alpha1.DependencyModeRequired,
+				Scope:             binderyv1alpha1.CapabilityScopeWorld,
+				Multiplicity:      binderyv1alpha1.MultiplicityOne,
+				DependencyMode:    binderyv1alpha1.DependencyModeRequired,
 			}}),
 		},
 	}
@@ -273,20 +273,20 @@ func TestDefaultResolver_VersionIncompatibleOptional(t *testing.T) {
 	r := NewDefault()
 
 	in := Input{
-		World: gamev1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
-		Modules: []gamev1alpha1.ModuleManifest{
-			mm("provider", []gamev1alpha1.ProvidedCapability{{
+		World: binderyv1alpha1.WorldInstance{ObjectMeta: metav1.ObjectMeta{Name: "world-1", Namespace: "default"}},
+		Modules: []binderyv1alpha1.ModuleManifest{
+			mm("provider", []binderyv1alpha1.ProvidedCapability{{
 				CapabilityID: "cap.physics",
 				Version:      "1.0.0",
-				Scope:        gamev1alpha1.CapabilityScopeWorld,
-				Multiplicity: gamev1alpha1.MultiplicityOne,
+				Scope:        binderyv1alpha1.CapabilityScopeWorld,
+				Multiplicity: binderyv1alpha1.MultiplicityOne,
 			}}, nil),
-			mm("consumer", nil, []gamev1alpha1.RequiredCapability{{
+			mm("consumer", nil, []binderyv1alpha1.RequiredCapability{{
 				CapabilityID:      "cap.physics",
 				VersionConstraint: ">=2.0.0",
-				Scope:             gamev1alpha1.CapabilityScopeWorld,
-				Multiplicity:      gamev1alpha1.MultiplicityOne,
-				DependencyMode:    gamev1alpha1.DependencyModeOptional,
+				Scope:             binderyv1alpha1.CapabilityScopeWorld,
+				Multiplicity:      binderyv1alpha1.MultiplicityOne,
+				DependencyMode:    binderyv1alpha1.DependencyModeOptional,
 			}}),
 		},
 	}

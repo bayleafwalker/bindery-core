@@ -18,16 +18,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
-	gamev1alpha1 "github.com/anvil-platform/anvil/api/v1alpha1"
-	"github.com/anvil-platform/anvil/internal/resolver"
+	binderyv1alpha1 "github.com/bayleafwalker/bindery-core/api/v1alpha1"
+	"github.com/bayleafwalker/bindery-core/internal/resolver"
 )
 
 func TestIntegration_RealmArchitecture(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in -short")
 	}
-	if os.Getenv("ANVIL_INTEGRATION") != "1" {
-		t.Skip("set ANVIL_INTEGRATION=1 to enable envtest integration tests")
+	if os.Getenv("BINDERY_INTEGRATION") != "1" {
+		t.Skip("set BINDERY_INTEGRATION=1 to enable envtest integration tests")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -47,7 +47,7 @@ func TestIntegration_RealmArchitecture(t *testing.T) {
 
 	scheme := runtime.NewScheme()
 	_ = clientgoscheme.AddToScheme(scheme)
-	_ = gamev1alpha1.AddToScheme(scheme)
+	_ = binderyv1alpha1.AddToScheme(scheme)
 	_ = appsv1.AddToScheme(scheme)
 	_ = corev1.AddToScheme(scheme)
 
@@ -93,29 +93,29 @@ func TestIntegration_RealmArchitecture(t *testing.T) {
 		}
 	}()
 
-	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "anvil-realm-test"}}
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "bindery-realm-test"}}
 	if err := k8sClient.Create(ctx, ns); err != nil {
 		t.Fatalf("create namespace: %v", err)
 	}
 
 	// 1. Define Modules
 	// Global Chat Module
-	chatMM := &gamev1alpha1.ModuleManifest{
+	chatMM := &binderyv1alpha1.ModuleManifest{
 		ObjectMeta: metav1.ObjectMeta{Name: "global-chat", Namespace: ns.Name, Annotations: map[string]string{
-			"anvil.dev/runtime-image": "chat:latest",
+			"bindery.dev/runtime-image": "chat:latest",
 		}},
-		Spec: gamev1alpha1.ModuleManifestSpec{
-			Module: gamev1alpha1.ModuleIdentity{ID: "svc.chat", Version: "1.0.0"},
-			Provides: []gamev1alpha1.ProvidedCapability{{
+		Spec: binderyv1alpha1.ModuleManifestSpec{
+			Module: binderyv1alpha1.ModuleIdentity{ID: "svc.chat", Version: "1.0.0"},
+			Provides: []binderyv1alpha1.ProvidedCapability{{
 				CapabilityID: "system.chat",
 				Version:      "1.0.0",
-				Scope:        gamev1alpha1.CapabilityScopeRealm,
-				Multiplicity: gamev1alpha1.MultiplicityOne,
+				Scope:        binderyv1alpha1.CapabilityScopeRealm,
+				Multiplicity: binderyv1alpha1.MultiplicityOne,
 			}},
-			Requires: []gamev1alpha1.RequiredCapability{},
-			Scaling: gamev1alpha1.ModuleScaling{
+			Requires: []binderyv1alpha1.RequiredCapability{},
+			Scaling: binderyv1alpha1.ModuleScaling{
 				Statefulness: "stateful",
-				DefaultScope: gamev1alpha1.CapabilityScopeRealm,
+				DefaultScope: binderyv1alpha1.CapabilityScopeRealm,
 			},
 		},
 	}
@@ -124,23 +124,23 @@ func TestIntegration_RealmArchitecture(t *testing.T) {
 	}
 
 	// Game Server Module (Requires Chat)
-	gameMM := &gamev1alpha1.ModuleManifest{
+	gameMM := &binderyv1alpha1.ModuleManifest{
 		ObjectMeta: metav1.ObjectMeta{Name: "game-server", Namespace: ns.Name, Annotations: map[string]string{
-			"anvil.dev/runtime-image": "game:latest",
+			"bindery.dev/runtime-image": "game:latest",
 		}},
-		Spec: gamev1alpha1.ModuleManifestSpec{
-			Module:   gamev1alpha1.ModuleIdentity{ID: "svc.game", Version: "1.0.0"},
-			Provides: []gamev1alpha1.ProvidedCapability{},
-			Requires: []gamev1alpha1.RequiredCapability{{
+		Spec: binderyv1alpha1.ModuleManifestSpec{
+			Module:   binderyv1alpha1.ModuleIdentity{ID: "svc.game", Version: "1.0.0"},
+			Provides: []binderyv1alpha1.ProvidedCapability{},
+			Requires: []binderyv1alpha1.RequiredCapability{{
 				CapabilityID:      "system.chat",
 				VersionConstraint: "*",
-				Scope:             gamev1alpha1.CapabilityScopeRealm,
-				DependencyMode:    gamev1alpha1.DependencyModeRequired,
-				Multiplicity:      gamev1alpha1.MultiplicityOne,
+				Scope:             binderyv1alpha1.CapabilityScopeRealm,
+				DependencyMode:    binderyv1alpha1.DependencyModeRequired,
+				Multiplicity:      binderyv1alpha1.MultiplicityOne,
 			}},
-			Scaling: gamev1alpha1.ModuleScaling{
+			Scaling: binderyv1alpha1.ModuleScaling{
 				Statefulness: "stateless",
-				DefaultScope: gamev1alpha1.CapabilityScopeWorld,
+				DefaultScope: binderyv1alpha1.CapabilityScopeWorld,
 			},
 		},
 	}
@@ -149,35 +149,35 @@ func TestIntegration_RealmArchitecture(t *testing.T) {
 	}
 
 	// 2. Create Realm
-	realm := &gamev1alpha1.Realm{
+	realm := &binderyv1alpha1.Realm{
 		ObjectMeta: metav1.ObjectMeta{Name: "eu-west", Namespace: ns.Name},
-		Spec: gamev1alpha1.RealmSpec{
-			Modules: []gamev1alpha1.RealmModule{{Name: "global-chat"}},
+		Spec: binderyv1alpha1.RealmSpec{
+			Modules: []binderyv1alpha1.RealmModule{{Name: "global-chat"}},
 		},
 	}
 	if err := k8sClient.Create(ctx, realm); err != nil {
 		t.Fatalf("create realm: %v", err)
 	}
 
-	// 3. Create GameDefinition
-	gameDef := &gamev1alpha1.GameDefinition{
+	// 3. Create Booklet
+	booklet := &binderyv1alpha1.Booklet{
 		ObjectMeta: metav1.ObjectMeta{Name: "mmo-game", Namespace: ns.Name},
-		Spec: gamev1alpha1.GameDefinitionSpec{
-			GameID:  "mmo-game",
+		Spec: binderyv1alpha1.BookletSpec{
+			BookletID:  "mmo-game",
 			Version: "1.0.0",
-			Modules: []gamev1alpha1.GameModuleRef{{Name: "game-server"}},
+			Modules: []binderyv1alpha1.BookletModuleRef{{Name: "game-server"}},
 		},
 	}
-	if err := k8sClient.Create(ctx, gameDef); err != nil {
+	if err := k8sClient.Create(ctx, booklet); err != nil {
 		t.Fatalf("create game def: %v", err)
 	}
 
 	// 4. Create WorldInstance linked to Realm
-	world := &gamev1alpha1.WorldInstance{
+	world := &binderyv1alpha1.WorldInstance{
 		ObjectMeta: metav1.ObjectMeta{Name: "world-alpha", Namespace: ns.Name},
-		Spec: gamev1alpha1.WorldInstanceSpec{
-			GameRef:    gamev1alpha1.ObjectRef{Name: "mmo-game"},
-			RealmRef:   &gamev1alpha1.ObjectRef{Name: "eu-west"},
+		Spec: binderyv1alpha1.WorldInstanceSpec{
+			BookletRef:    binderyv1alpha1.ObjectRef{Name: "mmo-game"},
+			RealmRef:   &binderyv1alpha1.ObjectRef{Name: "eu-west"},
 			WorldID:    "w-1",
 			Region:     "eu-west-1",
 			ShardCount: 1,
@@ -198,9 +198,9 @@ func TestIntegration_RealmArchitecture(t *testing.T) {
 	// Should bind game-server -> global-chat
 	t.Log("Waiting for World Binding...")
 	// Name is deterministic but complex, let's list bindings for the world
-	var worldBindings gamev1alpha1.CapabilityBindingList
+	var worldBindings binderyv1alpha1.CapabilityBindingList
 	if err := waitForCondition(ctx, func() (bool, error) {
-		if err := k8sClient.List(ctx, &worldBindings, client.InNamespace(ns.Name), client.MatchingLabels{"game.platform/world": "world-alpha"}); err != nil {
+		if err := k8sClient.List(ctx, &worldBindings, client.InNamespace(ns.Name), client.MatchingLabels{"bindery.platform/world": "world-alpha"}); err != nil {
 			return false, err
 		}
 		for _, b := range worldBindings.Items {
@@ -229,7 +229,7 @@ func TestIntegration_RealmArchitecture(t *testing.T) {
 
 func waitForBinding(ctx context.Context, c client.Client, nn types.NamespacedName) error {
 	return waitForCondition(ctx, func() (bool, error) {
-		var b gamev1alpha1.CapabilityBinding
+		var b binderyv1alpha1.CapabilityBinding
 		err := c.Get(ctx, nn, &b)
 		if err == nil {
 			return true, nil

@@ -21,14 +21,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	gamev1alpha1 "github.com/anvil-platform/anvil/api/v1alpha1"
-	"github.com/anvil-platform/anvil/internal/resolver"
+	binderyv1alpha1 "github.com/bayleafwalker/bindery-core/api/v1alpha1"
+	"github.com/bayleafwalker/bindery-core/internal/resolver"
 )
 
 const (
-	labelManagedBy = "game.platform/managed-by"
-	labelWorldName = "game.platform/world"
-	labelGameName  = "game.platform/game"
+	labelManagedBy = "bindery.platform/managed-by"
+	labelWorldName = "bindery.platform/world"
+	labelGameName  = "bindery.platform/game"
 
 	managedByCapabilityResolver = "capabilityresolver"
 )
@@ -40,12 +40,12 @@ var (
 // CapabilityResolverReconciler reconciles WorldInstances into CapabilityBindings.
 //
 // RBAC:
-// +kubebuilder:rbac:groups=game.platform,resources=modulemanifests,verbs=get;list;watch
-// +kubebuilder:rbac:groups=game.platform,resources=gamedefinitions,verbs=get;list;watch
-// +kubebuilder:rbac:groups=game.platform,resources=worldinstances,verbs=get;list;watch
-// +kubebuilder:rbac:groups=game.platform,resources=capabilitybindings,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=game.platform,resources=capabilitybindings/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=game.platform,resources=worldinstances/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=bindery.platform,resources=modulemanifests,verbs=get;list;watch
+// +kubebuilder:rbac:groups=bindery.platform,resources=booklets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=bindery.platform,resources=worldinstances,verbs=get;list;watch
+// +kubebuilder:rbac:groups=bindery.platform,resources=capabilitybindings,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=bindery.platform,resources=capabilitybindings/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=bindery.platform,resources=worldinstances/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch;update
 //
 // NOTE: Business logic intentionally omitted. This is framework wiring only.
@@ -57,7 +57,7 @@ type CapabilityResolverReconciler struct {
 }
 
 func (r *CapabilityResolverReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	anvilControllerReconcileTotal.WithLabelValues("CapabilityResolver").Inc()
+	binderyControllerReconcileTotal.WithLabelValues("CapabilityResolver").Inc()
 	capabilityResolverUnresolvedRequired.Set(0)
 
 	logger := log.FromContext(ctx).WithValues(
@@ -67,19 +67,19 @@ func (r *CapabilityResolverReconciler) Reconcile(ctx context.Context, req ctrl.R
 	)
 
 	// 1) Load WorldInstance
-	var world gamev1alpha1.WorldInstance
+	var world binderyv1alpha1.WorldInstance
 	if err := r.Get(ctx, req.NamespacedName, &world); err != nil {
 		// Ignore not-found errors: object was deleted.
 		if client.IgnoreNotFound(err) == nil {
 			return ctrl.Result{}, nil
 		}
-		anvilControllerReconcileErrorTotal.WithLabelValues("CapabilityResolver").Inc()
+		binderyControllerReconcileErrorTotal.WithLabelValues("CapabilityResolver").Inc()
 		return ctrl.Result{}, err
 	}
 
 	logger = logger.WithValues(
 		"worldId", world.Spec.WorldID,
-		"game", world.Spec.GameRef.Name,
+		"game", world.Spec.BookletRef.Name,
 	)
 	logger.Info("reconciling world")
 
@@ -88,16 +88,16 @@ func (r *CapabilityResolverReconciler) Reconcile(ctx context.Context, req ctrl.R
 		r.Resolver = resolver.NewDefault()
 	}
 
-	// 2) Load referenced GameDefinition
-	var game gamev1alpha1.GameDefinition
-	if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: world.Spec.GameRef.Name}, &game); err != nil {
+	// 2) Load referenced Booklet
+	var game binderyv1alpha1.Booklet
+	if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: world.Spec.BookletRef.Name}, &game); err != nil {
 		if apierrors.IsNotFound(err) {
-			if perr := r.patchWorldStatus(ctx, &world, "Error", "GameDefinitionNotFound",
+			if perr := r.patchWorldStatus(ctx, &world, "Error", "BookletNotFound",
 				metav1.Condition{
 					Type:    WorldConditionModulesResolved,
 					Status:  metav1.ConditionFalse,
-					Reason:  "GameDefinitionNotFound",
-					Message: fmt.Sprintf("GameDefinition %q not found", world.Spec.GameRef.Name),
+					Reason:  "BookletNotFound",
+					Message: fmt.Sprintf("Booklet %q not found", world.Spec.BookletRef.Name),
 				},
 				metav1.Condition{
 					Type:    WorldConditionBindingsResolved,
@@ -109,20 +109,20 @@ func (r *CapabilityResolverReconciler) Reconcile(ctx context.Context, req ctrl.R
 				logger.Error(perr, "failed to patch world status")
 			}
 			logger.Info("game definition not found; marking world error")
-			r.recordEventf(&world, "Warning", "GameDefinitionNotFound", "GameDefinition %q not found", world.Spec.GameRef.Name)
+			r.recordEventf(&world, "Warning", "BookletNotFound", "Booklet %q not found", world.Spec.BookletRef.Name)
 			return ctrl.Result{}, nil
 		}
 		logger.Error(err, "failed to load game definition")
-		r.recordEventf(&world, "Warning", "GetGameDefinitionFailed", "Failed to get GameDefinition %q: %v", world.Spec.GameRef.Name, err)
-		anvilControllerReconcileErrorTotal.WithLabelValues("CapabilityResolver").Inc()
+		r.recordEventf(&world, "Warning", "GetBookletFailed", "Failed to get Booklet %q: %v", world.Spec.BookletRef.Name, err)
+		binderyControllerReconcileErrorTotal.WithLabelValues("CapabilityResolver").Inc()
 		return ctrl.Result{}, err
 	}
 
-	// 3) Load participating ModuleManifests from GameDefinition.spec.modules
-	modules := make([]gamev1alpha1.ModuleManifest, 0, len(game.Spec.Modules))
+	// 3) Load participating ModuleManifests from Booklet.spec.modules
+	modules := make([]binderyv1alpha1.ModuleManifest, 0, len(game.Spec.Modules))
 	missingRequired := make([]string, 0)
 	for _, ref := range game.Spec.Modules {
-		var mm gamev1alpha1.ModuleManifest
+		var mm binderyv1alpha1.ModuleManifest
 		if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: ref.Name}, &mm); err != nil {
 			if apierrors.IsNotFound(err) {
 				if ref.Required {
@@ -160,9 +160,9 @@ func (r *CapabilityResolverReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// 3b) Load Realm modules (External Modules)
-	var externalModules []gamev1alpha1.ModuleManifest
+	var externalModules []binderyv1alpha1.ModuleManifest
 	if world.Spec.RealmRef != nil && world.Spec.RealmRef.Name != "" {
-		var realm gamev1alpha1.Realm
+		var realm binderyv1alpha1.Realm
 		if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: world.Spec.RealmRef.Name}, &realm); err != nil {
 			if apierrors.IsNotFound(err) {
 				logger.V(1).Info("realm not found; proceeding without realm modules", "realm", world.Spec.RealmRef.Name)
@@ -172,7 +172,7 @@ func (r *CapabilityResolverReconciler) Reconcile(ctx context.Context, req ctrl.R
 			}
 		} else {
 			for _, mod := range realm.Spec.Modules {
-				var mm gamev1alpha1.ModuleManifest
+				var mm binderyv1alpha1.ModuleManifest
 				if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: mod.Name}, &mm); err != nil {
 					if apierrors.IsNotFound(err) {
 						logger.V(1).Info("realm module not found; skipping", "module", mod.Name)
@@ -229,9 +229,9 @@ func (r *CapabilityResolverReconciler) Reconcile(ctx context.Context, req ctrl.R
 	desiredNames := make(map[string]struct{}, len(plan.DesiredBindings))
 
 	// Pre-load shards for world-shard scoped bindings.
-	var shards []gamev1alpha1.WorldShard
+	var shards []binderyv1alpha1.WorldShard
 	{
-		var shardList gamev1alpha1.WorldShardList
+		var shardList binderyv1alpha1.WorldShardList
 		if err := r.List(ctx, &shardList,
 			client.InNamespace(req.Namespace),
 			client.MatchingLabels{labelWorldName: world.Name},
@@ -254,7 +254,7 @@ func (r *CapabilityResolverReconciler) Reconcile(ctx context.Context, req ctrl.R
 		)
 
 		// Expand world-shard bindings per shard.
-		if desired.Spec.Scope == gamev1alpha1.CapabilityScopeWorldShard {
+		if desired.Spec.Scope == binderyv1alpha1.CapabilityScopeWorldShard {
 			if len(shards) == 0 {
 				logger.Info("no shards found yet for world-shard bindings; waiting", "desiredShardCount", world.Spec.ShardCount)
 				r.recordEventf(&world, "Normal", "WaitingForShards", "Waiting for WorldShards to exist")
@@ -325,7 +325,7 @@ func (r *CapabilityResolverReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// 6) Garbage-collect stale bindings that we manage for this world.
-	var existing gamev1alpha1.CapabilityBindingList
+	var existing binderyv1alpha1.CapabilityBindingList
 	if err := r.List(ctx, &existing,
 		client.InNamespace(req.Namespace),
 		client.MatchingLabels{
@@ -418,20 +418,20 @@ func (r *CapabilityResolverReconciler) recordEventf(obj client.Object, eventType
 
 func (r *CapabilityResolverReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Field indexers for efficient fan-out.
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gamev1alpha1.WorldInstance{}, ".spec.gameRef.name", func(obj client.Object) []string {
-		w, ok := obj.(*gamev1alpha1.WorldInstance)
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &binderyv1alpha1.WorldInstance{}, ".spec.bookletRef.name", func(obj client.Object) []string {
+		w, ok := obj.(*binderyv1alpha1.WorldInstance)
 		if !ok {
 			return nil
 		}
-		if w.Spec.GameRef.Name == "" {
+		if w.Spec.BookletRef.Name == "" {
 			return nil
 		}
-		return []string{w.Spec.GameRef.Name}
+		return []string{w.Spec.BookletRef.Name}
 	}); err != nil {
 		return err
 	}
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gamev1alpha1.GameDefinition{}, ".spec.modules[*].name", func(obj client.Object) []string {
-		g, ok := obj.(*gamev1alpha1.GameDefinition)
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &binderyv1alpha1.Booklet{}, ".spec.modules[*].name", func(obj client.Object) []string {
+		g, ok := obj.(*binderyv1alpha1.Booklet)
 		if !ok {
 			return nil
 		}
@@ -448,14 +448,14 @@ func (r *CapabilityResolverReconciler) SetupWithManager(mgr ctrl.Manager) error 
 
 	// Reconcile is driven primarily by WorldInstance.
 	b := ctrl.NewControllerManagedBy(mgr).
-		For(&gamev1alpha1.WorldInstance{}).
-		Owns(&gamev1alpha1.CapabilityBinding{})
+		For(&binderyv1alpha1.WorldInstance{}).
+		Owns(&binderyv1alpha1.CapabilityBinding{})
 
 	// Shards changing should trigger their owning world to reconcile (to refresh shard-scoped bindings).
 	b = b.Watches(
-		&gamev1alpha1.WorldShard{},
+		&binderyv1alpha1.WorldShard{},
 		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-			ws, ok := obj.(*gamev1alpha1.WorldShard)
+			ws, ok := obj.(*binderyv1alpha1.WorldShard)
 			if !ok {
 				return nil
 			}
@@ -466,35 +466,35 @@ func (r *CapabilityResolverReconciler) SetupWithManager(mgr ctrl.Manager) error 
 		}),
 	)
 
-	// Watch GameDefinition changes and enqueue referencing worlds.
+	// Watch Booklet changes and enqueue referencing worlds.
 	b = b.Watches(
-		&gamev1alpha1.GameDefinition{},
+		&binderyv1alpha1.Booklet{},
 		enqueueWorldsForGame(mgr.GetClient()),
 	)
 
 	// Watch ModuleManifest changes and enqueue referencing worlds.
 	b = b.Watches(
-		&gamev1alpha1.ModuleManifest{},
+		&binderyv1alpha1.ModuleManifest{},
 		enqueueWorldsForModule(mgr.GetClient()),
 	)
 
 	return b.Complete(r)
 }
 
-// enqueueWorldsForGame returns an event handler that enqueues WorldInstances impacted by a GameDefinition.
+// enqueueWorldsForGame returns an event handler that enqueues WorldInstances impacted by a Booklet.
 //
 // TODO(business-logic): Implement indexing/lookup strategy.
 func enqueueWorldsForGame(c client.Client) handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-		game, ok := obj.(*gamev1alpha1.GameDefinition)
+		game, ok := obj.(*binderyv1alpha1.Booklet)
 		if !ok {
 			return nil
 		}
 
-		var worlds gamev1alpha1.WorldInstanceList
+		var worlds binderyv1alpha1.WorldInstanceList
 		if err := c.List(ctx, &worlds,
 			client.InNamespace(game.Namespace),
-			client.MatchingFields{".spec.gameRef.name": game.Name},
+			client.MatchingFields{".spec.bookletRef.name": game.Name},
 		); err != nil {
 			return nil
 		}
@@ -513,12 +513,12 @@ func enqueueWorldsForGame(c client.Client) handler.EventHandler {
 // TODO(business-logic): Implement indexing/lookup strategy.
 func enqueueWorldsForModule(c client.Client) handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-		mm, ok := obj.(*gamev1alpha1.ModuleManifest)
+		mm, ok := obj.(*binderyv1alpha1.ModuleManifest)
 		if !ok {
 			return nil
 		}
 
-		var games gamev1alpha1.GameDefinitionList
+		var games binderyv1alpha1.BookletList
 		if err := c.List(ctx, &games,
 			client.InNamespace(mm.Namespace),
 			client.MatchingFields{".spec.modules[*].name": mm.Name},
@@ -529,10 +529,10 @@ func enqueueWorldsForModule(c client.Client) handler.EventHandler {
 		out := make([]reconcile.Request, 0)
 		for i := range games.Items {
 			g := &games.Items[i]
-			var worlds gamev1alpha1.WorldInstanceList
+			var worlds binderyv1alpha1.WorldInstanceList
 			if err := c.List(ctx, &worlds,
 				client.InNamespace(mm.Namespace),
-				client.MatchingFields{".spec.gameRef.name": g.Name},
+				client.MatchingFields{".spec.bookletRef.name": g.Name},
 			); err != nil {
 				continue
 			}
@@ -546,7 +546,7 @@ func enqueueWorldsForModule(c client.Client) handler.EventHandler {
 	})
 }
 
-func (r *CapabilityResolverReconciler) patchWorldStatus(ctx context.Context, world *gamev1alpha1.WorldInstance, phase, message string, conds ...metav1.Condition) error {
+func (r *CapabilityResolverReconciler) patchWorldStatus(ctx context.Context, world *binderyv1alpha1.WorldInstance, phase, message string, conds ...metav1.Condition) error {
 	before := world.DeepCopy()
 	world.Status.ObservedGeneration = world.Generation
 	world.Status.Phase = phase
@@ -574,7 +574,7 @@ func summarizeUnresolved(reqs []resolver.UnresolvedRequirement) string {
 	return strings.Join(parts, "; ")
 }
 
-func stableBindingName(worldName, consumerModuleName, capabilityID string, scope gamev1alpha1.CapabilityScope, multiplicity gamev1alpha1.CapabilityMultiplicity) string {
+func stableBindingName(worldName, consumerModuleName, capabilityID string, scope binderyv1alpha1.CapabilityScope, multiplicity binderyv1alpha1.CapabilityMultiplicity) string {
 	// K8s object names must be DNS subdomains (we keep it conservative: DNS labels).
 	base := fmt.Sprintf("cb-%s-%s-%s-%s-%s",
 		worldName,
@@ -607,7 +607,7 @@ func stableBindingName(worldName, consumerModuleName, capabilityID string, scope
 	return base + suffix
 }
 
-func stableShardBindingName(worldName string, shardID int32, consumerModuleName, capabilityID string, scope gamev1alpha1.CapabilityScope, multiplicity gamev1alpha1.CapabilityMultiplicity) string {
+func stableShardBindingName(worldName string, shardID int32, consumerModuleName, capabilityID string, scope binderyv1alpha1.CapabilityScope, multiplicity binderyv1alpha1.CapabilityMultiplicity) string {
 	base := fmt.Sprintf(
 		"cb-%s-%s-%s-%s-%s-shard-%d",
 		worldName,
@@ -637,15 +637,15 @@ func (r *CapabilityResolverReconciler) applyDesiredBinding(
 	ctx context.Context,
 	namespace string,
 	gameName string,
-	world gamev1alpha1.WorldInstance,
-	shard *gamev1alpha1.WorldShard,
+	world binderyv1alpha1.WorldInstance,
+	shard *binderyv1alpha1.WorldShard,
 	bindingName string,
-	spec gamev1alpha1.CapabilityBindingSpec,
+	spec binderyv1alpha1.CapabilityBindingSpec,
 ) (created bool, updated bool, err error) {
-	obj := &gamev1alpha1.CapabilityBinding{}
+	obj := &binderyv1alpha1.CapabilityBinding{}
 	err = r.Get(ctx, types.NamespacedName{Namespace: namespace, Name: bindingName}, obj)
 	if apierrors.IsNotFound(err) {
-		create := gamev1alpha1.CapabilityBinding{
+		create := binderyv1alpha1.CapabilityBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      bindingName,
 				Namespace: namespace,
@@ -658,7 +658,7 @@ func (r *CapabilityResolverReconciler) applyDesiredBinding(
 			Spec: spec,
 		}
 		// Ensure spec.worldRef is always set.
-		create.Spec.WorldRef = &gamev1alpha1.WorldRef{Name: world.Name}
+		create.Spec.WorldRef = &binderyv1alpha1.WorldRef{Name: world.Name}
 		if shard != nil {
 			if create.Labels == nil {
 				create.Labels = map[string]string{}
@@ -695,7 +695,7 @@ func (r *CapabilityResolverReconciler) applyDesiredBinding(
 		obj.Labels[labelShardID] = fmt.Sprintf("%d", shard.Spec.ShardID)
 	}
 	obj.Spec = spec
-	obj.Spec.WorldRef = &gamev1alpha1.WorldRef{Name: world.Name}
+	obj.Spec.WorldRef = &binderyv1alpha1.WorldRef{Name: world.Name}
 	if shard != nil {
 		if err := controllerutil.SetControllerReference(shard, obj, r.Scheme); err != nil {
 			return false, false, err

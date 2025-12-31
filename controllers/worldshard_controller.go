@@ -18,11 +18,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	gamev1alpha1 "github.com/anvil-platform/anvil/api/v1alpha1"
+	binderyv1alpha1 "github.com/bayleafwalker/bindery-core/api/v1alpha1"
 )
 
 const (
-	labelShardID = "game.platform/shard"
+	labelShardID = "bindery.platform/shard"
 
 	managedByWorldShardController = "worldshardcontroller"
 )
@@ -30,10 +30,10 @@ const (
 // WorldShardReconciler materializes explicit WorldShard resources for a WorldInstance.
 //
 // RBAC:
-// +kubebuilder:rbac:groups=game.platform,resources=worldinstances,verbs=get;list;watch
-// +kubebuilder:rbac:groups=game.platform,resources=worldinstances/status,verbs=get
-// +kubebuilder:rbac:groups=game.platform,resources=worldshards,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=game.platform,resources=worldshards/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=bindery.platform,resources=worldinstances,verbs=get;list;watch
+// +kubebuilder:rbac:groups=bindery.platform,resources=worldinstances/status,verbs=get
+// +kubebuilder:rbac:groups=bindery.platform,resources=worldshards,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=bindery.platform,resources=worldshards/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch;update
 type WorldShardReconciler struct {
 	client.Client
@@ -48,7 +48,7 @@ func (r *WorldShardReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		"world", req.Name,
 	)
 
-	var world gamev1alpha1.WorldInstance
+	var world binderyv1alpha1.WorldInstance
 	if err := r.Get(ctx, req.NamespacedName, &world); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -58,7 +58,7 @@ func (r *WorldShardReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		shardCount = 1
 	}
 
-	var shards gamev1alpha1.WorldShardList
+	var shards binderyv1alpha1.WorldShardList
 	if err := r.List(ctx, &shards,
 		client.InNamespace(req.Namespace),
 		client.MatchingLabels{labelWorldName: world.Name, labelManagedBy: managedByWorldShardController},
@@ -71,25 +71,25 @@ func (r *WorldShardReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	created := 0
 	for id := int32(0); id < shardCount; id++ {
 		name := stableWorldShardName(world.Name, id)
-		obj := &gamev1alpha1.WorldShard{}
+		obj := &binderyv1alpha1.WorldShard{}
 		err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: name}, obj)
 		if apierrors.IsNotFound(err) {
-			create := &gamev1alpha1.WorldShard{
+			create := &binderyv1alpha1.WorldShard{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      name,
 					Namespace: req.Namespace,
 					Labels: map[string]string{
 						labelManagedBy: managedByWorldShardController,
 						labelWorldName: world.Name,
-						labelGameName:  world.Spec.GameRef.Name,
+						labelGameName:  world.Spec.BookletRef.Name,
 						labelShardID:   fmt.Sprintf("%d", id),
 					},
 				},
-				Spec: gamev1alpha1.WorldShardSpec{
-					WorldRef: gamev1alpha1.ObjectRef{Name: world.Name},
+				Spec: binderyv1alpha1.WorldShardSpec{
+					WorldRef: binderyv1alpha1.ObjectRef{Name: world.Name},
 					ShardID:  id,
 				},
-				Status: gamev1alpha1.WorldShardStatus{Phase: "Ready"},
+				Status: binderyv1alpha1.WorldShardStatus{Phase: "Ready"},
 			}
 			if err := controllerutil.SetControllerReference(&world, create, r.Scheme); err != nil {
 				return ctrl.Result{}, err
@@ -140,8 +140,8 @@ func (r *WorldShardReconciler) recordEventf(obj client.Object, eventType, reason
 
 func (r *WorldShardReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&gamev1alpha1.WorldInstance{}).
-		Owns(&gamev1alpha1.WorldShard{}).
+		For(&binderyv1alpha1.WorldInstance{}).
+		Owns(&binderyv1alpha1.WorldShard{}).
 		Complete(r)
 }
 

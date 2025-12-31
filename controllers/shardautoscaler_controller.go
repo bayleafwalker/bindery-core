@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	gamev1alpha1 "github.com/anvil-platform/anvil/api/v1alpha1"
+	binderyv1alpha1 "github.com/bayleafwalker/bindery-core/api/v1alpha1"
 )
 
 // ShardAutoscalerReconciler reconciles a ShardAutoscaler object
@@ -26,20 +26,20 @@ type ShardAutoscalerReconciler struct {
 	MetricsClient metrics.Interface
 }
 
-//+kubebuilder:rbac:groups=game.platform,resources=shardautoscalers,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=game.platform,resources=shardautoscalers/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=game.platform,resources=worldinstances,verbs=get;list;watch;update;patch
+//+kubebuilder:rbac:groups=bindery.platform,resources=shardautoscalers,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=bindery.platform,resources=shardautoscalers/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=bindery.platform,resources=worldinstances,verbs=get;list;watch;update;patch
 
 func (r *ShardAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	var sa gamev1alpha1.ShardAutoscaler
+	var sa binderyv1alpha1.ShardAutoscaler
 	if err := r.Get(ctx, req.NamespacedName, &sa); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	// Fetch WorldInstance
-	var world gamev1alpha1.WorldInstance
+	var world binderyv1alpha1.WorldInstance
 	if err := r.Get(ctx, client.ObjectKey{Namespace: req.Namespace, Name: sa.Spec.WorldRef.Name}, &world); err != nil {
 		logger.Error(err, "unable to fetch WorldInstance")
 		return ctrl.Result{}, err
@@ -108,7 +108,7 @@ func (r *ShardAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 }
 
-func (r *ShardAutoscalerReconciler) calculateReplicaCount(ctx context.Context, namespace, worldName string, currentShards int32, resource *gamev1alpha1.ResourceMetricSource) (int32, error) {
+func (r *ShardAutoscalerReconciler) calculateReplicaCount(ctx context.Context, namespace, worldName string, currentShards int32, resource *binderyv1alpha1.ResourceMetricSource) (int32, error) {
 	if resource.TargetAverageUtilization == nil {
 		return currentShards, nil
 	}
@@ -191,6 +191,6 @@ func (r *ShardAutoscalerReconciler) calculateReplicaCount(ctx context.Context, n
 
 func (r *ShardAutoscalerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&gamev1alpha1.ShardAutoscaler{}).
+		For(&binderyv1alpha1.ShardAutoscaler{}).
 		Complete(r)
 }

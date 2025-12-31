@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	gamev1alpha1 "github.com/anvil-platform/anvil/api/v1alpha1"
-	"github.com/anvil-platform/anvil/internal/semver"
+	binderyv1alpha1 "github.com/bayleafwalker/bindery-core/api/v1alpha1"
+	"github.com/bayleafwalker/bindery-core/internal/semver"
 )
 
 // DefaultResolver is the default implementation wired into the controller.
@@ -19,8 +19,8 @@ type provider struct {
 	capabilityID string
 	versionRaw   string
 	version      semver.Version
-	scope        gamev1alpha1.CapabilityScope
-	multiplicity gamev1alpha1.CapabilityMultiplicity
+	scope        binderyv1alpha1.CapabilityScope
+	multiplicity binderyv1alpha1.CapabilityMultiplicity
 }
 
 func NewDefault() *DefaultResolver {
@@ -32,7 +32,7 @@ func (r *DefaultResolver) Resolve(ctx context.Context, in Input) (Plan, error) {
 
 	providers := make([]provider, 0)
 	// Helper to add providers from a list of modules
-	addProviders := func(modules []gamev1alpha1.ModuleManifest) {
+	addProviders := func(modules []binderyv1alpha1.ModuleManifest) {
 		for _, module := range modules {
 			for _, provided := range module.Spec.Provides {
 				v, err := semver.ParseVersion(strings.TrimSpace(provided.Version))
@@ -93,20 +93,20 @@ func (r *DefaultResolver) Resolve(ctx context.Context, in Input) (Plan, error) {
 
 			selected := selectProvidersDeterministic(req.Multiplicity, candidates)
 			for _, p := range selected {
-				plan.DesiredBindings = append(plan.DesiredBindings, gamev1alpha1.CapabilityBinding{
-					Spec: gamev1alpha1.CapabilityBindingSpec{
+				plan.DesiredBindings = append(plan.DesiredBindings, binderyv1alpha1.CapabilityBinding{
+					Spec: binderyv1alpha1.CapabilityBindingSpec{
 						CapabilityID: req.CapabilityID,
 						Scope:        req.Scope,
 						Multiplicity: req.Multiplicity,
-						WorldRef:     &gamev1alpha1.WorldRef{Name: in.World.Name},
-						Consumer: gamev1alpha1.ConsumerRef{
+						WorldRef:     &binderyv1alpha1.WorldRef{Name: in.World.Name},
+						Consumer: binderyv1alpha1.ConsumerRef{
 							ModuleManifestName: consumer.Name,
-							Requirement: &gamev1alpha1.RequirementHint{
+							Requirement: &binderyv1alpha1.RequirementHint{
 								VersionConstraint: rawConstraint,
 								DependencyMode:    req.DependencyMode,
 							},
 						},
-						Provider: gamev1alpha1.ProviderRef{
+						Provider: binderyv1alpha1.ProviderRef{
 							ModuleManifestName: p.moduleName,
 							CapabilityVersion:  p.versionRaw,
 						},
@@ -116,24 +116,24 @@ func (r *DefaultResolver) Resolve(ctx context.Context, in Input) (Plan, error) {
 		}
 	}
 
-	// Ensure all modules in the GameDefinition are running.
+	// Ensure all modules in the Booklet are running.
 	// If a module is not a provider in any binding, create a synthetic "root" binding.
 	for _, module := range in.Modules {
 		if !isProvider(module.Name, plan.DesiredBindings) {
-			plan.DesiredBindings = append(plan.DesiredBindings, gamev1alpha1.CapabilityBinding{
-				Spec: gamev1alpha1.CapabilityBindingSpec{
+			plan.DesiredBindings = append(plan.DesiredBindings, binderyv1alpha1.CapabilityBinding{
+				Spec: binderyv1alpha1.CapabilityBindingSpec{
 					CapabilityID: "system.root",
-					Scope:        gamev1alpha1.CapabilityScopeWorld,
-					Multiplicity: gamev1alpha1.MultiplicityOne,
-					WorldRef:     &gamev1alpha1.WorldRef{Name: in.World.Name},
-					Consumer: gamev1alpha1.ConsumerRef{
+					Scope:        binderyv1alpha1.CapabilityScopeWorld,
+					Multiplicity: binderyv1alpha1.MultiplicityOne,
+					WorldRef:     &binderyv1alpha1.WorldRef{Name: in.World.Name},
+					Consumer: binderyv1alpha1.ConsumerRef{
 						ModuleManifestName: in.World.Name,
-						Requirement: &gamev1alpha1.RequirementHint{
+						Requirement: &binderyv1alpha1.RequirementHint{
 							VersionConstraint: "*",
-							DependencyMode:    gamev1alpha1.DependencyModeRequired,
+							DependencyMode:    binderyv1alpha1.DependencyModeRequired,
 						},
 					},
-					Provider: gamev1alpha1.ProviderRef{
+					Provider: binderyv1alpha1.ProviderRef{
 						ModuleManifestName: module.Name,
 						CapabilityVersion:  module.Spec.Module.Version,
 					},
@@ -163,21 +163,21 @@ func (r *DefaultResolver) Resolve(ctx context.Context, in Input) (Plan, error) {
 	return plan, nil
 }
 
-func addUnresolved(diag *Diagnostics, consumerModuleName string, req gamev1alpha1.RequiredCapability, reason string) {
+func addUnresolved(diag *Diagnostics, consumerModuleName string, req binderyv1alpha1.RequiredCapability, reason string) {
 	unresolved := UnresolvedRequirement{
 		ConsumerModuleManifestName: consumerModuleName,
 		CapabilityID:               req.CapabilityID,
 		Scope:                      req.Scope,
 		Reason:                     reason,
 	}
-	if req.DependencyMode == gamev1alpha1.DependencyModeOptional {
+	if req.DependencyMode == binderyv1alpha1.DependencyModeOptional {
 		diag.UnresolvedOptional = append(diag.UnresolvedOptional, unresolved)
 		return
 	}
 	diag.UnresolvedRequired = append(diag.UnresolvedRequired, unresolved)
 }
 
-func selectProvidersDeterministic(multiplicity gamev1alpha1.CapabilityMultiplicity, candidates []provider) []provider {
+func selectProvidersDeterministic(multiplicity binderyv1alpha1.CapabilityMultiplicity, candidates []provider) []provider {
 	// Deterministic ordering:
 	// 1) Higher version wins
 	// 2) Tie-break: module name (ascending)
@@ -191,13 +191,13 @@ func selectProvidersDeterministic(multiplicity gamev1alpha1.CapabilityMultiplici
 		return candidates[i].moduleName < candidates[j].moduleName
 	})
 
-	if multiplicity == gamev1alpha1.MultiplicityMany {
+	if multiplicity == binderyv1alpha1.MultiplicityMany {
 		return candidates
 	}
 	return candidates[:1]
 }
 
-func isProvider(moduleName string, bindings []gamev1alpha1.CapabilityBinding) bool {
+func isProvider(moduleName string, bindings []binderyv1alpha1.CapabilityBinding) bool {
 	for _, b := range bindings {
 		if b.Spec.Provider.ModuleManifestName == moduleName {
 			return true
