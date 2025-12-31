@@ -613,6 +613,9 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 		if len(providerMM.Spec.Scheduling.NodeSelector) > 0 {
 			deployment.Spec.Template.Spec.NodeSelector = providerMM.Spec.Scheduling.NodeSelector
 		}
+		if providerMM.Spec.Scheduling.PriorityClassName != "" {
+			deployment.Spec.Template.Spec.PriorityClassName = providerMM.Spec.Scheduling.PriorityClassName
+		}
 
 		// Node Strategy PodAffinity
 		if colocGroup != nil && colocGroup.Strategy == "Node" {
