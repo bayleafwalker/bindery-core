@@ -295,7 +295,6 @@ func (c *stateCache) handleReset(target, worldID string) http.HandlerFunc {
 			return
 		}
 
-		// Prime cache with the reset state (best-effort).
 		if snap, err := snapshotOnce(r.Context(), client, worldID); err == nil {
 			c.setState(snap)
 		} else {
