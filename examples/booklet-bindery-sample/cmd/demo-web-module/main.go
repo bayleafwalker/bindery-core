@@ -84,7 +84,11 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/state", cache.handleState)
 	mux.HandleFunc("/api/reset", cache.handleReset(physicsTarget, worldID))
-	mux.Handle("/", http.FileServer(http.FS(sub)))
+	staticHandler := http.FileServer(http.FS(sub))
+	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		staticHandler.ServeHTTP(w, r)
+	}))
 
 	fmt.Printf("demo-web: listen=%s world=%s physics=%s pollInterval=%s\n", listenAddr, worldID, physicsTarget, pollInterval)
 	if err := http.ListenAndServe(listenAddr, mux); err != nil {

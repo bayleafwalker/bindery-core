@@ -2,6 +2,7 @@
 set -euo pipefail
 
 CLUSTER_NAME="${1:-bindery}"
+TAG="${2:-${BINDERY_DEMO_TAG:-0.1.0}}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
@@ -23,13 +24,13 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "Building demo module images..."
-docker build -t bindery/demo-physics:0.1.0 -f examples/booklet-bindery-sample/cmd/demo-physics-module/Dockerfile .
-docker build -t bindery/demo-web:0.1.0 -f examples/booklet-bindery-sample/cmd/demo-web-module/Dockerfile .
+echo "Building demo module images (tag=$TAG)..."
+docker build -t "bindery/demo-physics:$TAG" -f examples/booklet-bindery-sample/cmd/demo-physics-module/Dockerfile .
+docker build -t "bindery/demo-web:$TAG" -f examples/booklet-bindery-sample/cmd/demo-web-module/Dockerfile .
 
 echo "Loading demo images into kind cluster: ${CLUSTER_NAME}"
 "$KIND_BIN" load docker-image --name "$CLUSTER_NAME" \
-  bindery/demo-physics:0.1.0 \
-  bindery/demo-web:0.1.0
+  "bindery/demo-physics:$TAG" \
+  "bindery/demo-web:$TAG"
 
 echo "Demo images ready."

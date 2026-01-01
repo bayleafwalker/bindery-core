@@ -35,6 +35,19 @@ From the **repo root**:
 - Visit `http://localhost:8080`
   - If `8080` is already in use, pick another local port: `bash ./examples/booklet-bindery-sample/dev/port-forward-web.sh bindery-demo core-web-client 18080`
 
+## Iteration workflow (recommended)
+
+This sample runs modules in Kubernetes, so any code/UI change requires rebuilding + reloading the images and reconciling the `ModuleManifest`s.
+
+- One-shot “bring everything up + port-forward”:
+  - `bash examples/booklet-bindery-sample/dev/demo-up.sh bindery 18080`
+  - Open `http://localhost:18080`
+- Rebuild + redeploy modules after code/UI changes:
+  - `bash examples/booklet-bindery-sample/dev/demo-redeploy.sh bindery`
+  - If the port-forward dropped, rerun `bash examples/booklet-bindery-sample/dev/port-forward-web.sh bindery-demo core-web-client 18080`
+- Reset world state (without redeploying):
+  - Click **Reset world** in the UI, or run `bash examples/booklet-bindery-sample/dev/demo-reset.sh 18080`
+
 ## Notes for splitting into a standalone repo
 
 This folder is structured so it can be extracted into its own repository later.
