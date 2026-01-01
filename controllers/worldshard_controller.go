@@ -140,6 +140,7 @@ func (r *WorldShardReconciler) recordEventf(obj client.Object, eventType, reason
 
 func (r *WorldShardReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
+		Named("worldshard").
 		For(&binderyv1alpha1.WorldInstance{}).
 		Owns(&binderyv1alpha1.WorldShard{}).
 		Complete(r)

@@ -448,6 +448,7 @@ func (r *CapabilityResolverReconciler) SetupWithManager(mgr ctrl.Manager) error 
 
 	// Reconcile is driven primarily by WorldInstance.
 	b := ctrl.NewControllerManagedBy(mgr).
+		Named("capabilityresolver").
 		For(&binderyv1alpha1.WorldInstance{}).
 		Owns(&binderyv1alpha1.CapabilityBinding{})
 
