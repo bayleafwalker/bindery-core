@@ -66,7 +66,7 @@ func TestRuntimeOrchestrator_CreatesServiceDeploymentAndPublishesEndpoint(t *tes
 		},
 	}
 
-	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(world, provider, binding).WithStatusSubresource(binding).Build()
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(world, provider, binding).WithStatusSubresource(binding, world).Build()
 
 	r := &RuntimeOrchestratorReconciler{Client: cl, Scheme: scheme}
 	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: "bindery-demo", Name: "binding-1"}})
@@ -160,7 +160,7 @@ func TestRuntimeOrchestrator_ShardLabeledBindingCreatesShardWorkloadName(t *test
 		},
 	}
 
-	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(world, shard, provider, binding).WithStatusSubresource(binding).Build()
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(world, shard, provider, binding).WithStatusSubresource(binding, world).Build()
 
 	r := &RuntimeOrchestratorReconciler{Client: cl, Scheme: scheme}
 	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: "bindery-demo", Name: binding.Name}})
@@ -259,7 +259,7 @@ func TestRuntimeOrchestrator_ServerStorageCreatesClaimAndMount(t *testing.T) {
 		},
 	}
 
-	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(world, shard, provider, binding).WithStatusSubresource(binding).Build()
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(world, shard, provider, binding).WithStatusSubresource(binding, world).Build()
 
 	r := &RuntimeOrchestratorReconciler{Client: cl, Scheme: scheme}
 	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: "bindery-demo", Name: binding.Name}})
@@ -475,7 +475,7 @@ func TestRuntimeOrchestrator_InvalidRuntimePortFallsBackToDefault(t *testing.T) 
 		},
 	}
 
-	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(world, provider, binding).WithStatusSubresource(binding).Build()
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(world, provider, binding).WithStatusSubresource(binding, world).Build()
 
 	r := &RuntimeOrchestratorReconciler{Client: cl, Scheme: scheme}
 	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: "bindery-demo", Name: "binding-1"}})
@@ -566,7 +566,7 @@ func TestRuntimeOrchestrator_InjectsDependencyEndpoints(t *testing.T) {
 			return []string{binding.Spec.Consumer.ModuleManifestName}
 		}).
 		WithObjects(world, physicsMM, gameMM, bindingDep, bindingGame).
-		WithStatusSubresource(bindingGame).
+		WithStatusSubresource(bindingGame, world).
 		Build()
 
 	r := &RuntimeOrchestratorReconciler{Client: cl, Scheme: scheme}
@@ -632,7 +632,7 @@ func TestRuntimeOrchestrator_GracefulTermination(t *testing.T) {
 		},
 	}
 
-	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(world, provider, binding).WithStatusSubresource(binding).Build()
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(world, provider, binding).WithStatusSubresource(binding, world).Build()
 	r := &RuntimeOrchestratorReconciler{Client: cl, Scheme: scheme}
 
 	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: "default", Name: "binding-1"}})

@@ -747,6 +747,8 @@ func (r *RuntimeOrchestratorReconciler) Reconcile(ctx context.Context, req ctrl.
 	if !isGlobal {
 		if err := r.updateWorldRuntimeReadyCondition(ctx, req.Namespace, &world); err != nil {
 			logger.Error(err, "failed to update world RuntimeReady condition")
+			// Return error to retry, as this condition is critical for e2e tests
+			return ctrl.Result{}, err
 		}
 	}
 
@@ -758,6 +760,13 @@ func (r *RuntimeOrchestratorReconciler) updateWorldRuntimeReadyCondition(ctx con
 	if world == nil || strings.TrimSpace(world.Name) == "" {
 		return nil
 	}
+
+	// Re-fetch world to avoid overwriting other conditions due to stale cache (JSON merge patch replaces list)
+	latestWorld := &binderyv1alpha1.WorldInstance{}
+	if err := r.Get(ctx, types.NamespacedName{Namespace: namespace, Name: world.Name}, latestWorld); err != nil {
+		return err
+	}
+	world = latestWorld
 
 	var bindings binderyv1alpha1.CapabilityBindingList
 	if err := r.List(ctx, &bindings,

@@ -67,7 +67,7 @@ func TestRuntimeOrchestrator_PropagatesSchedulingConstraints(t *testing.T) {
 		},
 	}
 
-	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(world, provider, binding).WithStatusSubresource(binding).Build()
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(world, provider, binding).WithStatusSubresource(binding, world).Build()
 
 	r := &RuntimeOrchestratorReconciler{Client: cl, Scheme: scheme}
 	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: "bindery-sched", Name: "sched-binding"}})
