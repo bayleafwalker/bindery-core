@@ -30,7 +30,7 @@ Scope: declarative inputs (`ModuleManifest`, `Booklet`, `WorldInstance`) and res
 
 - **Schemas/CRDs**:
   - CRDs: `k8s/crds/*.bindery.platform.yaml`
-  - Example CRs: `k8s/examples/`
+  - Example CRs (sample game): `examples/booklet-bindery-sample/k8s/`
 
 ### Key invariants
 
@@ -133,7 +133,7 @@ Steps:
 
 - Create Kind cluster (see existing scripts under `k8s/dev/`).
 - Apply CRDs: `kubectl apply -f k8s/crds/`
-- Apply examples: `kubectl apply -f k8s/examples/`
+- Apply sample game: `kubectl apply -f examples/booklet-bindery-sample/k8s/`
 
 Assertions:
 

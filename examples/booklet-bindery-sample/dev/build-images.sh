@@ -4,7 +4,7 @@ set -euo pipefail
 CLUSTER_NAME="${1:-bindery}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 cd "$REPO_ROOT"
 
@@ -23,9 +23,9 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "Building demo images..."
-docker build -t bindery/demo-physics:0.1.0 -f cmd/engine-module-server/Dockerfile .
-docker build -t bindery/demo-interaction:0.1.0 -f cmd/demo-interaction-module/Dockerfile .
+echo "Building demo module images..."
+docker build -t bindery/demo-physics:0.1.0 -f examples/booklet-bindery-sample/cmd/demo-physics-module/Dockerfile .
+docker build -t bindery/demo-interaction:0.1.0 -f examples/booklet-bindery-sample/cmd/demo-interaction-module/Dockerfile .
 
 echo "Loading demo images into kind cluster: ${CLUSTER_NAME}"
 "$KIND_BIN" load docker-image --name "$CLUSTER_NAME" \
@@ -33,4 +33,3 @@ echo "Loading demo images into kind cluster: ${CLUSTER_NAME}"
   bindery/demo-interaction:0.1.0
 
 echo "Demo images ready."
-

@@ -19,6 +19,9 @@ spec:
     port: 50051
     env:
       BINDERY_DEMO_WORLD_ID: world-001
+      BINDERY_DEMO_ACTOR_ID: demo-actor
+      BINDERY_DEMO_COMMAND_INTERVAL_MS: "75"
+      BINDERY_DEMO_SNAPSHOT_INTERVAL_MS: "500"
 
   provides:
     - capabilityId: interaction.engine

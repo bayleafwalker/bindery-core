@@ -1,21 +1,29 @@
 SHELL := /usr/bin/env bash
 
-.PHONY: help test test-integration envtest tidy fmt verify proto kind-demo kind-down run-controller
+.PHONY: help test test-sample-game test-integration test-e2e envtest tidy tidy-sample-game fmt verify proto kind-demo kind-down run-controller
+
+SAMPLE_GAME_DIR := examples/booklet-bindery-sample
 
 help:
 	@echo "Targets:"
 	@echo "  make test           Run Go tests"
+	@echo "  make test-sample-game Run sample game unit tests"
 	@echo "  make test-integration Run envtest integration tests"
+	@echo "  make test-e2e        Run Kind-based e2e smoke test"
 	@echo "  make tidy           Run go mod tidy"
+	@echo "  make tidy-sample-game Run go mod tidy for sample game"
 	@echo "  make fmt            Run gofmt on the repo"
 	@echo "  make verify         Run fmt, tidy, and test (CI pre-check)"
 	@echo "  make proto          Regenerate protobuf stubs (requires protoc + plugins)"
-	@echo "  make kind-demo      Create Kind cluster + apply CRDs/examples"
+	@echo "  make kind-demo      Create Kind cluster + install sample game"
 	@echo "  make kind-down      Tear down Kind cluster"
 	@echo "  make run-controller Run controller manager locally"
 
 test:
 	go test ./...
+
+test-sample-game:
+	cd "$(SAMPLE_GAME_DIR)" && go test ./...
 
 ENVTEST_K8S_VERSION ?= 1.31.0
 
@@ -32,11 +40,19 @@ test-integration: envtest
 tidy:
 	go mod tidy
 
-fmt:
-	gofmt -w $(shell find . -name '*.go' -not -path './vendor/*')
+tidy-sample-game:
+	cd "$(SAMPLE_GAME_DIR)" && go mod tidy
 
-verify: fmt tidy test
+fmt:
+	find . -name '*.go' \
+		-not -path './vendor/*' \
+		-not -path './.cache/*' \
+		-not -path './.gocache/*' \
+		-print0 | xargs -0 gofmt -w
+
+verify: fmt tidy tidy-sample-game test test-sample-game
 	@git diff --exit-code go.mod go.sum || (echo "Error: go.mod/go.sum are not tidy"; exit 1)
+	@git diff --exit-code "$(SAMPLE_GAME_DIR)/go.mod" "$(SAMPLE_GAME_DIR)/go.sum" || (echo "Error: sample game go.mod/go.sum are not tidy"; exit 1)
 	@echo "Verification passed!"
 
 proto:
@@ -53,3 +69,6 @@ kind-down:
 
 run-controller:
 	go run .
+
+test-e2e:
+	BINDERY_E2E=1 go test ./e2e -run TestE2ESmoke_BinderySample -count=1

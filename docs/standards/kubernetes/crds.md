@@ -31,15 +31,16 @@ kubectl apply -f k8s/crds/
 
 ## Example resources
 
-Example resources live under `k8s/examples/`.
+The platform repo intentionally does not ship a “game example” under `k8s/`.
 
-Suggested apply order:
+For a runnable sample game, see:
+- `examples/booklet-bindery-sample/k8s/`
+
+Suggested apply order (sample game):
 
 ```bash
-kubectl apply -f k8s/examples/00-namespace.yaml
-kubectl apply -f k8s/examples/01-capabilitydefinition-physics-engine.yaml
-kubectl apply -f k8s/examples/02-capabilitydefinition-interaction-engine.yaml
-kubectl apply -f k8s/examples/game-dev/
+kubectl apply -f k8s/crds/
+kubectl apply -f examples/booklet-bindery-sample/k8s/
 ```
 
 ## Labels used by controllers
@@ -51,4 +52,3 @@ These labels are used for selection/debugging:
 - `bindery.platform/game`
 - `bindery.platform/module`
 - `bindery.platform/shard`
-

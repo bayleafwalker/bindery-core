@@ -8,16 +8,9 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 cd "$REPO_ROOT"
 
-"$SCRIPT_DIR/kind-up.sh" "$CLUSTER_NAME"
-
-# Ensure kubectl context is set to kind-$CLUSTER_NAME.
-if ! kubectl config current-context | grep -qx "kind-$CLUSTER_NAME"; then
-  kubectl config use-context "kind-$CLUSTER_NAME" >/dev/null
+if [[ ! -f "examples/booklet-bindery-sample/dev/kind-demo.sh" ]]; then
+  echo "Sample game not found at examples/booklet-bindery-sample; nothing to demo." >&2
+  exit 1
 fi
 
-# Build/load demo module images (so the example ModuleManifests can run without pulling from a remote registry).
-bash "$SCRIPT_DIR/build-demo-images.sh" "$CLUSTER_NAME"
-
-"$SCRIPT_DIR/apply-crds-and-examples.sh"
-
-echo "Demo installed on kind cluster: $CLUSTER_NAME"
+bash "examples/booklet-bindery-sample/dev/kind-demo.sh" "$CLUSTER_NAME"

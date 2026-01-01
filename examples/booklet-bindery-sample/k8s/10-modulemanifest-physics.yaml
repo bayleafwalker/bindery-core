@@ -19,6 +19,10 @@ spec:
   runtime:
     image: bindery/demo-physics:0.1.0
     port: 50051
+    env:
+      BINDERY_DEMO_AUTOTICK: "true"
+      BINDERY_DEMO_TICK_INTERVAL_MS: "200"
+      BINDERY_DEMO_MAX_COMMANDS_PER_TICK: "16"
 
   provides:
     - capabilityId: physics.engine
