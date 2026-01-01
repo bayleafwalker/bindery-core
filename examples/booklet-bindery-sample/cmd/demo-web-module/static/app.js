@@ -1,6 +1,7 @@
 const canvas = document.getElementById("viewport");
 const statusEl = document.getElementById("status");
 const statsEl = document.getElementById("stats");
+const resetBtn = document.getElementById("resetBtn");
 const ctx = canvas.getContext("2d");
 
 function resize() {
@@ -12,6 +13,26 @@ function resize() {
 
 window.addEventListener("resize", resize);
 resize();
+
+async function resetWorld() {
+  resetBtn.disabled = true;
+  try {
+    const res = await fetch("/api/reset", { method: "POST" });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(body.error || `HTTP ${res.status}`);
+    }
+  } finally {
+    resetBtn.disabled = false;
+  }
+}
+
+resetBtn.addEventListener("click", () => {
+  resetWorld().catch((e) => {
+    statusEl.textContent = `reset failed: ${e}`;
+    statusEl.style.color = "#ffb84d";
+  });
+});
 
 function lerp(a, b, t) {
   return a + (b - a) * t;
@@ -112,4 +133,3 @@ async function poll() {
 }
 
 poll();
-

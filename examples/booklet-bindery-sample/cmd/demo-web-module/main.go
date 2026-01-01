@@ -44,6 +44,12 @@ type apiEntity struct {
 	Cooldown int64   `json:"cooldown,omitempty"`
 }
 
+type apiResetResponse struct {
+	WorldID     string `json:"worldId"`
+	InitialTick int64  `json:"initialTick,omitempty"`
+	Error       string `json:"error,omitempty"`
+}
+
 type stateCache struct {
 	mu    sync.RWMutex
 	state apiState
@@ -77,6 +83,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/state", cache.handleState)
+	mux.HandleFunc("/api/reset", cache.handleReset(physicsTarget, worldID))
 	mux.Handle("/", http.FileServer(http.FS(sub)))
 
 	fmt.Printf("demo-web: listen=%s world=%s physics=%s pollInterval=%s\n", listenAddr, worldID, physicsTarget, pollInterval)
@@ -241,6 +248,66 @@ func (c *stateCache) handleState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_, _ = w.Write(b)
+}
+
+func (c *stateCache) handleReset(target, worldID string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		if r.Method != http.MethodPost {
+			w.Header().Set("Allow", http.MethodPost)
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			_ = json.NewEncoder(w).Encode(apiResetResponse{WorldID: worldID, Error: "method not allowed"})
+			return
+		}
+
+		if strings.TrimSpace(target) == "" {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_ = json.NewEncoder(w).Encode(apiResetResponse{WorldID: worldID, Error: "no physics endpoint injected"})
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+
+		conn, err := dial(ctx, target)
+		if err != nil {
+			w.WriteHeader(http.StatusBadGateway)
+			_ = json.NewEncoder(w).Encode(apiResetResponse{WorldID: worldID, Error: fmt.Sprintf("dial failed: %v", err)})
+			return
+		}
+		defer func() { _ = conn.Close() }()
+
+		client := enginev1.NewEngineModuleClient(conn)
+		reqID := fmt.Sprintf("web-reset-%d", time.Now().UnixNano())
+		resp, err := client.InitializeWorld(ctx, &enginev1.InitializeWorldRequest{
+			WorldId:   worldID,
+			RequestId: reqID,
+		})
+		if err != nil {
+			w.WriteHeader(http.StatusBadGateway)
+			_ = json.NewEncoder(w).Encode(apiResetResponse{WorldID: worldID, Error: fmt.Sprintf("InitializeWorld: %v", err)})
+			return
+		}
+		if resp.GetError() != nil {
+			w.WriteHeader(http.StatusConflict)
+			_ = json.NewEncoder(w).Encode(apiResetResponse{WorldID: worldID, Error: resp.GetError().GetMessage()})
+			return
+		}
+
+		// Prime cache with the reset state (best-effort).
+		if snap, err := snapshotOnce(r.Context(), client, worldID); err == nil {
+			c.setState(snap)
+		} else {
+			c.setError(worldID, err.Error())
+		}
+
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(apiResetResponse{
+			WorldID:     worldID,
+			InitialTick: resp.GetOk().GetInitialTick(),
+		})
+	}
 }
 
 func envInt(name string, def int) int {

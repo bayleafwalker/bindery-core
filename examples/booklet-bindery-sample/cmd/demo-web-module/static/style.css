@@ -45,3 +45,26 @@ body {
   line-height: 1.35;
 }
 
+.controls {
+  margin-top: 10px;
+}
+
+.btn {
+  appearance: none;
+  border: 1px solid rgba(232, 236, 255, 0.22);
+  background: rgba(232, 236, 255, 0.08);
+  color: #e8ecff;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: rgba(232, 236, 255, 0.14);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
