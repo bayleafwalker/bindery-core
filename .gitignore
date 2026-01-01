@@ -21,6 +21,8 @@
 *.log
 .gocache/
 .cache/
+**/.gocache/
+**/.cache/
 
 # Kind / Kubernetes local artifacts (if any are generated)
 .kube/
