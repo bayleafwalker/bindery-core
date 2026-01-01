@@ -1,0 +1,9 @@
+go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+BINDERY_INTEGRATION=1 KUBEBUILDER_ASSETS="$("/home/bayleaf/go/bin/setup-envtest" use -p path 1.31.0)" go test ./... -run Integration
+?   	github.com/bayleafwalker/bindery-core	[no test files]
+?   	github.com/bayleafwalker/bindery-core/api/v1alpha1	[no test files]
+?   	github.com/bayleafwalker/bindery-core/cmd/bindery-load-test	[no test files]
+?   	github.com/bayleafwalker/bindery-core/cmd/engine-module-client	[no test files]
+?   	github.com/bayleafwalker/bindery-core/cmd/engine-module-server	[no test files]
+?   	github.com/bayleafwalker/bindery-core/contracts/proto/game/engine/v1	[no test files]
+make: *** [Makefile:38: test-integration] Error 1

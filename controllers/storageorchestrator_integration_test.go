@@ -29,7 +29,7 @@ func TestIntegration_StorageOrchestrator_ClientTier_SetsExternalStatusAndNoPVC(t
 		t.Skip("set BINDERY_INTEGRATION=1 (or run `make test-integration`) to enable envtest integration tests")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
 	crdDir := filepath.Join("..", "k8s", "crds")

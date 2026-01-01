@@ -1,0 +1,31 @@
+=== RUN   TestIntegration_RealmArchitecture
+--- PASS: TestIntegration_RealmArchitecture (24.38s)
+=== RUN   TestIntegration_RuntimeOrchestrator_PublishesEndpointToStatus
+--- PASS: TestIntegration_RuntimeOrchestrator_PublishesEndpointToStatus (5.67s)
+=== RUN   TestIntegration_RuntimeOrchestrator_ShardStorage_CreatesClaimMountAndPVC
+[controller-runtime] log.SetLogger(...) was never called; logs will not be displayed.
+Detected at:
+	>  goroutine 651 [running]:
+	>  runtime/debug.Stack()
+	>  	/usr/lib/go/src/runtime/debug/stack.go:26 +0x5e
+	>  sigs.k8s.io/controller-runtime/pkg/log.eventuallyFulfillRoot()
+	>  	/home/bayleaf/go/pkg/mod/sigs.k8s.io/controller-runtime@v0.19.0/pkg/log/log.go:60 +0xcd
+	>  sigs.k8s.io/controller-runtime/pkg/log.(*delegatingLogSink).Enabled(0xc0005a4d80, 0x1)
+	>  	/home/bayleaf/go/pkg/mod/sigs.k8s.io/controller-runtime@v0.19.0/pkg/log/deleg.go:111 +0x32
+	>  github.com/go-logr/logr.Logger.Info({{0x1eb07d0?, 0xc0005a4d80?}, 0x0?}, {0x1bf63ea, 0x16}, {0x0, 0x0, 0x0})
+	>  	/home/bayleaf/go/pkg/mod/github.com/go-logr/logr@v1.4.2/logr.go:276 +0x6e
+	>  sigs.k8s.io/controller-runtime/pkg/envtest.(*Environment).Start(0xc0006b6288)
+	>  	/home/bayleaf/go/pkg/mod/sigs.k8s.io/controller-runtime@v0.19.0/pkg/envtest/server.go:248 +0x3df
+	>  github.com/bayleafwalker/bindery-core/controllers.TestIntegration_RuntimeOrchestrator_ShardStorage_CreatesClaimMountAndPVC(0xc0009881c0)
+	>  	/projects/dev/bindery-core/controllers/runtimeorchestrator_integration_test.go:181 +0x24c
+	>  testing.tRunner(0xc0009881c0, 0x1cde960)
+	>  	/usr/lib/go/src/testing/testing.go:1934 +0xea
+	>  created by testing.(*T).Run in goroutine 1
+	>  	/usr/lib/go/src/testing/testing.go:1997 +0x465
+--- PASS: TestIntegration_RuntimeOrchestrator_ShardStorage_CreatesClaimMountAndPVC (5.11s)
+=== RUN   TestIntegration_RuntimeOrchestrator_InjectsEndpoints
+--- PASS: TestIntegration_RuntimeOrchestrator_InjectsEndpoints (24.87s)
+=== RUN   TestIntegration_StorageOrchestrator_ClientTier_SetsExternalStatusAndNoPVC
+--- PASS: TestIntegration_StorageOrchestrator_ClientTier_SetsExternalStatusAndNoPVC (5.12s)
+PASS
+ok  	github.com/bayleafwalker/bindery-core/controllers	65.157s

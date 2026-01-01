@@ -33,7 +33,7 @@ func TestIntegration_RealmArchitecture(t *testing.T) {
 		t.Skip("set BINDERY_INTEGRATION=1 to enable envtest integration tests")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
 	crdDir := filepath.Join("..", "k8s", "crds")
