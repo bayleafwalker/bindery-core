@@ -94,7 +94,7 @@ func TestIntegration_RealmArchitecture(t *testing.T) {
 
 	go func() {
 		if err := mgr.Start(ctx); err != nil {
-			// t.Logf("manager stopped: %v", err)
+			t.Logf("manager stopped: %v", err)
 		}
 	}()
 
@@ -193,7 +193,6 @@ func TestIntegration_RealmArchitecture(t *testing.T) {
 	}
 
 	// 5. Verify Realm Binding (created by RealmController)
-	t.Log("Waiting for Realm Binding...")
 	realmBindingName := "realm-eu-west-global-chat"
 	if err := waitForBinding(ctx, k8sClient, types.NamespacedName{Namespace: ns.Name, Name: realmBindingName}); err != nil {
 		t.Fatalf("realm binding not found: %v", err)
@@ -201,7 +200,6 @@ func TestIntegration_RealmArchitecture(t *testing.T) {
 
 	// 6. Verify World Binding (created by CapabilityResolver)
 	// Should bind game-server -> global-chat
-	t.Log("Waiting for World Binding...")
 	// Name is deterministic but complex, let's list bindings for the world
 	var worldBindings binderyv1alpha1.CapabilityBindingList
 	if err := waitForCondition(ctx, func() (bool, error) {
