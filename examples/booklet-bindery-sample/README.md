@@ -25,6 +25,7 @@ From the **repo root**:
 
 3) Run the Bindery controllers (in another terminal):
 - `make run-controller`
+  - Note: this runs with `--metrics-bind-address=0` to keep `localhost:8080` free for the web demo.
 
 4) Build/load the demo module images, then apply the sample resources:
 - `./examples/booklet-bindery-sample/dev/kind-demo.sh`
@@ -32,6 +33,7 @@ From the **repo root**:
 5) Port-forward the web client and open it in a browser:
 - `bash ./examples/booklet-bindery-sample/dev/port-forward-web.sh`
 - Visit `http://localhost:8080`
+  - If `8080` is already in use, pick another local port: `bash ./examples/booklet-bindery-sample/dev/port-forward-web.sh bindery-demo core-web-client 18080`
 
 ## Notes for splitting into a standalone repo
 

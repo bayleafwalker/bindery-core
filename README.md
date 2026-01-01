@@ -81,6 +81,12 @@ Run the controller manager against your current kubecontext:
 make run-controller
 ```
 
+Note: `make run-controller` disables the metrics and health probe listeners to avoid occupying `localhost:8080` (often used by the sample game web client port-forward). If you want the default controller-runtime ports (`:8080`/`:8081`), run:
+
+```bash
+make run-controller-with-metrics
+```
+
 ### Repository Layout
 -   `api/`: Kubernetes API definitions (CRDs).
 -   `controllers/`: Kubernetes controllers (Reconcilers).

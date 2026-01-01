@@ -30,4 +30,7 @@ Run (from repo root) in another terminal:
 When the world is ready, open the web client:
   bash examples/booklet-bindery-sample/dev/port-forward-web.sh
   # then visit http://localhost:8080
+
+If port 8080 is already in use, choose another local port:
+  bash examples/booklet-bindery-sample/dev/port-forward-web.sh bindery-demo core-web-client 18080
 EOF
