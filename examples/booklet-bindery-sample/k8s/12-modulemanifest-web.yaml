@@ -1,0 +1,30 @@
+apiVersion: bindery.platform/v1alpha1
+kind: ModuleManifest
+metadata:
+  name: core-web-client
+  namespace: bindery-demo
+spec:
+  module:
+    id: core.web
+    version: "0.1.0"
+
+  runtime:
+    image: bindery/demo-web:0.1.0
+    port: 8080
+    env:
+      BINDERY_SAMPLE_WORLD_ID: world-001
+      BINDERY_SAMPLE_POLL_INTERVAL_MS: "200"
+
+  provides: []
+
+  requires:
+    - capabilityId: physics.engine
+      versionConstraint: ^1.2.0
+      scope: world-shard
+      multiplicity: "1"
+      dependencyMode: required
+
+  scaling:
+    defaultScope: world-shard
+    statefulness: stateless
+

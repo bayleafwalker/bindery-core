@@ -6,17 +6,17 @@ metadata:
 spec:
   gameId: bindery.sample
   version: "0.1.0"
-  description: Minimal demo game composed of physics + interaction modules.
+  description: Minimal demo game (two planets + ships) with a browser UI.
 
   modules:
     - name: core-physics-engine
       required: true
       desiredScope: world-shard
-    - name: core-interaction-engine
+    - name: core-web-client
       required: true
       desiredScope: world-shard
 
   defaults:
     region: us-test-1
-    shardCount: 2
+    shardCount: 1
     tickRateHz: 60

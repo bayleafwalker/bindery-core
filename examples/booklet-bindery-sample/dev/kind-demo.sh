@@ -26,4 +26,8 @@ bindery-sample installed on kind cluster: $CLUSTER_NAME
 Note: Bindery controllers must be running for the world to reconcile.
 Run (from repo root) in another terminal:
   make run-controller
+
+When the world is ready, open the web client:
+  bash examples/booklet-bindery-sample/dev/port-forward-web.sh
+  # then visit http://localhost:8080
 EOF

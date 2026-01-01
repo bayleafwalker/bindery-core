@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
+	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -14,12 +17,31 @@ type Config struct {
 	// MaxCommandsPerTick bounds how many queued commands are applied per tick step.
 	// If <= 0, a safe default is used.
 	MaxCommandsPerTick int
+
+	// SampleGame enables the built-in sample "two planets / ships" simulation.
+	// When disabled, the engine behaves like a minimal generic entity store.
+	SampleGame SampleGameConfig
+}
+
+type SampleGameConfig struct {
+	Enabled bool
+
+	PlanetDistance    int64 // center-to-center distance
+	PlanetRadius      int64
+	ShipOrbitRadius   int64
+	ShipsPerTeam      int
+	ShipMaxHP         int32
+	ShipSpeedPerTick  int64
+	FireRange         int64
+	FireDamage        int32
+	FireCooldownTicks int64
 }
 
 type Engine struct {
 	mu                 sync.Mutex
 	worlds             map[string]*world
 	maxCommandsPerTick int
+	sampleGame         SampleGameConfig
 }
 
 func New(cfg Config) *Engine {
@@ -27,9 +49,13 @@ func New(cfg Config) *Engine {
 	if maxCommandsPerTick <= 0 {
 		maxCommandsPerTick = 16
 	}
+
+	sg := normalizeSampleGame(cfg.SampleGame)
+
 	return &Engine{
 		worlds:             make(map[string]*world),
 		maxCommandsPerTick: maxCommandsPerTick,
+		sampleGame:         sg,
 	}
 }
 
@@ -42,7 +68,7 @@ func (e *Engine) InitializeWorld(worldID string) (int64, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	w := newWorld(e.maxCommandsPerTick)
+	w := newWorld(e.maxCommandsPerTick, e.sampleGame)
 	e.worlds[worldID] = w
 	return 0, nil
 }
@@ -108,7 +134,7 @@ func (e *Engine) getOrCreateWorld(worldID string) *world {
 	if w, ok := e.worlds[worldID]; ok {
 		return w
 	}
-	w := newWorld(e.maxCommandsPerTick)
+	w := newWorld(e.maxCommandsPerTick, e.sampleGame)
 	e.worlds[worldID] = w
 	return w
 }
@@ -116,24 +142,56 @@ func (e *Engine) getOrCreateWorld(worldID string) *world {
 type world struct {
 	mu                 sync.Mutex
 	tick               int64
-	entities           map[string]*enginev1.Entity
+	entities           map[string]*entityState
 	queue              []*enginev1.Command
 	seenCommandIDs     map[string]struct{}
 	nextGeneratedID    int64
 	maxCommandsPerTick int
+	sampleGame         SampleGameConfig
 }
 
-func newWorld(maxCommandsPerTick int) *world {
+type vec3 struct {
+	X int64
+	Y int64
+	Z int64
+}
+
+type entityKind string
+
+const (
+	entityKindDemo   entityKind = "demo"
+	entityKindPlanet entityKind = "planet"
+	entityKindShip   entityKind = "ship"
+)
+
+type entityState struct {
+	id       string
+	kind     entityKind
+	team     string
+	radius   int64
+	pos      vec3
+	vel      vec3
+	hp       int32
+	maxHP    int32
+	cooldown int64
+}
+
+func newWorld(maxCommandsPerTick int, sampleGame SampleGameConfig) *world {
 	if maxCommandsPerTick <= 0 {
 		maxCommandsPerTick = 16
 	}
-	return &world{
-		entities:           make(map[string]*enginev1.Entity),
+	w := &world{
+		entities:           make(map[string]*entityState),
 		queue:              nil,
 		seenCommandIDs:     make(map[string]struct{}),
 		nextGeneratedID:    1,
 		maxCommandsPerTick: maxCommandsPerTick,
+		sampleGame:         sampleGame,
 	}
+	if w.sampleGame.Enabled {
+		w.resetSampleGameLocked()
+	}
+	return w
 }
 
 func (w *world) enqueue(cmd *enginev1.Command, dryRun bool) (int64, error) {
@@ -179,6 +237,9 @@ func (w *world) step(expectedCurrentTick, targetTick int64) (int64, []*enginev1.
 	for i := int64(0); i < steps; i++ {
 		w.tick++
 		events = append(events, w.applyQueuedCommandsLocked(w.tick)...)
+		if w.sampleGame.Enabled {
+			events = append(events, w.stepSampleGameLocked(w.tick)...)
+		}
 	}
 	return w.tick, events, nil
 }
@@ -241,14 +302,20 @@ func (w *world) snapshot(worldID string, atTick *int64, entityIDs []string, incl
 		}
 	}
 
-	entities := make([]*enginev1.Entity, 0, len(w.entities))
-	for id, e := range w.entities {
+	ids := make([]string, 0, len(w.entities))
+	for id := range w.entities {
 		if len(allow) > 0 {
 			if _, ok := allow[id]; !ok {
 				continue
 			}
 		}
-		entities = append(entities, cloneEntity(e, includeComponents))
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+
+	entities := make([]*enginev1.Entity, 0, len(ids))
+	for _, id := range ids {
+		entities = append(entities, w.entities[id].toProto(includeComponents))
 	}
 
 	return &enginev1.WorldState{
@@ -292,25 +359,11 @@ func applyCommandLocked(w *world, cmd *enginev1.Command) error {
 		if _, ok := w.entities[id]; ok {
 			return fmt.Errorf("entity %q already exists", id)
 		}
-		w.entities[id] = &enginev1.Entity{
-			EntityId: id,
-			Type:     "demo",
-			Components: []*enginev1.Component{
-				{
-					Type: "transform",
-					Payload: &enginev1.Component_Transform{
-						Transform: &enginev1.TransformComponent{
-							Position:      &enginev1.Vec3{X: 0, Y: 0, Z: 0},
-							RotationEuler: &enginev1.Vec3{X: 0, Y: 0, Z: 0},
-							Scale:         &enginev1.Vec3{X: 1, Y: 1, Z: 1},
-						},
-					},
-				},
-			},
-			Metadata: map[string]string{
-				"spawnedBy": normalizeID(cmd.GetActorId()),
-			},
+		state := &entityState{id: id, kind: entityKindDemo}
+		if comps := p.SpawnEntity.GetComponents(); len(comps) > 0 {
+			state.applySpawnComponents(comps)
 		}
+		w.entities[id] = state
 		return nil
 	case *enginev1.Command_Move:
 		entityID := normalizeID(p.Move.GetEntityId())
@@ -319,10 +372,12 @@ func applyCommandLocked(w *world, cmd *enginev1.Command) error {
 			return fmt.Errorf("entity %q not found", entityID)
 		}
 		pos := p.Move.GetPosition()
-		if pos == nil {
-			return errors.New("move.position is nil")
+		if pos != nil {
+			e.pos = vec3{X: int64(pos.X), Y: int64(pos.Y), Z: int64(pos.Z)}
 		}
-		setEntityPosition(e, pos)
+		if v := p.Move.GetVelocity(); v != nil {
+			e.vel = vec3{X: int64(v.X), Y: int64(v.Y), Z: int64(v.Z)}
+		}
 		return nil
 	case *enginev1.Command_DespawnEntity:
 		entityID := normalizeID(p.DespawnEntity.GetEntityId())
@@ -332,7 +387,7 @@ func applyCommandLocked(w *world, cmd *enginev1.Command) error {
 		delete(w.entities, entityID)
 		return nil
 	case *enginev1.Command_Opaque:
-		return nil
+		return w.applyOpaqueLocked(cmd, p.Opaque)
 	default:
 		return errors.New("command payload is missing or unknown")
 	}
@@ -344,111 +399,454 @@ func (w *world) generateEntityIDLocked() string {
 	return fmt.Sprintf("e-%d", id)
 }
 
-func setEntityPosition(e *enginev1.Entity, pos *enginev1.Vec3) {
-	if e == nil {
-		return
-	}
-	// Find existing transform component.
-	for _, c := range e.Components {
+func (e *entityState) applySpawnComponents(components []*enginev1.Component) {
+	for _, c := range components {
 		if c == nil {
 			continue
 		}
-		if t := c.GetTransform(); t != nil {
-			if t.Position == nil {
-				t.Position = &enginev1.Vec3{}
+		switch p := c.GetPayload().(type) {
+		case *enginev1.Component_Transform:
+			if p.Transform != nil && p.Transform.Position != nil {
+				e.pos = vec3{X: int64(p.Transform.Position.X), Y: int64(p.Transform.Position.Y), Z: int64(p.Transform.Position.Z)}
 			}
-			t.Position.X = pos.X
-			t.Position.Y = pos.Y
-			t.Position.Z = pos.Z
-			return
+		case *enginev1.Component_Health:
+			if p.Health != nil {
+				e.hp = p.Health.Current
+				e.maxHP = p.Health.Max
+				if e.maxHP == 0 {
+					e.maxHP = e.hp
+				}
+				if e.maxHP < e.hp {
+					e.maxHP = e.hp
+				}
+				if e.kind == entityKindDemo {
+					e.kind = entityKindShip
+				}
+			}
+		case *enginev1.Component_Opaque:
+			raw := string(p.Opaque)
+			switch normalizeID(c.GetType()) {
+			case "bindery.sample.kind":
+				switch normalizeID(raw) {
+				case "planet":
+					e.kind = entityKindPlanet
+				case "ship":
+					e.kind = entityKindShip
+				}
+			case "bindery.sample.team":
+				e.team = normalizeID(raw)
+			case "bindery.sample.radius":
+				if v, err := strconv.ParseInt(normalizeID(raw), 10, 64); err == nil {
+					e.radius = v
+				}
+			}
 		}
 	}
-	// No transform found; add one.
-	e.Components = append(e.Components, &enginev1.Component{
+}
+
+func (e *entityState) toProto(includeComponents bool) *enginev1.Entity {
+	if e == nil {
+		return nil
+	}
+
+	meta := map[string]string{
+		"kind": string(e.kind),
+	}
+	if e.team != "" {
+		meta["team"] = e.team
+	}
+	if e.radius != 0 {
+		meta["radius"] = fmt.Sprintf("%d", e.radius)
+	}
+	if e.vel != (vec3{}) {
+		meta["vx"] = fmt.Sprintf("%d", e.vel.X)
+		meta["vy"] = fmt.Sprintf("%d", e.vel.Y)
+		meta["vz"] = fmt.Sprintf("%d", e.vel.Z)
+	}
+	if e.cooldown != 0 {
+		meta["cooldown"] = fmt.Sprintf("%d", e.cooldown)
+	}
+
+	out := &enginev1.Entity{
+		EntityId:   e.id,
+		Type:       string(e.kind),
+		Metadata:   meta,
+		Components: nil,
+	}
+	if !includeComponents {
+		return out
+	}
+
+	out.Components = append(out.Components, &enginev1.Component{
 		Type: "transform",
 		Payload: &enginev1.Component_Transform{
 			Transform: &enginev1.TransformComponent{
-				Position:      &enginev1.Vec3{X: pos.X, Y: pos.Y, Z: pos.Z},
+				Position:      &enginev1.Vec3{X: float64(e.pos.X), Y: float64(e.pos.Y), Z: float64(e.pos.Z)},
 				RotationEuler: &enginev1.Vec3{X: 0, Y: 0, Z: 0},
 				Scale:         &enginev1.Vec3{X: 1, Y: 1, Z: 1},
 			},
 		},
 	})
-}
-
-func cloneEntity(e *enginev1.Entity, includeComponents bool) *enginev1.Entity {
-	if e == nil {
-		return nil
-	}
-	out := &enginev1.Entity{
-		EntityId: e.GetEntityId(),
-		Type:     e.GetType(),
-		Metadata: cloneStringMap(e.GetMetadata()),
-	}
-	if includeComponents {
-		out.Components = cloneComponents(e.GetComponents())
+	if e.maxHP > 0 {
+		out.Components = append(out.Components, &enginev1.Component{
+			Type: "health",
+			Payload: &enginev1.Component_Health{
+				Health: &enginev1.HealthComponent{
+					Current: e.hp,
+					Max:     e.maxHP,
+				},
+			},
+		})
 	}
 	return out
 }
 
-func cloneComponents(in []*enginev1.Component) []*enginev1.Component {
-	if len(in) == 0 {
-		return nil
-	}
-	out := make([]*enginev1.Component, 0, len(in))
-	for _, c := range in {
-		out = append(out, cloneComponent(c))
-	}
-	return out
+type damagePayload struct {
+	TargetID string `json:"targetEntityId"`
+	Amount   int32  `json:"amount"`
 }
 
-func cloneComponent(c *enginev1.Component) *enginev1.Component {
-	if c == nil {
+func (w *world) applyOpaqueLocked(cmd *enginev1.Command, opaque *enginev1.OpaqueCommand) error {
+	if opaque == nil {
 		return nil
 	}
-	out := &enginev1.Component{Type: c.GetType()}
-	switch p := c.GetPayload().(type) {
-	case *enginev1.Component_Transform:
-		out.Payload = &enginev1.Component_Transform{Transform: cloneTransform(p.Transform)}
-	case *enginev1.Component_Health:
-		if p.Health != nil {
-			out.Payload = &enginev1.Component_Health{Health: &enginev1.HealthComponent{Current: p.Health.Current, Max: p.Health.Max}}
+	switch normalizeID(opaque.GetType()) {
+	case "sample.damage":
+		var p damagePayload
+		if err := json.Unmarshal(opaque.GetData(), &p); err != nil {
+			return fmt.Errorf("opaque sample.damage: %w", err)
 		}
-	case *enginev1.Component_Opaque:
-		b := make([]byte, len(p.Opaque))
-		copy(b, p.Opaque)
-		out.Payload = &enginev1.Component_Opaque{Opaque: b}
+		targetID := normalizeID(p.TargetID)
+		if targetID == "" {
+			return errors.New("opaque sample.damage targetEntityId is empty")
+		}
+		target, ok := w.entities[targetID]
+		if !ok {
+			return fmt.Errorf("target %q not found", targetID)
+		}
+		if target.maxHP <= 0 {
+			return fmt.Errorf("target %q has no health", targetID)
+		}
+		if p.Amount <= 0 {
+			return errors.New("opaque sample.damage amount must be > 0")
+		}
+		target.hp -= p.Amount
+		if target.hp <= 0 {
+			delete(w.entities, targetID)
+		}
+		_ = cmd
+		return nil
+	default:
+		// Unknown opaque command types are accepted (forward-compatible).
+		return nil
+	}
+}
+
+func (w *world) resetSampleGameLocked() {
+	w.entities = make(map[string]*entityState)
+	w.queue = nil
+	w.seenCommandIDs = make(map[string]struct{})
+	w.nextGeneratedID = 1
+	w.tick = 0
+
+	cfg := w.sampleGame
+
+	half := cfg.PlanetDistance / 2
+	planetRed := &entityState{
+		id:     "planet-red",
+		kind:   entityKindPlanet,
+		team:   "red",
+		radius: cfg.PlanetRadius,
+		pos:    vec3{X: -half, Y: 0, Z: 0},
+	}
+	planetBlue := &entityState{
+		id:     "planet-blue",
+		kind:   entityKindPlanet,
+		team:   "blue",
+		radius: cfg.PlanetRadius,
+		pos:    vec3{X: half, Y: 0, Z: 0},
+	}
+	w.entities[planetRed.id] = planetRed
+	w.entities[planetBlue.id] = planetBlue
+
+	offsets := shipSpawnOffsets(cfg.ShipOrbitRadius, cfg.ShipsPerTeam)
+	for i := 0; i < cfg.ShipsPerTeam; i++ {
+		off := offsets[i]
+		id := fmt.Sprintf("ship-red-%02d", i+1)
+		w.entities[id] = &entityState{
+			id:    id,
+			kind:  entityKindShip,
+			team:  "red",
+			pos:   vec3{X: planetRed.pos.X + off.X, Y: planetRed.pos.Y + off.Y, Z: 0},
+			vel:   vec3{X: cfg.ShipSpeedPerTick, Y: 0, Z: 0},
+			hp:    cfg.ShipMaxHP,
+			maxHP: cfg.ShipMaxHP,
+		}
+	}
+	for i := 0; i < cfg.ShipsPerTeam; i++ {
+		off := offsets[i]
+		id := fmt.Sprintf("ship-blue-%02d", i+1)
+		w.entities[id] = &entityState{
+			id:    id,
+			kind:  entityKindShip,
+			team:  "blue",
+			pos:   vec3{X: planetBlue.pos.X + off.X, Y: planetBlue.pos.Y + off.Y, Z: 0},
+			vel:   vec3{X: -cfg.ShipSpeedPerTick, Y: 0, Z: 0},
+			hp:    cfg.ShipMaxHP,
+			maxHP: cfg.ShipMaxHP,
+		}
+	}
+}
+
+func (w *world) stepSampleGameLocked(tick int64) []*enginev1.Event {
+	cfg := w.sampleGame
+
+	shipIDs := make([]string, 0, len(w.entities))
+	for id, e := range w.entities {
+		if e.kind == entityKindShip && e.maxHP > 0 {
+			shipIDs = append(shipIDs, id)
+		}
+	}
+	sort.Strings(shipIDs)
+
+	for _, id := range shipIDs {
+		if e := w.entities[id]; e != nil && e.cooldown > 0 {
+			e.cooldown--
+		}
+	}
+
+	type action struct {
+		kind   string // "move" or "fire"
+		target string
+		vel    vec3
+	}
+	actions := make(map[string]action, len(shipIDs))
+
+	fireRangeSq := cfg.FireRange * cfg.FireRange
+
+	// Decide actions (deterministically).
+	for _, shipID := range shipIDs {
+		ship := w.entities[shipID]
+		if ship == nil {
+			continue
+		}
+
+		enemyID, enemyDistSq := w.nearestEnemyShipLocked(ship)
+		if enemyID != "" && ship.cooldown == 0 && enemyDistSq <= fireRangeSq {
+			actions[shipID] = action{kind: "fire", target: enemyID, vel: vec3{}}
+			continue
+		}
+		if enemyID != "" {
+			enemy := w.entities[enemyID]
+			actions[shipID] = action{kind: "move", vel: stepToward(ship.pos, enemy.pos, cfg.ShipSpeedPerTick)}
+		} else {
+			actions[shipID] = action{kind: "move", vel: vec3{}}
+		}
+	}
+
+	// Apply fire simultaneously (aggregate damage by target).
+	damageByTarget := make(map[string]int32)
+	var events []*enginev1.Event
+	for _, shipID := range shipIDs {
+		act, ok := actions[shipID]
+		if !ok || act.kind != "fire" {
+			continue
+		}
+		ship := w.entities[shipID]
+		if ship == nil {
+			continue
+		}
+		target := w.entities[act.target]
+		if target == nil {
+			continue
+		}
+		damageByTarget[act.target] += cfg.FireDamage
+		ship.cooldown = cfg.FireCooldownTicks
+		b, _ := json.Marshal(map[string]any{
+			"attacker": shipID,
+			"target":   act.target,
+			"damage":   cfg.FireDamage,
+		})
+		events = append(events, &enginev1.Event{
+			Type: "sample.fire",
+			Tick: tick,
+			Payload: &enginev1.Event_Opaque{
+				Opaque: b,
+			},
+		})
+	}
+
+	targetIDs := make([]string, 0, len(damageByTarget))
+	for id := range damageByTarget {
+		targetIDs = append(targetIDs, id)
+	}
+	sort.Strings(targetIDs)
+	for _, targetID := range targetIDs {
+		target := w.entities[targetID]
+		if target == nil {
+			continue
+		}
+		target.hp -= damageByTarget[targetID]
+		if target.hp <= 0 {
+			delete(w.entities, targetID)
+			b, _ := json.Marshal(map[string]any{
+				"entity": targetID,
+			})
+			events = append(events, &enginev1.Event{
+				Type: "sample.died",
+				Tick: tick,
+				Payload: &enginev1.Event_Opaque{
+					Opaque: b,
+				},
+			})
+		}
+	}
+
+	// Apply movement.
+	for _, shipID := range shipIDs {
+		ship := w.entities[shipID]
+		if ship == nil {
+			continue
+		}
+		act, ok := actions[shipID]
+		if !ok {
+			continue
+		}
+		if act.kind == "fire" {
+			ship.vel = vec3{}
+			continue
+		}
+		ship.vel = act.vel
+		ship.pos.X += ship.vel.X
+		ship.pos.Y += ship.vel.Y
+	}
+
+	// Optional: emit a one-time smoke marker once simulation advances.
+	if tick == 1 {
+		events = append(events, &enginev1.Event{
+			Type: "sample.started",
+			Tick: tick,
+			Payload: &enginev1.Event_Opaque{
+				Opaque: []byte("BINDERY_SMOKE_OK"),
+			},
+		})
+	}
+
+	return events
+}
+
+func (w *world) nearestEnemyShipLocked(ship *entityState) (string, int64) {
+	if ship == nil || ship.kind != entityKindShip {
+		return "", 0
+	}
+
+	bestID := ""
+	var bestDistSq int64
+
+	// Deterministic scan: sort keys.
+	ids := make([]string, 0, len(w.entities))
+	for id := range w.entities {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		e := w.entities[id]
+		if e == nil || e.kind != entityKindShip || e.team == ship.team {
+			continue
+		}
+		dx := e.pos.X - ship.pos.X
+		dy := e.pos.Y - ship.pos.Y
+		distSq := dx*dx + dy*dy
+		if bestID == "" || distSq < bestDistSq || (distSq == bestDistSq && id < bestID) {
+			bestID = id
+			bestDistSq = distSq
+		}
+	}
+	return bestID, bestDistSq
+}
+
+func shipSpawnOffsets(orbit int64, count int) []vec3 {
+	if count <= 0 {
+		return nil
+	}
+	if orbit <= 0 {
+		orbit = 20
+	}
+	out := make([]vec3, 0, count)
+	for i := 0; i < count; i++ {
+		angle := 2 * math.Pi * float64(i) / float64(count)
+		dx := int64(math.Round(float64(orbit) * math.Cos(angle)))
+		dy := int64(math.Round(float64(orbit) * math.Sin(angle)))
+		out = append(out, vec3{X: dx, Y: dy, Z: 0})
 	}
 	return out
 }
 
-func cloneTransform(t *enginev1.TransformComponent) *enginev1.TransformComponent {
-	if t == nil {
-		return nil
+func stepToward(from, to vec3, speed int64) vec3 {
+	if speed <= 0 {
+		return vec3{}
 	}
-	return &enginev1.TransformComponent{
-		Position:      cloneVec3(t.Position),
-		RotationEuler: cloneVec3(t.RotationEuler),
-		Scale:         cloneVec3(t.Scale),
+	dx := to.X - from.X
+	dy := to.Y - from.Y
+	if dx == 0 && dy == 0 {
+		return vec3{}
+	}
+	if abs64(dx) >= abs64(dy) {
+		return vec3{X: sign64(dx) * speed, Y: 0, Z: 0}
+	}
+	return vec3{X: 0, Y: sign64(dy) * speed, Z: 0}
+}
+
+func abs64(v int64) int64 {
+	if v < 0 {
+		return -v
+	}
+	return v
+}
+
+func sign64(v int64) int64 {
+	switch {
+	case v < 0:
+		return -1
+	case v > 0:
+		return 1
+	default:
+		return 0
 	}
 }
 
-func cloneVec3(v *enginev1.Vec3) *enginev1.Vec3 {
-	if v == nil {
-		return nil
+func normalizeSampleGame(cfg SampleGameConfig) SampleGameConfig {
+	if !cfg.Enabled {
+		return SampleGameConfig{Enabled: false}
 	}
-	return &enginev1.Vec3{X: v.X, Y: v.Y, Z: v.Z}
-}
-
-func cloneStringMap(in map[string]string) map[string]string {
-	if len(in) == 0 {
-		return nil
+	if cfg.PlanetDistance <= 0 {
+		cfg.PlanetDistance = 200
 	}
-	out := make(map[string]string, len(in))
-	for k, v := range in {
-		out[k] = v
+	if cfg.PlanetRadius <= 0 {
+		cfg.PlanetRadius = 20
 	}
-	return out
+	if cfg.ShipOrbitRadius <= 0 {
+		cfg.ShipOrbitRadius = 35
+	}
+	if cfg.ShipsPerTeam <= 0 {
+		cfg.ShipsPerTeam = 8
+	}
+	if cfg.ShipMaxHP <= 0 {
+		cfg.ShipMaxHP = 60
+	}
+	if cfg.ShipSpeedPerTick <= 0 {
+		cfg.ShipSpeedPerTick = 2
+	}
+	if cfg.FireRange <= 0 {
+		cfg.FireRange = 18
+	}
+	if cfg.FireDamage <= 0 {
+		cfg.FireDamage = 1
+	}
+	if cfg.FireCooldownTicks <= 0 {
+		cfg.FireCooldownTicks = 10
+	}
+	return cfg
 }
 
 func normalizeID(s string) string {

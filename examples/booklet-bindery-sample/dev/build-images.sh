@@ -25,11 +25,11 @@ fi
 
 echo "Building demo module images..."
 docker build -t bindery/demo-physics:0.1.0 -f examples/booklet-bindery-sample/cmd/demo-physics-module/Dockerfile .
-docker build -t bindery/demo-interaction:0.1.0 -f examples/booklet-bindery-sample/cmd/demo-interaction-module/Dockerfile .
+docker build -t bindery/demo-web:0.1.0 -f examples/booklet-bindery-sample/cmd/demo-web-module/Dockerfile .
 
 echo "Loading demo images into kind cluster: ${CLUSTER_NAME}"
 "$KIND_BIN" load docker-image --name "$CLUSTER_NAME" \
   bindery/demo-physics:0.1.0 \
-  bindery/demo-interaction:0.1.0
+  bindery/demo-web:0.1.0
 
 echo "Demo images ready."

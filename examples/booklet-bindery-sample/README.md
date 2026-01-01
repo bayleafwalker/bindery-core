@@ -5,12 +5,12 @@ This folder is a **sample game/booklet repository** for Bindery Core.
 It is intentionally small, but exercises:
 - a `Booklet` + `WorldInstance`
 - sharded `ModuleManifest`s (`world-shard`)
-- dependency injection via `CapabilityBinding` (interaction → physics)
+- dependency injection via `CapabilityBinding` (web → physics)
 
 ## Contents
 
 - `k8s/`: Kubernetes manifests for the sample game (capability definitions, module manifests, booklet, world instance).
-- `cmd/`: Demo module implementations (physics + interaction).
+- `cmd/`: Demo module implementations (physics sim + web client).
 - `dev/`: Local helper scripts (build/load images, apply manifests, kind demo).
 
 ## Quickstart (monorepo)
@@ -28,6 +28,10 @@ From the **repo root**:
 
 4) Build/load the demo module images, then apply the sample resources:
 - `./examples/booklet-bindery-sample/dev/kind-demo.sh`
+
+5) Port-forward the web client and open it in a browser:
+- `bash ./examples/booklet-bindery-sample/dev/port-forward-web.sh`
+- Visit `http://localhost:8080`
 
 ## Notes for splitting into a standalone repo
 

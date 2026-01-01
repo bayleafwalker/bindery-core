@@ -3,7 +3,11 @@ package e2e
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,11 +28,17 @@ func TestE2ESmoke_BinderySample(t *testing.T) {
 	if _, err := exec.LookPath("kubectl"); err != nil {
 		t.Skip("kubectl not found in PATH")
 	}
-	if _, err := exec.LookPath("kind"); err != nil {
-		t.Skip("kind not found in PATH")
-	}
 
 	repoRoot := findRepoRoot(t)
+	kindBin := "kind"
+	if _, err := exec.LookPath("kind"); err != nil {
+		fallback := filepath.Join(repoRoot, ".tools", "kind")
+		if info, statErr := os.Stat(fallback); statErr == nil && info.Mode()&0o111 != 0 {
+			kindBin = fallback
+		} else {
+			t.Skip("kind not found in PATH (and .tools/kind not usable)")
+		}
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Minute)
 	defer cancel()
 
@@ -37,15 +47,15 @@ func TestE2ESmoke_BinderySample(t *testing.T) {
 
 	// Always attempt cleanup.
 	t.Cleanup(func() {
-		_ = runAllow(ctx, repoRoot, nil, "kind", "delete", "cluster", "--name", clusterName)
+		_ = runAllow(ctx, repoRoot, nil, kindBin, "delete", "cluster", "--name", clusterName)
 	})
 
 	// Create cluster.
-	runOrFail(t, ctx, repoRoot, nil, "kind", "create", "cluster", "--name", clusterName, "--wait", "60s")
+	runOrFail(t, ctx, repoRoot, nil, kindBin, "create", "cluster", "--name", clusterName, "--wait", "60s")
 
 	// Write an isolated kubeconfig for this test.
 	kubeconfigPath := filepath.Join(t.TempDir(), "kubeconfig")
-	kubeconfig := runOrFail(t, ctx, repoRoot, nil, "kind", "get", "kubeconfig", "--name", clusterName)
+	kubeconfig := runOrFail(t, ctx, repoRoot, nil, kindBin, "get", "kubeconfig", "--name", clusterName)
 	if err := os.WriteFile(kubeconfigPath, []byte(kubeconfig), 0o600); err != nil {
 		t.Fatalf("write kubeconfig: %v", err)
 	}
@@ -92,26 +102,108 @@ func TestE2ESmoke_BinderySample(t *testing.T) {
 		"--timeout=240s",
 	)
 
-	// Poll interaction logs for the smoke marker.
+	// Ensure web deployment is up.
+	runOrFail(t, ctx, repoRoot, kubeEnv,
+		"kubectl", "-n", "bindery-demo", "wait",
+		"--for=condition=Available=True",
+		"deployment",
+		"-l", "bindery.platform/module=core-web-client",
+		"--timeout=240s",
+	)
+
+	// Find web service and port-forward to localhost.
+	svc := strings.TrimSpace(runOrFail(t, ctx, repoRoot, kubeEnv,
+		"kubectl", "-n", "bindery-demo", "get", "svc",
+		"-l", "bindery.platform/module=core-web-client",
+		"-o", "jsonpath={.items[0].metadata.name}",
+	))
+	if svc == "" {
+		_ = runAllow(ctx, repoRoot, kubeEnv, "kubectl", "-n", "bindery-demo", "get", "svc", "-l", "bindery.platform/module=core-web-client")
+		t.Fatal("web service not found")
+	}
+
+	localPort := pickFreePort(t)
+	pfCtx, pfCancel := context.WithCancel(ctx)
+	defer pfCancel()
+
+	pfCmd := exec.CommandContext(pfCtx,
+		"kubectl", "-n", "bindery-demo", "port-forward",
+		"svc/"+svc, fmt.Sprintf("%d:8080", localPort),
+	)
+	pfCmd.Dir = repoRoot
+	pfCmd.Env = kubeEnv
+	var pfOut bytes.Buffer
+	pfCmd.Stdout = &pfOut
+	pfCmd.Stderr = &pfOut
+	if err := pfCmd.Start(); err != nil {
+		t.Fatalf("start port-forward: %v", err)
+	}
+	t.Cleanup(func() {
+		pfCancel()
+		_ = pfCmd.Wait()
+	})
+
+	httpClient := &http.Client{Timeout: 2 * time.Second}
+	url := fmt.Sprintf("http://127.0.0.1:%d/api/state", localPort)
+
+	// Poll the web endpoint until the simulation advances.
 	deadline := time.Now().Add(2 * time.Minute)
 	for {
 		if time.Now().After(deadline) {
 			t.Logf("manager output:\n%s", managerOut.String())
+			t.Logf("port-forward output:\n%s", pfOut.String())
 			_ = runAllow(ctx, repoRoot, kubeEnv, "kubectl", "-n", "bindery-demo", "get", "worldinstances,worldshards,capabilitybindings,pods,svc")
-			t.Fatal("timeout waiting for BINDERY_SMOKE_OK in interaction logs")
+			_ = runAllow(ctx, repoRoot, kubeEnv, "kubectl", "-n", "bindery-demo", "logs", "-l", "bindery.platform/module=core-web-client", "--tail=200")
+			_ = runAllow(ctx, repoRoot, kubeEnv, "kubectl", "-n", "bindery-demo", "logs", "-l", "bindery.platform/module=core-physics-engine", "--tail=200")
+			t.Fatalf("timeout waiting for /api/state to report tick>0 (%s)", url)
 		}
 
-		logs, err := runOut(ctx, repoRoot, kubeEnv,
-			"kubectl", "-n", "bindery-demo", "logs",
-			"-l", "bindery.platform/module=core-interaction-engine",
-			"--tail=200",
-		)
-		if err == nil && strings.Contains(logs, "BINDERY_SMOKE_OK") {
-			return
+		resp, err := httpClient.Get(url)
+		if err == nil {
+			body, _ := io.ReadAll(resp.Body)
+			_ = resp.Body.Close()
+
+			var state webState
+			if err := json.Unmarshal(body, &state); err == nil {
+				planets, ships := 0, 0
+				for _, e := range state.Entities {
+					switch e.Kind {
+					case "planet":
+						planets++
+					case "ship":
+						ships++
+					}
+				}
+				if state.Error == "" && state.Tick > 0 && planets >= 2 && ships > 0 {
+					return
+				}
+			}
 		}
 
 		time.Sleep(3 * time.Second)
 	}
+}
+
+type webState struct {
+	Tick     int64       `json:"tick"`
+	Error    string      `json:"error"`
+	Entities []webEntity `json:"entities"`
+	WorldID  string      `json:"worldId"`
+}
+
+type webEntity struct {
+	Kind string `json:"kind"`
+}
+
+func pickFreePort(t *testing.T) int {
+	t.Helper()
+
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen free port: %v", err)
+	}
+	defer l.Close()
+	return l.Addr().(*net.TCPAddr).Port
 }
 
 func findRepoRoot(t *testing.T) string {
