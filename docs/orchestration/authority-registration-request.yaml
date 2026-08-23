@@ -4,6 +4,9 @@ project:
   name: bindery-core
   repository: local:/home/bayleaf/dev/bindery-core
   authority: vuoro-served-sprintctl
+  authority_role: external-project-authority
+  authority_repository_membership: none
+  authority_endpoint: https://vuoro-shared.apps.kotona.app
 bindings:
   repositories:
     - name: bindery-core
@@ -26,10 +29,21 @@ model_exception:
   local_inference_globally_qualified: false
   project_candidates_allowed: true
   receipts_qualification_eligible: false
+verified:
+  minimal_game_baseline: "bindery-core PR #1 merge 6843022171130d513dd210f31db5421692386db7"
+  ra2_adapter_boundary: "bindery-core PR #3 merge e9ef06bcc5df54f27fa528557b0151263a8be65b"
+  agentops_route: "AgentOps PR #57 merge 17cafa816930d86a0dcb4e5637473bf0e7e444fc"
+  coordinator_baseline: "46f74653a8de3b8edfa24bfdf46304b9eac11ddd"
+  opencode_event_probe:
+    cli_version: "1.18.21"
+    model: local3090/worker-fast
+    session_id: ses_fd02a642bffeM7LcOpFC8uaL3F
+    result: clean-step-start-text-step-finish
+  llama_swap_cuda:
+    result: confirmed-after-cdi-regeneration
+    qualification: route-only; worker-identity-containment-still-required
 prerequisites:
-  - missing-feat-minimal-game-branch-or-commit
   - operator-confirmation-of-vuoro-registration
   - operator-provisioned-agentworker-identity
-  - operator-proven-llama-swap-and-opencode-profile
+  - operator-proven-worker-containment
   - operator-confirmed-work-reservation-credential
-
