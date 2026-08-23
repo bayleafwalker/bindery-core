@@ -1,0 +1,74 @@
+{
+  "schema_version": "agentops-hybrid-receipt/v1",
+  "recorded_at": "2026-08-23T20:18:08Z",
+  "execution_id": "ERM-001-dto-fixture-builder:4306b3dff1a9c6e3:attempt-1",
+  "task_id": "ERM-001-dto-fixture-builder",
+  "repo_id": "bindery-core",
+  "sprint_item": {
+    "ref": "bindery-core#2280",
+    "claim_id": 4,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "bindery_external_runtime_w0",
+  "attempt": 1,
+  "inputs": {
+    "packet_hash": "sha256:4306b3dff1a9c6e3e75644aff23797d7ee0abc012e9f0c2c8b19e3fbe18e4053",
+    "repository_commit": "92aa2c1a4c9f1beb3d690ba9ef27947c741978aa",
+    "gate_set_hash": "sha256:b4afebe8ecd038b54bb523a292990eac4cc3f2eaa220a40b5cac222ad5baa6b0",
+    "reference_patch": "docs/orchestration/erm-001.reference.patch"
+  },
+  "harness": {
+    "name": "OpenCode",
+    "version": "1.18.21",
+    "model": "local3090/worker-fast",
+    "provider": "local3090",
+    "agent": "ao-bindery-external-runtime-w0",
+    "session_id": "ses_fcfbbd989ffeDeq0PdxyLTBIpK",
+    "events": {
+      "step_start": 6,
+      "text": 8,
+      "step_finish": 6,
+      "terminal_errors": 0
+    }
+  },
+  "worker": {
+    "identity": "agentworker",
+    "worktree": "/tmp/agentworker/worktrees/bindery-core/ERM-001-dto-fixture-builder",
+    "touched_paths": [
+      "internal/externalruntime/fixtures.go"
+    ],
+    "candidate_sha256": "4617903ddf7c2beb5f452bd4233a99b589d14b5e42f5db34e07a04c86c004d43",
+    "coordinator_tree_untouched": true,
+    "protected_paths_untouched": true
+  },
+  "spend": {
+    "cost_usd": 0.0,
+    "cost_reported": false,
+    "tokens_input": 22630,
+    "tokens_output": 1087,
+    "tokens_total": 23717,
+    "hard_token_ceiling": 24000,
+    "within_hard_token_ceiling": true
+  },
+  "gates": {
+    "bindery.unit.race": "pass",
+    "bindery.unit.vet": "pass",
+    "bindery.redaction": "pass",
+    "bindery.verification.artifacts": "pass",
+    "diff_scope": "pass",
+    "protected_paths": "pass"
+  },
+  "review": {
+    "reviewer": "luna-coordinator",
+    "context": "independent",
+    "decision": "candidate",
+    "human_acceptance_required": true
+  },
+  "qualification_eligible": false,
+  "dispatch_correction": {
+    "kind": "pre-inference coordinator configuration correction",
+    "initial_session_id": "ses_fcfbd4d8bffeU0azG4sOkJpuw9",
+    "initial_result": "model-not-found before inference; zero spend and no file changes",
+    "correction": "preserved the local3090 provider registry in the session overlay"
+  }
+}
