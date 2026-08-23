@@ -11,5 +11,5 @@
   "knowledge_destination": "kctl",
   "local_artifacts_directory": "_artifacts",
   "credentials": "environment-only",
-  "registration_status": "pending-operator-confirmation"
+  "registration_status": "active"
 }
