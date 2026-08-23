@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "repo_id": "2f6f7f1c-0f0c-4dcb-90e7-0f1a4b7f89f2",
+  "adoption_level": "guidance-only",
+  "routing": {
+    "coordinator": {"harness": "codex", "model_alias": "gpt-5.6-luna", "reasoning": "high"},
+    "worker": {"harness": "opencode", "version": "1.18.21", "model_alias": "local3090/worker-fast", "network": "none", "attempts": 1},
+    "action_classes": {
+      "plan": {"enabled": true, "owner": "coordinator"},
+      "build": {"enabled": true, "worker_eligible": true, "review_required": true},
+      "review": {"enabled": true, "owner": "coordinator"},
+      "verify": {"enabled": true, "owner": "coordinator"},
+      "release": {"enabled": true, "owner": "coordinator"}
+    }
+  },
+  "packet_contract": {
+    "schema": "agentops-task/v2",
+    "exact_starting_commit": true,
+    "live_reservation_required": true,
+    "protected_tests_and_contracts": true,
+    "mutation_sensitive_gates_are_coordinator_authored": true,
+    "rejection_requires_materially_revised_packet": true,
+    "qualification_eligible": false
+  },
+  "scope": {
+    "allowed_path_roots": ["cmd/", "contracts/", "internal/", "pkg/", "charts/", "docs/", "verification/", ".agents/", ".github/", "go.mod", "README.md"],
+    "protected_paths": ["contracts/**", "migrations/**", "charts/**", ".github/**", ".agents/**", "credentials/**", "verification/contexts/**"],
+    "coordinator_only": ["API semantics", "credential handling", "lifecycle rules", "redaction oracles", "CRD alignment", "datastore interfaces", "relay authentication", "placement oracle", "failure semantics", "security policy", "release and rollout"]
+  },
+  "gates": ["bindery.contracts", "bindery.unit", "bindery.relay", "bindery.integration", "bindery.redaction", "bindery.helm"],
+  "verification": {
+    "command_families": ["unit", "race", "schema", "redaction", "helm", "integration", "release"],
+    "targeted_first": true,
+    "commands": ["go test -race ./...", "go vet ./...", "helm lint charts/bindery-external-runtime", "go run ./cmd/bindery-redaction-scan", "python /projects/dev/agentops/templates/dispatch/scripts/validate_verification_artifacts.py --root ."]
+  },
+  "hooks": {"level": "verification", "publishers": ["git", "sprintctl", "auditctl", "kctl"]}
+}
+

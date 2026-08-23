@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bindery.dev/schemas/external-runtime/public-session/1.0.0",
+  "title": "Bindery public external-runtime match session",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "session_id",
+    "created_by_account_id",
+    "created_at",
+    "phase",
+    "compatibility",
+    "participant_policy",
+    "enrollments",
+    "capture_policy",
+    "public_data_notice_version"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "session_id": {"type": "string", "minLength": 16, "maxLength": 64},
+    "created_by_account_id": {"type": "string", "minLength": 16, "maxLength": 64},
+    "created_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "phase": {
+      "type": "string",
+      "enum": ["created", "admitting", "ready", "running", "ended", "failed", "expired", "published"]
+    },
+    "compatibility": {"$ref": "#/$defs/compatibility"},
+    "participant_policy": {"$ref": "#/$defs/participantPolicy"},
+    "capture_policy": {"$ref": "#/$defs/capturePolicy"},
+    "placement": {"$ref": "#/$defs/publicPlacement"},
+    "enrollments": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/publicEnrollment"},
+      "maxItems": 32
+    },
+    "capture_ids": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 16, "maxLength": 64},
+      "uniqueItems": true
+    },
+    "transitions": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/transition"}
+    },
+    "public_data_notice_version": {"type": "string", "minLength": 1, "maxLength": 32}
+  },
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["game_family", "game_version", "adapter_id", "adapter_version", "mod_id", "mod_hash", "map_id", "map_hash"],
+      "properties": {
+        "game_family": {"type": "string", "minLength": 1, "maxLength": 64},
+        "game_version": {"type": "string", "minLength": 1, "maxLength": 64},
+        "adapter_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "adapter_version": {"type": "string", "minLength": 1, "maxLength": 64},
+        "mod_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "mod_hash": {"$ref": "#/$defs/hash"},
+        "map_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "map_hash": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "participantPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required_players", "maximum_players", "maximum_observers"],
+      "properties": {
+        "required_players": {"type": "integer", "minimum": 2, "maximum": 8},
+        "maximum_players": {"type": "integer", "minimum": 2, "maximum": 8},
+        "maximum_observers": {"type": "integer", "minimum": 0, "maximum": 8}
+      }
+    },
+    "capturePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["semantic_events", "post_match_dump", "observer_preferred"],
+      "properties": {
+        "semantic_events": {"type": "boolean"},
+        "post_match_dump": {"type": "boolean"},
+        "observer_preferred": {"type": "boolean"}
+      }
+    },
+    "publicPlacement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["region", "relay_provider_id", "relay_allocation_id", "policy_version"],
+      "properties": {
+        "region": {"type": "string", "minLength": 1, "maxLength": 64},
+        "relay_provider_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "relay_allocation_id": {"type": "string", "minLength": 16, "maxLength": 64},
+        "policy_version": {"type": "string", "minLength": 1, "maxLength": 64},
+        "decision_summary": {"type": "string", "maxLength": 2048}
+      }
+    },
+    "publicEnrollment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["client_id", "account_id", "client_class", "phase", "adapter_id", "adapter_version", "enrolled_at"],
+      "properties": {
+        "client_id": {"type": "string", "minLength": 16, "maxLength": 64},
+        "account_id": {"type": "string", "minLength": 16, "maxLength": 64},
+        "client_class": {"type": "string", "enum": ["player", "observer"]},
+        "phase": {"type": "string", "enum": ["issued", "registered", "ready", "active", "departed", "lost", "expired"]},
+        "adapter_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "adapter_version": {"type": "string", "minLength": 1, "maxLength": 64},
+        "enrolled_at": {"type": "string", "format": "date-time"},
+        "departed_at": {"type": ["string", "null"], "format": "date-time"}
+      }
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["transition_id", "from", "to", "occurred_at", "source", "reason"],
+      "properties": {
+        "transition_id": {"type": "string", "minLength": 16, "maxLength": 64},
+        "from": {"type": ["string", "null"]},
+        "to": {"type": "string", "minLength": 1, "maxLength": 32},
+        "occurred_at": {"type": "string", "format": "date-time"},
+        "source": {"type": "string", "minLength": 1, "maxLength": 128},
+        "reason": {"type": "string", "minLength": 1, "maxLength": 256}
+      }
+    }
+  }
+}
+

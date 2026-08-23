@@ -1,0 +1,22 @@
+{
+  "schema_version": "test-context/v1",
+  "id": "bindery.external-runtime.w1.relay-placement",
+  "owner_repo": "bindery-core",
+  "subject": "opaque-authenticated-forwarding-and-deterministic-placement",
+  "source_of_truth": "contracts/externalruntime/v1/relay.md",
+  "depth": 2,
+  "backends": ["in-memory-relay", "synthetic-datagram"],
+  "operations": ["register-allocation", "bidirectional-forward", "replay", "unauthorized-source", "oversize", "rate-limit", "expiry", "drain", "forced-failure", "placement-replay"],
+  "invariants": [
+    "network-byte-order-fixed-header",
+    "payload-remains-opaque",
+    "sender-mac-is-verified-and-recipient-mac-is-re-signed",
+    "active-allocation-does-not-migrate-during-drain",
+    "draining-relay-rejects-new-allocation",
+    "placement-retains-only-non-secret-inputs",
+    "telemetry-sink-cannot-block-forwarding"
+  ],
+  "oracles": ["go-test-race", "codec-round-trip", "metrics-snapshot", "decision-trace-equality"],
+  "faults": ["wrong-key", "duplicate-sequence", "oversize-datagram", "rate-exceeded", "expired-lease", "delivery-error"]
+}
+

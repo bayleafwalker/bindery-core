@@ -1,0 +1,213 @@
+# Design sketch for the existing bindery.platform/v1alpha1 shapes.
+# It demonstrates static provider/class composition only. Dynamic client
+# enrollment remains the runtime contract described in 07-api-contract.md.
+# The current RuntimeOrchestrator creates TCP ClusterIP Services; the UDP relay
+# manifest therefore documents the intended capability but needs a dedicated
+# research deployment until protocol/exposure fields exist in the runtime API.
+---
+apiVersion: bindery.platform/v1alpha1
+kind: ModuleManifest
+metadata:
+  name: external-session-broker
+spec:
+  module:
+    id: bindery.external-session-broker
+    version: 0.1.0
+  runtime:
+    image: ghcr.io/example/bindery-session-broker:0.1.0
+    port: 8080
+  provides:
+    - capabilityId: multiplayer.session-broker
+      version: 0.1.0
+      scope: realm
+      multiplicity: "1"
+  requires: []
+  scaling:
+    defaultScope: realm
+    statefulness: stateful
+---
+apiVersion: bindery.platform/v1alpha1
+kind: ModuleManifest
+metadata:
+  name: external-relay-placement
+spec:
+  module:
+    id: bindery.external-relay-placement
+    version: 0.1.0
+  runtime:
+    image: ghcr.io/example/bindery-relay-placement:0.1.0
+    port: 8080
+  provides:
+    - capabilityId: multiplayer.relay-placement
+      version: 0.1.0
+      scope: realm
+      multiplicity: "1"
+  requires: []
+  scaling:
+    defaultScope: realm
+    statefulness: stateless
+---
+apiVersion: bindery.platform/v1alpha1
+kind: ModuleManifest
+metadata:
+  name: regional-udp-relay
+spec:
+  module:
+    id: bindery.native-udp-relay
+    version: 0.1.0
+  runtime:
+    image: ghcr.io/example/bindery-udp-relay:0.1.0
+    port: 50001
+    terminationGracePeriodSeconds: 600
+    preStopCommand: /app/relay drain
+  provides:
+    - capabilityId: multiplayer.transport-relay
+      version: 0.1.0
+      scope: region
+      multiplicity: many
+  requires: []
+  scaling:
+    defaultScope: region
+    statefulness: stateful
+---
+apiVersion: bindery.platform/v1alpha1
+kind: ModuleManifest
+metadata:
+  name: public-telemetry-ingest
+spec:
+  module:
+    id: bindery.public-telemetry-ingest
+    version: 0.1.0
+  runtime:
+    image: ghcr.io/example/bindery-telemetry-ingest:0.1.0
+    port: 8080
+  provides:
+    - capabilityId: telemetry.event-ingest
+      version: 0.1.0
+      scope: realm
+      multiplicity: "1"
+    - capabilityId: telemetry.object-ingest
+      version: 0.1.0
+      scope: realm
+      multiplicity: "1"
+    - capabilityId: telemetry.publication
+      version: 0.1.0
+      scope: realm
+      multiplicity: "1"
+  requires: []
+  scaling:
+    defaultScope: realm
+    statefulness: stateful
+---
+apiVersion: bindery.platform/v1alpha1
+kind: ModuleManifest
+metadata:
+  name: ra2-external-player-class
+spec:
+  module:
+    id: bindery.ra2-external-player
+    version: 0.1.0
+  provides:
+    - capabilityId: multiplayer.external-player
+      version: 0.1.0
+      scope: session
+      multiplicity: many
+  requires:
+    - capabilityId: multiplayer.session-broker
+      versionConstraint: ^0.1.0
+      scope: realm
+      multiplicity: "1"
+      dependencyMode: required
+    - capabilityId: multiplayer.relay-placement
+      versionConstraint: ^0.1.0
+      scope: realm
+      multiplicity: "1"
+      dependencyMode: required
+    - capabilityId: telemetry.event-ingest
+      versionConstraint: ^0.1.0
+      scope: realm
+      multiplicity: "1"
+      dependencyMode: required
+    - capabilityId: telemetry.object-ingest
+      versionConstraint: ^0.1.0
+      scope: realm
+      multiplicity: "1"
+      dependencyMode: required
+  scaling:
+    defaultScope: session
+    statefulness: stateful
+---
+apiVersion: bindery.platform/v1alpha1
+kind: ModuleManifest
+metadata:
+  name: ra2-external-observer-class
+spec:
+  module:
+    id: bindery.ra2-external-observer
+    version: 0.1.0
+  provides:
+    - capabilityId: multiplayer.external-observer
+      version: 0.1.0
+      scope: session
+      multiplicity: many
+  requires:
+    - capabilityId: multiplayer.session-broker
+      versionConstraint: ^0.1.0
+      scope: realm
+      multiplicity: "1"
+      dependencyMode: required
+    - capabilityId: multiplayer.relay-placement
+      versionConstraint: ^0.1.0
+      scope: realm
+      multiplicity: "1"
+      dependencyMode: required
+    - capabilityId: telemetry.event-ingest
+      versionConstraint: ^0.1.0
+      scope: realm
+      multiplicity: "1"
+      dependencyMode: required
+  scaling:
+    defaultScope: session
+    statefulness: stateful
+---
+apiVersion: bindery.platform/v1alpha1
+kind: Realm
+metadata:
+  name: public-ra2-research
+spec:
+  modules:
+    - name: external-session-broker
+      version: 0.1.0
+    - name: external-relay-placement
+      version: 0.1.0
+    - name: regional-udp-relay
+      version: 0.1.0
+    - name: public-telemetry-ingest
+      version: 0.1.0
+---
+apiVersion: bindery.platform/v1alpha1
+kind: Booklet
+metadata:
+  name: ra2-external-runtime
+spec:
+  gameId: ra2-external-runtime
+  version: 0.1.0
+  modules:
+    - name: ra2-external-player-class
+      required: true
+    - name: ra2-external-observer-class
+      required: false
+---
+apiVersion: bindery.platform/v1alpha1
+kind: WorldInstance
+metadata:
+  name: ra2-match-example
+spec:
+  gameRef:
+    name: ra2-external-runtime
+  realmRef:
+    name: public-ra2-research
+  worldId: 01K2RA2MATCH00000000000001
+  region: eu-north
+  shardCount: 1
+  desiredState: Running

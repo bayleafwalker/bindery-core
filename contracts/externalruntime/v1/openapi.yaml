@@ -1,0 +1,164 @@
+openapi: 3.1.0
+info:
+  title: Bindery external-runtime API
+  version: 1.0.0
+  description: Known-ID public reads and credentialed external-runtime mutations.
+servers:
+  - url: /
+paths:
+  /v1/identities:
+    post:
+      operationId: createIdentity
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/CreateIdentityRequest'}}}
+      responses:
+        '201': {description: Created, content: {application/json: {schema: {$ref: '#/components/schemas/IdentityCreateResponse'}}}}
+  /v1/identities/{account_id}:
+    get:
+      operationId: getIdentity
+      parameters: [{in: path, name: account_id, required: true, schema: {type: string, format: uuid}}]
+      responses:
+        '200': {description: Public identity, content: {application/json: {schema: {$ref: './public-identity.schema.json'}}}}
+  /v1/sessions:
+    post:
+      operationId: createSession
+      security: [{bearerAuth: []}]
+      parameters: [{in: header, name: Idempotency-Key, required: true, schema: {type: string, minLength: 1}}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/CreateSessionRequest'}}}
+      responses:
+        '201': {description: Created, content: {application/json: {schema: {$ref: '#/components/schemas/SessionCreateResponse'}}}}
+  /v1/sessions/{session_id}:
+    get:
+      operationId: getSession
+      parameters: [{in: path, name: session_id, required: true, schema: {type: string, format: uuid}}]
+      responses:
+        '200': {description: Public session, content: {application/json: {schema: {$ref: './public-session.schema.json'}}}}
+  /v1/sessions/{session_id}/enrollments:
+    post:
+      operationId: enrollClient
+      security: [{bearerAuth: []}]
+      parameters:
+        - {in: path, name: session_id, required: true, schema: {type: string, format: uuid}}
+        - {in: header, name: X-Session-Join-Credential, required: true, schema: {type: string}}
+        - {in: header, name: Idempotency-Key, required: true, schema: {type: string}}
+      responses:
+        '201': {description: Enrolled, content: {application/json: {schema: {$ref: '#/components/schemas/EnrollmentCreateResponse'}}}}
+  /v1/enrollments/{client_id}/reports:
+    post:
+      operationId: reportEnrollment
+      security: [{clientLease: []}]
+      parameters:
+        - {in: path, name: client_id, required: true, schema: {type: string, format: uuid}}
+        - {in: header, name: Idempotency-Key, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/LifecycleReportRequest'}}}
+      responses: {'200': {description: Report accepted}}
+  /v1/enrollments/{client_id}:heartbeat:
+    post:
+      operationId: heartbeatEnrollment
+      security: [{clientLease: []}]
+      parameters: [{in: path, name: client_id, required: true, schema: {type: string, format: uuid}}]
+      responses: {'200': {description: Lease renewed}}
+  /v1/captures/{capture_id}:
+    get:
+      operationId: getCapture
+      parameters: [{in: path, name: capture_id, required: true, schema: {type: string, format: uuid}}]
+      responses: {'200': {description: Public capture, content: {application/json: {schema: {$ref: './public-capture.schema.json'}}}}}
+  /v1/captures/{capture_id}/batches:
+    post:
+      operationId: ingestCaptureBatch
+      security: [{clientLease: []}]
+      parameters:
+        - {in: path, name: capture_id, required: true, schema: {type: string, format: uuid}}
+        - {in: header, name: Idempotency-Key, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object}}}
+      responses: {'200': {description: Batch acknowledgement}}
+  /v1/captures/{capture_id}/events:
+    get:
+      operationId: readCaptureEvents
+      parameters:
+        - {in: path, name: capture_id, required: true, schema: {type: string, format: uuid}}
+        - {in: query, name: cursor, required: false, schema: {type: string}}
+      responses: {'200': {description: Cursor-based public events}}
+  /v1/captures/{capture_id}/objects:
+    post:
+      operationId: reserveCaptureObject
+      security: [{clientLease: []}]
+      parameters: [{in: path, name: capture_id, required: true, schema: {type: string, format: uuid}}]
+      responses: {'201': {description: Public object manifest}}
+  /v1/captures/{capture_id}:close:
+    post:
+      operationId: closeCapture
+      security: [{clientLease: []}]
+      parameters: [{in: path, name: capture_id, required: true, schema: {type: string, format: uuid}}]
+      responses: {'200': {description: Capture closed}}
+  /v1/sessions/{session_id}/captures:
+    get:
+      operationId: listSessionCaptures
+      parameters: [{in: path, name: session_id, required: true, schema: {type: string, format: uuid}}]
+      responses: {'200': {description: Public captures for a known session}}
+  /v1/sessions/{session_id}/events:
+    get:
+      operationId: readSessionEvents
+      parameters:
+        - {in: path, name: session_id, required: true, schema: {type: string, format: uuid}}
+        - {in: query, name: cursor, required: false, schema: {type: string}}
+      responses: {'200': {description: Cursor-based public events}}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer}
+    clientLease: {type: http, scheme: bearer}
+  schemas:
+    CreateIdentityRequest:
+      type: object
+      additionalProperties: false
+      required: [handle]
+      properties:
+        handle: {type: string, pattern: '^[a-z0-9][a-z0-9-]{2,31}$'}
+        display_name: {type: string, maxLength: 80}
+        metadata: {type: object, maxProperties: 32}
+    CreateSessionRequest:
+      type: object
+      additionalProperties: false
+      required: [compatibility, participant_policy, placement, capture]
+      properties:
+        compatibility: {type: object}
+        participant_policy: {type: object}
+        placement: {type: object}
+        capture: {type: object}
+    IdentityCreateResponse:
+      type: object
+      required: [public_identity, account_token, recovery]
+      properties:
+        public_identity: {$ref: './public-identity.schema.json'}
+        account_token: {type: string, format: byte}
+        recovery: {const: none}
+    SessionCreateResponse:
+      type: object
+      required: [public_session, session_join_credential, expires_at]
+      properties:
+        public_session: {$ref: './public-session.schema.json'}
+        session_join_credential: {type: string, format: byte}
+        expires_at: {type: string, format: date-time}
+    EnrollmentCreateResponse:
+      type: object
+      required: [public_enrollment, client_lease_token, transport_credential, expires_at]
+      properties:
+        public_enrollment: {type: object}
+        client_lease_token: {type: string, format: byte}
+        transport_credential: {type: string, format: byte}
+        expires_at: {type: string, format: date-time}
+    LifecycleReportRequest:
+      type: object
+      additionalProperties: false
+      required: [report_id, kind]
+      properties:
+        report_id: {type: string, format: uuid}
+        kind: {type: string, enum: [ready, started, exited, failed, capture_degraded]}
+        reason: {type: string, maxLength: 256}

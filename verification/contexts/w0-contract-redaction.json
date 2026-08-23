@@ -1,0 +1,22 @@
+{
+  "schema_version": "test-context/v1",
+  "id": "bindery.external-runtime.w0.contract-redaction",
+  "owner_repo": "bindery-core",
+  "subject": "identity-session-enrollment-public-redaction-and-idempotency",
+  "source_of_truth": "contracts/externalruntime/v1",
+  "depth": 2,
+  "backends": ["in-memory-reference"],
+  "actors": ["player-a", "player-b", "observer"],
+  "operations": ["create-identity", "retry-create", "create-session", "enroll-two-players-one-observer", "report-lifecycle", "expire-lease", "known-id-read"],
+  "invariants": [
+    "only-sha256-token-verifiers-are-retained",
+    "public-output-never-contains-bearer-join-lease-transport-or-endpoint-fixtures",
+    "duplicate-create-and-report-returns-original-result",
+    "conflicting-idempotency-reuse-is-rejected",
+    "session-collection-read-is-absent",
+    "observer-loss-does-not-fail-running-player-session"
+  ],
+  "oracles": ["go-test-race", "go-vet", "redaction-cli", "public-dto-json-scan"],
+  "faults": ["duplicate-request", "conflicting-request", "expired-admission", "observer-failure"]
+}
+

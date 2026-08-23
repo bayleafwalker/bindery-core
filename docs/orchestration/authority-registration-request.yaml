@@ -1,0 +1,35 @@
+schema: bindery.external-runtime-orchestration/v1
+status: pending-operator-confirmation
+project:
+  name: bindery-core
+  repository: local:/home/bayleaf/dev/bindery-core
+  authority: vuoro-served-sprintctl
+bindings:
+  repositories:
+    - name: bindery-core
+      path: /home/bayleaf/dev/bindery-core
+    - name: bindery-ra2-adapter
+      path: /home/bayleaf/dev/bindery-ra2-adapter
+    - name: appservice
+      path: /home/bayleaf/dev/appservice
+  ownership:
+    sprintctl: items-and-advisory-reservations
+    git: authored-work
+    auditctl: raw-findings
+    kctl: reusable-conclusions
+    _artifacts: host-local-evidence-only
+backlog:
+  source: docs/research/external-runtime-multiplayer/backlog.yaml
+  items: ERM-001..ERM-504
+  wave_gate: complete-and-review-one-wave-before-authorizing-next
+model_exception:
+  local_inference_globally_qualified: false
+  project_candidates_allowed: true
+  receipts_qualification_eligible: false
+prerequisites:
+  - missing-feat-minimal-game-branch-or-commit
+  - operator-confirmation-of-vuoro-registration
+  - operator-provisioned-agentworker-identity
+  - operator-proven-llama-swap-and-opencode-profile
+  - operator-confirmed-work-reservation-credential
+

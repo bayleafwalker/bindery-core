@@ -1,0 +1,51 @@
+schema: bindery.artifact-pack/v1
+name: bindery-external-runtime-multiplayer-research-pack
+version: 0.1.0
+created: 2026-08-23
+status: research-input
+entrypoint: README.md
+initial_adapter: ra2-yr
+target_topology:
+  required_clients:
+    player: 2
+  optional_clients:
+    observer: 1
+data_contract:
+  application_data: public
+  credentials: secret
+  raw_network_endpoints: transient-non-public
+permanent_exclusions:
+  - anti-cheat
+  - authoritative-simulation
+  - gameplay-ranking-or-adjudication
+  - account-recovery
+  - initial-public-lobby
+  - active-relay-migration
+future_extension_points:
+  - ai-controlled-client-class
+  - additional-game-adapters
+  - nat-traversal-or-direct-peer-transport
+files:
+  - package-manifest.yaml
+  - README.md
+  - 00-charter.md
+  - 01-requirements.md
+  - 02-architecture.md
+  - 03-domain-and-lifecycle.md
+  - 04-identity-and-public-data.md
+  - 05-observation-and-telemetry.md
+  - 06-bindery-alignment.md
+  - 07-api-contract.md
+  - 08-deployment-scaling-and-recovery.md
+  - 09-validation-plan.md
+  - 10-decisions-and-open-gates.md
+  - backlog.yaml
+  - sources.md
+  - schemas/public-identity.schema.json
+  - schemas/public-session.schema.json
+  - schemas/telemetry-event.schema.json
+  - examples/public-session.example.json
+  - examples/capability-composition.example.yaml
+  - prompts/implementation-brief.md
+  - prompts/independent-review-brief.md
+  - SHA256SUMS
