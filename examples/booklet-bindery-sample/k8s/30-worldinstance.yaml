@@ -8,5 +8,5 @@ spec:
     name: bindery-sample
   worldId: world-001
   region: us-test-1
-  shardCount: 2
+  shardCount: 1
   desiredState: Running

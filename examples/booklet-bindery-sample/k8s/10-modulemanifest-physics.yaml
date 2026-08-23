@@ -20,9 +20,13 @@ spec:
     image: bindery/demo-physics:0.1.0
     port: 50051
     env:
-      BINDERY_DEMO_AUTOTICK: "true"
-      BINDERY_DEMO_TICK_INTERVAL_MS: "200"
-      BINDERY_DEMO_MAX_COMMANDS_PER_TICK: "16"
+      BINDERY_SAMPLE_AUTOTICK: "true"
+      BINDERY_SAMPLE_TICK_INTERVAL_MS: "200"
+      BINDERY_SAMPLE_MAX_COMMANDS_PER_TICK: "256"
+      BINDERY_SAMPLE_GAME_ENABLED: "true"
+      BINDERY_SAMPLE_SHIPS_PER_TEAM: "8"
+      BINDERY_SAMPLE_SHIP_MAX_HP: "60"
+      BINDERY_SAMPLE_FIRE_COOLDOWN_TICKS: "10"
 
   provides:
     - capabilityId: physics.engine

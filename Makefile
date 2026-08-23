@@ -1,6 +1,6 @@
 SHELL := /usr/bin/env bash
 
-.PHONY: help test test-sample-game test-integration test-e2e envtest tidy tidy-sample-game fmt verify proto kind-demo kind-down run-controller
+.PHONY: help test test-sample-game test-integration test-e2e envtest tidy tidy-sample-game fmt verify proto kind-demo kind-down run-controller run-controller-with-metrics
 
 SAMPLE_GAME_DIR := examples/booklet-bindery-sample
 
@@ -17,7 +17,8 @@ help:
 	@echo "  make proto          Regenerate protobuf stubs (requires protoc + plugins)"
 	@echo "  make kind-demo      Create Kind cluster + install sample game"
 	@echo "  make kind-down      Tear down Kind cluster"
-	@echo "  make run-controller Run controller manager locally"
+	@echo "  make run-controller Run controller manager locally (no metrics)"
+	@echo "  make run-controller-with-metrics Run controller manager locally (metrics on :8080)"
 
 test:
 	go test ./...
@@ -68,6 +69,9 @@ kind-down:
 	./k8s/dev/kind-down.sh
 
 run-controller:
+	go run . --metrics-bind-address=0 --health-probe-bind-address=0
+
+run-controller-with-metrics:
 	go run .
 
 test-e2e:

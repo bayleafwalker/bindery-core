@@ -138,11 +138,28 @@ func main() {
 	flag.StringVar(&listenAddr, "listen", ":50051", "address to listen on")
 	flag.Parse()
 
-	maxPerTick := envInt("BINDERY_DEMO_MAX_COMMANDS_PER_TICK", 16)
-	tickInterval := time.Duration(envInt("BINDERY_DEMO_TICK_INTERVAL_MS", 200)) * time.Millisecond
-	autoTick := envBool("BINDERY_DEMO_AUTOTICK", true)
+	maxPerTick := envInt("BINDERY_SAMPLE_MAX_COMMANDS_PER_TICK", 256)
+	tickInterval := time.Duration(envInt("BINDERY_SAMPLE_TICK_INTERVAL_MS", 200)) * time.Millisecond
+	autoTick := envBool("BINDERY_SAMPLE_AUTOTICK", true)
 
-	eng := physics.New(physics.Config{MaxCommandsPerTick: maxPerTick})
+	sampleGameEnabled := envBool("BINDERY_SAMPLE_GAME_ENABLED", true)
+	sampleCfg := physics.SampleGameConfig{
+		Enabled:           sampleGameEnabled,
+		PlanetDistance:    envInt64("BINDERY_SAMPLE_PLANET_DISTANCE", 200),
+		PlanetRadius:      envInt64("BINDERY_SAMPLE_PLANET_RADIUS", 20),
+		ShipOrbitRadius:   envInt64("BINDERY_SAMPLE_SHIP_ORBIT_RADIUS", 35),
+		ShipsPerTeam:      envInt("BINDERY_SAMPLE_SHIPS_PER_TEAM", 8),
+		ShipMaxHP:         int32(envInt("BINDERY_SAMPLE_SHIP_MAX_HP", 60)),
+		ShipSpeedPerTick:  envInt64("BINDERY_SAMPLE_SHIP_SPEED_PER_TICK", 2),
+		FireRange:         envInt64("BINDERY_SAMPLE_FIRE_RANGE", 18),
+		FireDamage:        int32(envInt("BINDERY_SAMPLE_FIRE_DAMAGE", 1)),
+		FireCooldownTicks: envInt64("BINDERY_SAMPLE_FIRE_COOLDOWN_TICKS", 10),
+	}
+
+	eng := physics.New(physics.Config{
+		MaxCommandsPerTick: maxPerTick,
+		SampleGame:         sampleCfg,
+	})
 
 	if autoTick {
 		go func() {
@@ -161,7 +178,14 @@ func main() {
 	if err != nil {
 		panic(fmt.Errorf("listen %s: %w", listenAddr, err))
 	}
-	fmt.Printf("demo-physics: listen=%s autotick=%t tickInterval=%s maxCommandsPerTick=%d\n", listenAddr, autoTick, tickInterval, maxPerTick)
+	fmt.Printf("demo-physics: listen=%s autotick=%t tickInterval=%s maxCommandsPerTick=%d sampleGame=%t shipsPerTeam=%d\n",
+		listenAddr,
+		autoTick,
+		tickInterval,
+		maxPerTick,
+		sampleGameEnabled,
+		sampleCfg.ShipsPerTeam,
+	)
 
 	if err := grpcServer.Serve(lis); err != nil {
 		panic(fmt.Errorf("grpc serve: %w", err))
@@ -193,4 +217,16 @@ func envBool(name string, def bool) bool {
 	default:
 		return def
 	}
+}
+
+func envInt64(name string, def int64) int64 {
+	raw := strings.TrimSpace(os.Getenv(name))
+	if raw == "" {
+		return def
+	}
+	v, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil {
+		return def
+	}
+	return v
 }
