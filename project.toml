@@ -1,0 +1,19 @@
+# Canonical location: bindery-core/project.toml (in-place: lives in the repo itself, no
+# project folder, no worktrees).
+# See docs/project/project-binding-spec.md in the agentops repo, section 3
+# (single-repo degenerate case).
+#
+# Sole member's render is "none" by design, not by special-casing: this project has no
+# cross-repo baseline to distribute (bindery-core is the only member), so there is nothing for
+# render to produce. If bindery-core ever gains sibling members (e.g. a split-out RA2 adapter
+# repo), flip render on the affected entries -- no schema change required.
+
+schema_version = 1
+project_id = "799e7931-4384-4dcb-b1d7-a6eececabea8"
+display_name = "bindery-core"
+home_repo = "bindery-core"
+
+[[members]]
+repo_id = "bindery-core"
+backlog = true
+render = "none"

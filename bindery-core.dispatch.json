@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "repo_id": "bindery-core",
+  "authority_repo_uuid": "81794b0b-ec11-4b4e-a4a4-c350127c1dac",
+  "adoption_level": "dispatchable",
+  "routing": {
+    "default_harness": "caller",
+    "default_model_alias": "fast-build",
+    "action_classes": {
+      "plan": { "enabled": true, "model_alias": "frontier-plan" },
+      "build": { "enabled": true, "model_alias": "fast-build", "review_required": true },
+      "review": { "enabled": true, "model_alias": "review-synthesis" },
+      "verify": { "enabled": true, "model_alias": "review-synthesis", "review_required": true },
+      "reconcile": { "enabled": true, "model_alias": "review-synthesis" }
+    }
+  },
+  "skills": {
+    "template_root": "/projects/dev/agentops/templates/dispatch/skills",
+    "selected": [
+      "dispatch-plan",
+      "dispatch-build",
+      "dispatch-review",
+      "code-change-verification",
+      "backlog-refinement",
+      "sprint-maintenance",
+      "task-pickup",
+      "plan-review",
+      "pr-handoff-summary",
+      "verify-state-protocols",
+      "reconcile-project-contracts"
+    ]
+  },
+  "scope": {
+    "allowed_path_roots": [
+      "api/",
+      "cmd/",
+      "config/",
+      "contracts/",
+      "controllers/",
+      "internal/",
+      "modules/",
+      "services/",
+      "samples/",
+      "examples/",
+      "docs/",
+      "e2e/",
+      "helm/",
+      "k8s/"
+    ],
+    "out_of_scope": [
+      "applying Helm manifests or mutating a shared Kubernetes cluster",
+      "treating sample game assets as a supported production deployment",
+      "describing the project as production-ready"
+    ]
+  },
+  "risk_surfaces": [
+    {
+      "id": "capability-contract-alignment",
+      "paths": ["api/**", "controllers/**", "contracts/**", "helm/**", "k8s/**"],
+      "skills": ["verify-state-protocols", "reconcile-project-contracts"],
+      "default_depth": 1,
+      "required_on_change": true
+    },
+    {
+      "id": "cluster-mutation-boundary",
+      "paths": ["helm/**", "k8s/**", "Makefile"],
+      "skills": ["verify-state-protocols"],
+      "default_depth": 1,
+      "required_on_change": true
+    }
+  ],
+  "verification": {
+    "command_families": ["unit", "docs"],
+    "targeted_first": true,
+    "commands": [
+      "make verify",
+      "python /projects/dev/agentops/templates/dispatch/scripts/validate_verification_artifacts.py --root ."
+    ]
+  },
+  "hybrid": {
+    "enabled": true,
+    "worker_routes": ["bindery_external_runtime_w0"],
+    "commands": {
+      "bindery.go.test": "go test ./...",
+      "bindery.go.vet": "go vet ./...",
+      "bindery.sample.test": "make test-sample-game",
+      "bindery.helm.lint": "helm lint helm/bindery-core"
+    },
+    "protected_paths": [
+      "AGENTS.md",
+      "PROJECT",
+      "project.toml",
+      "*.dispatch.json",
+      ".github/**",
+      "api/**",
+      "contracts/**",
+      "helm/**",
+      "k8s/**",
+      "**/*_test.go"
+    ],
+    "worktree_root": "/tmp/agentworker/worktrees",
+    "max_timeout_seconds": 1800,
+    "max_cost_usd": 0,
+    "soft_token_ceiling": 12000,
+    "hard_token_ceiling": 24000,
+    "notes": [
+      "The worker is limited to W0 mechanical implementation beneath frozen interfaces and protected tests/contracts.",
+      "The worker cannot mutate cluster state, credentials, manifests, release metadata, or security policy.",
+      "Worker receipts remain qualification_eligible=false and require coordinator review plus human acceptance."
+    ]
+  },
+  "hooks": {
+    "level": "verification",
+    "publishers": ["git", "dispatcher-gate"]
+  }
+}
