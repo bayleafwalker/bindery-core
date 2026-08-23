@@ -2,7 +2,7 @@
   "schema_version": 1,
   "repo_id": "bindery-core",
   "authority_repo_uuid": "2f6f7f1c-0f0c-4dcb-90e7-0f1a4b7f89f2",
-  "adoption_level": "guidance-only",
+  "adoption_level": "dispatchable",
   "routing": {
     "default_harness": "codex",
     "default_model_alias": "gpt-5.6-luna",
@@ -68,7 +68,7 @@
     "protected_paths": ["contracts/**", "migrations/**", "charts/**", ".github/**", ".agents/**", "credentials/**", "verification/contexts/**"],
     "worktree_root": "/tmp/agentworker/worktrees",
     "max_timeout_seconds": 1800,
-    "max_cost_usd": 0,
+    "max_cost_usd": 30.0,
     "soft_token_ceiling": 12000,
     "hard_token_ceiling": 24000,
     "notes": [
