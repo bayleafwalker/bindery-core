@@ -1,0 +1,33 @@
+schema: bindery.ra2-adapter-upstream/v1
+reviewed_at: 2026-08-23
+sources:
+  - project: cncnet-client
+    repository: https://github.com/CnCNet/xna-cncnet-client
+    ref: develop
+    commit: e6e367bbe04c1a0dc1e34a8fed2856ea3ab7e8c4
+    license: GPL-3.0
+    use: protocol and launch behavior reference; no source copied in this slice
+  - project: yrpp-spawner
+    repository: https://github.com/CnCNet/yrpp-spawner
+    ref: main
+    commit: 265-commit-head-not-pinned-by-local-clone
+    yrpp_submodule_commit: ef1c565ade4a9233177a7949034ed7bd245259f3
+    license: GPL-3.0
+    use: spawner boundary and statistics-hook reference; Windows provenance gate remains open
+  - project: cncnet-docker-tunnel
+    repository: https://github.com/CnCNet/cncnet-docker-tunnel
+    ref: main
+    commit: not-resolved-local-network-blocked
+    license: GPL-3.0
+    status: archived
+    use: unchanged legacy baseline only if operator explicitly accepts archived runtime
+  - project: cncnet-docker-dotnetcore-tunnel
+    repository: https://github.com/CnCNet/cncnet-docker-dotnetcore-tunnel
+    ref: main
+    commit: 577847f6a1caff1ef78549cacbf766fd12a06eb1
+    license: GPL-3.0
+    use: maintained tunnel candidate; requires explicit baseline decision before deployment
+proprietary_assets:
+  distributed: false
+  accepted_inputs: local operator installation paths and hashes only
+

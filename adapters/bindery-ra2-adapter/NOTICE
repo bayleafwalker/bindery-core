@@ -1,0 +1,11 @@
+Bindery RA2/YR adapter
+Copyright (C) 2026 Bindery contributors
+
+This project is an independent adapter boundary. It does not distribute
+Command & Conquer: Red Alert 2, Yuri's Revenge, maps, registry data, or other
+proprietary Electronic Arts assets.
+
+Upstream project names and notices are retained for compatibility research;
+see UPSTREAM-REVISIONS.yaml. No upstream source is copied into this repository
+until a license/provenance review records the exact imported files.
+
