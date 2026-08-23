@@ -11,8 +11,8 @@ bindings:
   repositories:
     - name: bindery-core
       path: /home/bayleaf/dev/bindery-core
-    - name: bindery-ra2-adapter
-      path: /home/bayleaf/dev/bindery-ra2-adapter
+      components:
+        - adapters/bindery-ra2-adapter
     - name: appservice
       path: /home/bayleaf/dev/appservice
   ownership:
