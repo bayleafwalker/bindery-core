@@ -1,0 +1,23 @@
+name: adapter-ci
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Check proprietary-asset boundary
+        shell: pwsh
+        run: ./ci/verify-no-assets.ps1
+      - name: Build adapter
+        run: dotnet build src/Bindery.Ra2.Adapter/Bindery.Ra2.Adapter.csproj --configuration Release --no-restore
+
