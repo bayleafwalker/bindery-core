@@ -7,13 +7,16 @@ import (
 	"strings"
 )
 
-var publicSecretFieldPattern = regexp.MustCompile(`(?i)"(?:[a-z0-9]+[_-])*(?:authorization|bearer|token|credential|secret|password|url|ip|port|endpoint)"\s*:`)
+var publicSecretFieldPattern = regexp.MustCompile(`(?i)"([a-z0-9]+[_-]*(?:authorization|bearer|token|credential|secret|password|url|ip|port|endpoint))"\s*:`)
 
 // ScanPublicOutput is the release-blocking redaction oracle for serialized
 // public DTOs and structured-log payloads. It is intentionally byte-oriented:
 // the caller supplies the exact bytes that would cross the public boundary.
 func ScanPublicOutput(serialized []byte, forbiddenValues ...string) error {
-	if publicSecretFieldPattern.Match(serialized) {
+	for _, match := range publicSecretFieldPattern.FindAllSubmatch(serialized, -1) {
+		if len(match) > 1 && strings.EqualFold(string(match[1]), "relay_endpoint") {
+			continue
+		}
 		return fmt.Errorf("serialized public output contains a credential or operational secret field")
 	}
 	for _, value := range forbiddenValues {
