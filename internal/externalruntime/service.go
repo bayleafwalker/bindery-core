@@ -219,7 +219,7 @@ func (s *Service) Enroll(accountToken, sessionJoinCredential, sessionID, idempot
 	if req.Adapter.ID == "" || req.Adapter.Version == "" {
 		return EnrollmentCreateResponse{}, domainError("ADAPTER_INVALID", "adapter id and version are required")
 	}
-	if !hashPattern.MatchString(req.Compatibility.ModHash) || !hashPattern.MatchString(req.Compatibility.MapHash) {
+	if !hashPattern.MatchString(req.Compatibility.GameHash) || !hashPattern.MatchString(req.Compatibility.ModHash) || !hashPattern.MatchString(req.Compatibility.MapHash) {
 		return EnrollmentCreateResponse{}, domainError("COMPATIBILITY_MISMATCH", "client compatibility hashes must be sha256 values")
 	}
 
@@ -240,7 +240,7 @@ func (s *Service) Enroll(accountToken, sessionJoinCredential, sessionID, idempot
 	if !verifyCredential(sessionJoinCredential, session.joinVerifier) {
 		return EnrollmentCreateResponse{}, domainError("JOIN_CREDENTIAL_INVALID", "session join credential is invalid or expired")
 	}
-	if req.Adapter.ID != session.Compatibility.AdapterID || req.Adapter.Version != session.Compatibility.AdapterVersion || req.Compatibility.ModHash != session.Compatibility.ModHash || req.Compatibility.MapHash != session.Compatibility.MapHash {
+	if req.Adapter.ID != session.Compatibility.AdapterID || req.Adapter.Version != session.Compatibility.AdapterVersion || req.Compatibility.GameHash != session.Compatibility.GameHash || req.Compatibility.ModHash != session.Compatibility.ModHash || req.Compatibility.MapHash != session.Compatibility.MapHash {
 		return EnrollmentCreateResponse{}, domainError("COMPATIBILITY_MISMATCH", "client adapter, mod, or map does not match the session")
 	}
 	players, observers := 0, 0
@@ -408,8 +408,8 @@ func validateSessionRequest(req CreateSessionRequest) error {
 	if req.Compatibility.GameFamily == "" || req.Compatibility.GameVersion == "" || req.Compatibility.AdapterID == "" || req.Compatibility.AdapterVersion == "" || req.Compatibility.ModID == "" || req.Compatibility.MapID == "" {
 		return domainError("COMPATIBILITY_INVALID", "game, adapter, mod, and map identifiers are required")
 	}
-	if !hashPattern.MatchString(req.Compatibility.ModHash) || !hashPattern.MatchString(req.Compatibility.MapHash) {
-		return domainError("COMPATIBILITY_INVALID", "mod_hash and map_hash must be sha256 values")
+	if !hashPattern.MatchString(req.Compatibility.GameHash) || !hashPattern.MatchString(req.Compatibility.ModHash) || !hashPattern.MatchString(req.Compatibility.MapHash) {
+		return domainError("COMPATIBILITY_INVALID", "game_hash, mod_hash, and map_hash must be sha256 values")
 	}
 	if req.ParticipantPolicy.RequiredPlayers < 2 || req.ParticipantPolicy.MaximumPlayers < req.ParticipantPolicy.RequiredPlayers || req.ParticipantPolicy.MaximumPlayers > 8 || req.ParticipantPolicy.MaximumObservers < 0 || req.ParticipantPolicy.MaximumObservers > 8 {
 		return domainError("PARTICIPANT_POLICY_INVALID", "participant limits are invalid")

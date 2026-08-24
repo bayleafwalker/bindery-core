@@ -46,6 +46,7 @@ const (
 type Compatibility struct {
 	GameFamily     string `json:"game_family"`
 	GameVersion    string `json:"game_version"`
+	GameHash       string `json:"game_hash"`
 	AdapterID      string `json:"adapter_id"`
 	AdapterVersion string `json:"adapter_version"`
 	ModID          string `json:"mod_id"`

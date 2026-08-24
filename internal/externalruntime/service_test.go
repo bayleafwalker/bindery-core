@@ -165,7 +165,7 @@ func mustReport(t *testing.T, service *Service, enrollment testEnrollmentSecrets
 
 func testSessionRequest() CreateSessionRequest {
 	return CreateSessionRequest{
-		Compatibility:     Compatibility{GameFamily: "ra2-yr", GameVersion: "1.001", AdapterID: "bindery.ra2-adapter", AdapterVersion: "0.1.0", ModID: "vanilla-yr", ModHash: testHashA, MapID: "official:sample", MapHash: testHashB},
+		Compatibility:     Compatibility{GameFamily: "ra2-yr", GameVersion: "1.001", GameHash: testHashA, AdapterID: "bindery.ra2-adapter", AdapterVersion: "0.1.0", ModID: "vanilla-yr", ModHash: testHashA, MapID: "official:sample", MapHash: testHashB},
 		ParticipantPolicy: ParticipantPolicy{RequiredPlayers: 2, MaximumPlayers: 2, MaximumObservers: 1},
 		Placement:         PlacementIntent{AllowedRegions: []string{"eu-north"}, LatencyP95MS: 100},
 		Capture:           CapturePolicy{SemanticEvents: true, PostMatchDump: true, ObserverPreferred: true},

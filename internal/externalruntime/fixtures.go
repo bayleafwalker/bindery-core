@@ -74,7 +74,7 @@ func fixtureSessionWithEnrollments() PublicSession {
 		CreatedByAccountID: "acct-player-a",
 		CreatedAt:          now,
 		Phase:              SessionReady,
-		Compatibility:      Compatibility{GameFamily: "ra2-yr", GameVersion: "1.001", AdapterID: "bindery.ra2-adapter", AdapterVersion: "0.1.0", ModID: "vanilla-yr", ModHash: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", MapID: "official:sample", MapHash: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+		Compatibility:      Compatibility{GameFamily: "ra2-yr", GameVersion: "1.001", GameHash: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", AdapterID: "bindery.ra2-adapter", AdapterVersion: "0.1.0", ModID: "vanilla-yr", ModHash: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", MapID: "official:sample", MapHash: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
 		ParticipantPolicy:  ParticipantPolicy{RequiredPlayers: 2, MaximumPlayers: 2, MaximumObservers: 1},
 		CapturePolicy:      CapturePolicy{SemanticEvents: true, PostMatchDump: true, ObserverPreferred: true},
 		Enrollments: []PublicEnrollment{

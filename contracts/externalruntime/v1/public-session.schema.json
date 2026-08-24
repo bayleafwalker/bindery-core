@@ -25,10 +25,11 @@
     "hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
     "compatibility": {
       "type": "object", "additionalProperties": false,
-      "required": ["game_family", "game_version", "adapter_id", "adapter_version", "mod_id", "mod_hash", "map_id", "map_hash"],
+      "required": ["game_family", "game_version", "game_hash", "adapter_id", "adapter_version", "mod_id", "mod_hash", "map_id", "map_hash"],
       "properties": {
         "game_family": {"type": "string", "minLength": 1, "maxLength": 64},
         "game_version": {"type": "string", "minLength": 1, "maxLength": 64},
+        "game_hash": {"$ref": "#/$defs/hash"},
         "adapter_id": {"type": "string", "minLength": 1, "maxLength": 128},
         "adapter_version": {"type": "string", "minLength": 1, "maxLength": 64},
         "mod_id": {"type": "string", "minLength": 1, "maxLength": 128},
@@ -90,4 +91,3 @@
     }
   }
 }
-
