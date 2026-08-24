@@ -69,8 +69,8 @@
     "worktree_root": "/tmp/agentworker/worktrees",
     "max_timeout_seconds": 1800,
     "max_cost_usd": 30.0,
-    "soft_token_ceiling": 12000,
-    "hard_token_ceiling": 24000,
+    "soft_token_ceiling": 16000,
+    "hard_token_ceiling": 32000,
     "notes": [
       "The worker is eligible only for W0 mechanical implementation beneath frozen coordinator-authored interfaces and tests.",
       "The worker has no Git, Sprintctl, credential, deployment, release, security-policy, or acceptance authority.",
