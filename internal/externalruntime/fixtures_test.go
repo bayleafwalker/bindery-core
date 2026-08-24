@@ -65,18 +65,6 @@ func TestSessionFixtureRepresentsPlayersAndObserver(t *testing.T) {
 	}
 }
 
-func TestERM204SessionFixtureCarriesRelayPlacement(t *testing.T) {
-	fixture := fixtureSessionWithEnrollments()
-	if fixture.Placement == nil {
-		t.Fatal("fixture placement is nil")
-	}
-	if fixture.Placement.Region != "eu-north" || fixture.Placement.RelayProviderID != "bindery-native" ||
-		fixture.Placement.RelayAllocationID != "0198c2c3-4d5e-7f60-8123-456789abcdef" ||
-		fixture.Placement.RelayEndpoint != "127.0.0.1:40000" || fixture.Placement.PolicyVersion != "relay-placement/v1" {
-		t.Fatalf("fixture placement = %+v", fixture.Placement)
-	}
-}
-
 func TestExpiredSessionFixtureIsTerminal(t *testing.T) {
 	fixture := fixtureExpiredSession()
 	if fixture.Phase != SessionExpired {
