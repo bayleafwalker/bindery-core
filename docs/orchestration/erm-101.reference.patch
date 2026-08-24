@@ -1,0 +1,31 @@
+diff --git a/pkg/relayv1/fixtures.go b/pkg/relayv1/fixtures.go
+new file mode 100644
+--- /dev/null
++++ b/pkg/relayv1/fixtures.go
+@@ -0,0 +1,26 @@
++package relayv1
++
++import "bytes"
++
++type datagramFixture struct {
++	packet Packet
++	key    []byte
++}
++
++func fixtureDatagramCases() []datagramFixture {
++	key := bytes.Repeat([]byte{0x42}, TransportKeyBytes)
++	return []datagramFixture{
++		{
++			packet: Packet{Type: PacketData, AllocationID: "0198c2c3-4d5e-7f60-8123-456789abcdef", SenderID: "0198c2c3-4d5e-7f61-8123-456789abcdef", RecipientID: "0198c2c3-4d5e-7f62-8123-456789abcdef", Sequence: 7, Payload: []byte{0, 1, 2, 0xff, 0x00}},
++			key:    append([]byte(nil), key...),
++		},
++		{
++			packet: Packet{Type: PacketRegister, AllocationID: "0198c2c3-4d5e-7f60-8123-456789abcdef", SenderID: "0198c2c3-4d5e-7f61-8123-456789abcdef", RecipientID: "0198c2c3-4d5e-7f62-8123-456789abcdef", Sequence: 8, Payload: []byte("registration-is-opaque")},
++			key:    append([]byte(nil), key...),
++		},
++		{
++			packet: Packet{Type: PacketHeartbeat, AllocationID: "0198c2c3-4d5e-7f60-8123-456789abcdef", SenderID: "0198c2c3-4d5e-7f61-8123-456789abcdef", RecipientID: "0198c2c3-4d5e-7f62-8123-456789abcdef", Sequence: 9, Payload: []byte("heartbeat-is-opaque")},
++			key:    append([]byte(nil), key...),
++		},
++	}
++}
