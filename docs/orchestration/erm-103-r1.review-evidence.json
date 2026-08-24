@@ -1,0 +1,48 @@
+{
+  "schema_version": "bindery-external-runtime-independent-review/v1",
+  "task_id": "ERM-103-allocation-lease-r1",
+  "context": "independent",
+  "reviewer": "luna-coordinator",
+  "starting_commit": "7dfb10c175a64813f4b4a324208ef325ed6e42a3",
+  "packet_hash": "sha256:11bfa7d78d05dc2c7f96116be5978de53ba8f93d2b739b09ed5b023b51ece29e",
+  "candidate_worktree": "/tmp/agentworker/worktrees/bindery-core/ERM-103-allocation-lease-r1",
+  "candidate_paths": [
+    "internal/relay/placement_fixtures.go"
+  ],
+  "candidate_sha256": {
+    "internal/relay/placement_fixtures.go": "6542fa55a9131271fc1dd9bd879527ecf9b57ec8136b33fccd4f6e7075a2b851"
+  },
+  "candidate_diff_check": "pass",
+  "protected_paths_untouched": true,
+  "coordinator_tree_untouched": true,
+  "reference_patch_match": true,
+  "decision_basis": "The candidate is byte-identical to the coordinator-authored new-file reference patch. It adds only deterministic placement, allocation identity, transport-key, and clock fixtures for the protected ERM-103 oracle. No relay implementation, placement policy, contract, credential, lifecycle, or protected test was modified.",
+  "worker_session": {
+    "id": "ses_fcbd32c0dffej7fvONXyri0hQR",
+    "model": "local3090/worker-fast",
+    "opencode_version": "1.18.21",
+    "route": "bindery_external_runtime_w0",
+    "terminal_errors": 0,
+    "event_stream": ["step_start", "text", "step_finish", "stable_session_id"],
+    "worker_exit_code": 4,
+    "churn_stop": {
+      "reason": "churn_no_mutation",
+      "detail": "9 tool steps without a completed mutation after the declared fixture mutation; the focused registered race and vet commands passed before the guard stopped the session."
+    }
+  },
+  "worker_gate_evidence": {
+    "bindery.unit.race": "pass",
+    "bindery.unit.vet": "pass",
+    "bindery.redaction": "not-captured-churn-stop",
+    "bindery.verification.artifacts": "not-captured-churn-stop"
+  },
+  "worker_spend": {
+    "reported_final_cumulative_tokens": 16657,
+    "reported_cost_usd": 0.0,
+    "soft_token_ceiling": 16000,
+    "hard_token_ceiling": 32000,
+    "soft_token_ceiling_exceeded": true,
+    "within_hard_token_ceiling": true,
+    "accounting": "maximum cumulative step-finish token snapshot"
+  }
+}

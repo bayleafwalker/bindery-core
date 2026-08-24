@@ -1,0 +1,7 @@
+{
+  "context": "independent",
+  "decision": "candidate",
+  "evidence_path": "/home/bayleaf/dev/bindery-core/docs/orchestration/erm-103-r1.review-evidence.json",
+  "reviewer": "luna-coordinator",
+  "task_id": "ERM-103-allocation-lease-r1"
+}
