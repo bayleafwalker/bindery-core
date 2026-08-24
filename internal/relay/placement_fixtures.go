@@ -7,6 +7,10 @@ import (
 	"github.com/bayleafwalker/bindery-core/pkg/relayv1"
 )
 
+func fixturePlacementRequest() PlacementRequest { return PlacementRequest{} }
+
+func fixturePlacementCandidates() []Candidate { return nil }
+
 type allocationLeaseFixture struct {
 	now                time.Time
 	allocationID       string

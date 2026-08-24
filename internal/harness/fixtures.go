@@ -21,6 +21,8 @@ type twoClientHarnessFixture struct {
 	recipientKey            []byte
 }
 
+func fixtureScenarioResults(string) map[Scenario]Result { return map[Scenario]Result{} }
+
 func fixtureTwoClientHarness() twoClientHarnessFixture {
 	return twoClientHarnessFixture{
 		config:                  relay.Config{PacketsPerSecond: 100, BytesPerSecond: 100_000},

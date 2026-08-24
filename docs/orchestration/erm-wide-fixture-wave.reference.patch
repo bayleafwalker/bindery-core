@@ -1,11 +1,10 @@
 diff --git a/internal/capture/fixtures.go b/internal/capture/fixtures.go
-new file mode 100644
-index 0000000..4d13e26
---- /dev/null
+--- a/internal/capture/fixtures.go
 +++ b/internal/capture/fixtures.go
-@@ -0,0 +1,32 @@
-+package capture
-+
+@@ -3,3 +3,30 @@
+-func fixtureCaptureBatch(string, string, uint64, uint64) Batch { return Batch{} }
+-
+-func fixtureCaptureClose(uint64) StreamClose { return StreamClose{} }
 +import (
 +	"fmt"
 +	"time"
@@ -37,13 +36,14 @@ index 0000000..4d13e26
 +	return StreamClose{FinalSequence: finalSequence, ObservedGaps: [][2]uint64{{2, 2}}, LocalDrops: 1, EndReason: "client-exit", ClosedAt: time.Date(2026, 8, 24, 12, 1, 0, 0, time.UTC)}
 +}
 diff --git a/internal/harness/fixtures.go b/internal/harness/fixtures.go
-index 477f92c..bb26ace 100644
 --- a/internal/harness/fixtures.go
 +++ b/internal/harness/fixtures.go
-@@ -21,6 +21,14 @@ type twoClientHarnessFixture struct {
+@@ -21,6 +21,11 @@
  	recipientKey            []byte
  }
- 
+-
+-func fixtureScenarioResults(string) map[Scenario]Result { return map[Scenario]Result{} }
+-
 +func fixtureScenarioResults(observed string) map[Scenario]Result {
 +	results := make(map[Scenario]Result, len(Scenarios))
 +	for _, scenario := range Scenarios {
@@ -53,16 +53,17 @@ index 477f92c..bb26ace 100644
 +}
 +
  func fixtureTwoClientHarness() twoClientHarnessFixture {
- 	return twoClientHarnessFixture{
- 		config:                  relay.Config{PacketsPerSecond: 100, BytesPerSecond: 100_000},
 diff --git a/internal/relay/placement_fixtures.go b/internal/relay/placement_fixtures.go
-index 9dd6917..2f1219f 100644
 --- a/internal/relay/placement_fixtures.go
 +++ b/internal/relay/placement_fixtures.go
-@@ -7,6 +7,17 @@ import (
+@@ -7,7 +7,12 @@
  	"github.com/bayleafwalker/bindery-core/pkg/relayv1"
  )
- 
+-
+-func fixturePlacementRequest() PlacementRequest { return PlacementRequest{} }
+-
+-func fixturePlacementCandidates() []Candidate { return nil }
+-
 +func fixturePlacementRequest() PlacementRequest {
 +	return PlacementRequest{AllowedRegions: []string{"eu-north"}, ParticipantIDs: []string{"player-a", "player-b"}, LatencyP95MS: 100}
 +}
@@ -73,7 +74,3 @@ index 9dd6917..2f1219f 100644
 +		{ProviderID: "native", RelayID: "relay-a", Region: "eu-north", State: Accepting, RemainingPacketRate: 900, RemainingEgressBytesPS: 10_000, ParticipantRTTMS: map[string]int{"player-a": 30, "player-b": 50}},
 +	}
 +}
-+
- type allocationLeaseFixture struct {
- 	now                time.Time
- 	allocationID       string
