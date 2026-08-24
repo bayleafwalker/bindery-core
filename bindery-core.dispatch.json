@@ -69,12 +69,13 @@
     "worktree_root": "/tmp/agentworker/worktrees",
     "max_timeout_seconds": 1800,
     "max_cost_usd": 30.0,
-    "soft_token_ceiling": 16000,
-    "hard_token_ceiling": 32000,
+    "soft_token_ceiling": 128000,
+    "hard_token_ceiling": 256000,
     "notes": [
       "The worker is eligible only for W0 mechanical implementation beneath frozen coordinator-authored interfaces and tests.",
       "The worker has no Git, Sprintctl, credential, deployment, release, security-policy, or acceptance authority.",
-      "Receipts remain qualification_eligible=false and require Luna review plus human acceptance."
+      "Receipts remain qualification_eligible=false and require Luna review plus human acceptance.",
+      "Local worker token ceilings are operational runaway bounds, not provider billing limits: W0 uses 128000 soft and 256000 hard tokens while the route remains unqualified."
     ]
   },
   "gates": ["bindery.contracts", "bindery.unit", "bindery.relay", "bindery.integration", "bindery.redaction", "bindery.helm"],
