@@ -68,14 +68,14 @@
     "protected_paths": ["contracts/**", "migrations/**", "charts/**", ".github/**", ".agents/**", "credentials/**", "verification/contexts/**"],
     "worktree_root": "/tmp/agentworker/worktrees",
     "max_timeout_seconds": 1800,
-    "max_cost_usd": 30.0,
-    "soft_token_ceiling": 1000000,
-    "hard_token_ceiling": 2000000,
+    "max_cost_usd": 1000000.0,
+    "soft_token_ceiling": 1000000000,
+    "hard_token_ceiling": 2000000000,
     "notes": [
       "The worker is eligible only for W0 mechanical implementation beneath frozen coordinator-authored interfaces and tests.",
       "The worker has no Git, Sprintctl, credential, deployment, release, security-policy, or acceptance authority.",
       "Receipts remain qualification_eligible=false and require Luna review plus human acceptance.",
-      "Temporary telemetry-first local budget: W0 uses 1000000 soft and 2000000 hard tokens while the route remains unqualified; timeout, containment, scope, and deterministic gates remain enforced."
+      "Local spend is telemetry-only pending real usage data: W0 uses intentionally excessive 1000000000 soft and 2000000000 hard token bounds plus a 1000000 USD schema cap; timeout, containment, scope, and deterministic gates remain enforced."
     ]
   },
   "gates": ["bindery.contracts", "bindery.unit", "bindery.relay", "bindery.integration", "bindery.redaction", "bindery.helm"],

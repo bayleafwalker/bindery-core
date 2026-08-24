@@ -29,7 +29,9 @@ enforced. Qualification remains false.
 
 The follow-up reusable-placement pass then completed under that policy: 163,470
 cumulative tokens, reported cost `$0.00`, no budget stop, exact reference match,
-and all post-dispatch gates green.
+and all post-dispatch gates green. The policy is now widened further to
+intentionally excessive telemetry-only bounds (`1B/2B` tokens and `$1M` schema
+cap) so no ordinary local run is rejected for lack of usage metrics.
 
 ## Evidence ledger
 
@@ -42,7 +44,7 @@ and all post-dispatch gates green.
 | Independent review | Candidate exactly matched the coordinator reference patch; protected paths and diff scope passed | `erm-204-fixture-placement-r2.review-evidence.json`; Sprintctl note 2500 |
 | Follow-up mechanical pass | Reusable `fixtureRelayPlacement` builder was dispatched, independently reviewed, and merged without a budget stop | `erm-204-fixture-builder-r2.receipt.json`; Sprintctl note 2506 |
 | Code gates | Race, vet, redaction, verification artifacts, scope, and protected-path gates passed both in the worker/post-gate path and after coordinator merge | receipt; coordinator commit `85e1a23` |
-| Budget/accounting | Initial fixture pass reported `$0.00` and `207039` tokens against `16k/32k`, producing `budget_exceeded`; approved telemetry-first follow-up reported `$0.00` and `163470` tokens under `1M/2M` with no budget stop | r2 receipts; Auditctl `ad:01M0T9BXSR9CCRAA0PZ1WC4P8E`, `ad:01M0TC18KF8BF9KQ1J90JN56F6` |
+| Budget/accounting | Initial fixture pass reported `$0.00` and `207039` tokens against `16k/32k`, producing `budget_exceeded`; follow-up reported `$0.00` and `163470` tokens with no budget stop; current policy uses intentionally excessive `1B/2B` telemetry bounds and `$1M` schema cap | r2 receipts; Auditctl `ad:01M0T9BXSR9CCRAA0PZ1WC4P8E`, `ad:01M0TC18KF8BF9KQ1J90JN56F6` |
 | Qualification | Route remains globally unqualified. The raw run-stage eligibility field was operationally true, but the canonical receipt is false and this attempt is excluded from qualification evidence | receipt; review evidence |
 | Redaction contradiction | Coordinator fixed the legitimate public placement exception and added a regression test | commit `d927542`; Auditctl `ad:01M0T8J6QQ8Z9R8PSD6B0KCW33` records the rejected predecessor |
 | Adapter slice | Authenticated relay codec/client and two-client loopback tests passed; Windows CI passed | `erm-204-r1.integration-evidence.json`; [GitHub Actions run](https://github.com/bayleafwalker/bindery-ra2-adapter/actions/runs/32747960289) |
@@ -68,9 +70,9 @@ for each item:
   pass.
 - Review quality: compare candidate diff to the frozen reference independently
   and run cold coordinator gates from the merged commit.
-- Accounting: collect frequent-use telemetry under the temporary
-  telemetry-first policy, then decide whether the worker stop rule, context
-  payload, or spend accounting needs a durable redesign before qualification.
+- Accounting: collect frequent-use telemetry under the intentionally excessive
+  telemetry-only policy, then decide whether any durable spend control is
+  justified before qualification.
 - Durability: confirm the Sprintctl candidate event, Auditctl event IDs,
   receipt, review evidence, and pushed commit all resolve without relying on
   conversational claims.
@@ -102,4 +104,4 @@ for each item:
    the hard budget was exceeded.
 4. Treat spend as telemetry while local-provider behavior is being measured.
    Keep the raw token/cost observations and qualification exclusion, but do not
-   confuse a provider-reported `$0.00` with a proven long-term resource bound.
+   use an unmeasured token threshold to reject ordinary local work.
