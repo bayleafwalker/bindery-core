@@ -1,0 +1,61 @@
+{
+  "schema_version": "bindery-external-runtime-independent-review/v1",
+  "task_id": "ERM-003-session-cohort-fixtures-r3",
+  "packet_hash": "sha256:aa003e7f165d07ab5963ca949c8dad91a1144131ed6e493a52d95ca541a45b96",
+  "starting_commit": "dd8695b5ef6fb4e1b71a505398d99d6b6ceee0e1",
+  "reviewer": "luna-coordinator",
+  "context": "independent",
+  "candidate_worktree": "/tmp/agentworker/worktrees/bindery-core/ERM-003-session-cohort-fixtures-r3",
+  "candidate_paths": [
+    "internal/externalruntime/fixtures.go"
+  ],
+  "reference_patch_match": true,
+  "candidate_diff_check": "pass",
+  "protected_paths_untouched": true,
+  "coordinator_tree_untouched": true,
+  "worker_session": {
+    "id": "ses_fcc709279ffeqg71n060irY5KI",
+    "opencode_version": "1.18.21",
+    "model": "local3090/worker-fast",
+    "route": "bindery_external_runtime_w0",
+    "terminal_errors": 0,
+    "event_stream": [
+      "step_start",
+      "text",
+      "step_finish",
+      "stable_session_id"
+    ]
+  },
+  "worker_gate_evidence": {
+    "bindery.unit.race": "pass",
+    "bindery.unit.vet": "pass"
+  },
+  "worker_spend": {
+    "reported_cost_usd": 0.0,
+    "reported_final_cumulative_tokens": 18206,
+    "soft_token_ceiling": 16000,
+    "hard_token_ceiling": 32000,
+    "soft_token_ceiling_exceeded": true,
+    "within_hard_token_ceiling": true,
+    "accounting": "AgentOps uses the maximum cumulative step-finish snapshot; the r3 receipt reports 18206 final cumulative tokens."
+  },
+  "agentops_driver": {
+    "commits": [
+      "7685118e98f59552fe657f160813e99380af69f3",
+      "02bb2e156a1ab7d1a3761c289aa2c082030d0b59"
+    ],
+    "changes": [
+      "pass OpenCode --dir with the exact prepared task worktree",
+      "keep globally unqualified project-scoped runs out of pilot qualification evidence"
+    ],
+    "regression_suite": "templates.dispatch.tests.test_hybrid_dispatch: 122 tests passed"
+  },
+  "qualification_reporting_reconciliation": {
+    "route_qualification_state": "unqualified",
+    "raw_run_field_before_reporting_fix": true,
+    "canonical_receipt_qualification_eligible": false,
+    "fix_commit": "02bb2e156a1ab7d1a3761c289aa2c082030d0b59",
+    "finding": "The dispatch attempt was contained and on the route model, but the pre-fix driver field conflated those operational facts with named-pilot admission. The corrected driver and attached coordinator receipt preserve global qualification=false."
+  },
+  "decision_basis": "The candidate exactly implements the coordinator-authored ERM-003 reference patch: a ready session with exactly two ready players and one ready observer, and an expired session with no enrollments. It changes no contract, credential, lifecycle, schema, migration, deployment, security-policy, release, or protected test path. The worker candidate is withheld from coordinator history pending human acceptance."
+}

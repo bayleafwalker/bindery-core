@@ -1,0 +1,87 @@
+{
+  "schema_version": "agentops-hybrid-receipt/v1",
+  "recorded_at": "2026-08-24T11:39:27Z",
+  "execution_id": "ERM-003-session-cohort-fixtures-r3:aa003e7f165d07ab:attempt-1",
+  "task_id": "ERM-003-session-cohort-fixtures-r3",
+  "repo_id": "bindery-core",
+  "sprint_item": {
+    "ref": "bindery-core#2282",
+    "claim_id": 7,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "bindery_external_runtime_w0",
+  "attempt": 1,
+  "inputs": {
+    "packet_hash": "sha256:aa003e7f165d07ab5963ca949c8dad91a1144131ed6e493a52d95ca541a45b96",
+    "repository_commit": "dd8695b5ef6fb4e1b71a505398d99d6b6ceee0e1",
+    "packet_schema_version": "agentops-task/v2",
+    "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+    "gate_set_hash": "sha256:1600dd5bbf76846858a3d166f1f2ea5637631356ee07d8a1b94e027b2bebfa33"
+  },
+  "harness": {
+    "name": "OpenCode",
+    "version": "1.18.21",
+    "model": "local3090/worker-fast",
+    "provider": "local3090",
+    "agent": "ao-bindery-external-runtime-w0",
+    "session_id": "ses_fcc709279ffeqg71n060irY5KI",
+    "terminal_errors": 0,
+    "event_stream": [
+      "step_start",
+      "text",
+      "step_finish",
+      "stable_session_id"
+    ]
+  },
+  "worker": {
+    "identity": "agentworker",
+    "worktree": "/tmp/agentworker/worktrees/bindery-core/ERM-003-session-cohort-fixtures-r3",
+    "touched_paths": [
+      "internal/externalruntime/fixtures.go"
+    ],
+    "candidate_sha256": "d9cb0510cbb8723f44ae17f0057f31e24ba3983aae5eccc30e83573d569b75de",
+    "coordinator_tree_untouched": true,
+    "protected_paths_untouched": true,
+    "worker_exit_code": 0
+  },
+  "spend": {
+    "reported_cost_usd": 0.0,
+    "reported_final_cumulative_tokens": 18206,
+    "soft_token_ceiling": 16000,
+    "hard_token_ceiling": 32000,
+    "soft_token_ceiling_exceeded": true,
+    "within_hard_token_ceiling": true,
+    "accounting_reconciled": true,
+    "accounting_rule": "maximum cumulative step-finish token snapshot"
+  },
+  "containment": {
+    "worker_user": "agentworker",
+    "containment_override": false,
+    "coordinator_tree_untouched": true,
+    "coordinator_tree_changes": []
+  },
+  "qualification": {
+    "state": "unqualified",
+    "qualification_eligible": false,
+    "unattended_eligible": false,
+    "raw_pre_fix_driver_field": true,
+    "reporting_fix_commit": "02bb2e156a1ab7d1a3761c289aa2c082030d0b59"
+  },
+  "gates": {
+    "bindery.unit.race": "pass",
+    "bindery.unit.vet": "pass",
+    "bindery.redaction": "pass",
+    "bindery.verification.artifacts": "pass",
+    "diff_scope": "pass",
+    "protected_paths": "pass"
+  },
+  "review": {
+    "reviewer": "luna-coordinator",
+    "context": "independent",
+    "decision": "candidate",
+    "evidence": "docs/orchestration/erm-003-r3.review-evidence.json",
+    "human_acceptance_required": true
+  },
+  "disposition": "candidate",
+  "qualification_eligible": false
+}
