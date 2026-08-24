@@ -18,12 +18,18 @@ silently become accepted work:
    the 32,000-token hard ceiling, so the driver stopped with
    `budget_exceeded`.
 
-The first failure demonstrates useful preflight semantics. The second exposes a
-workflow defect: the worker can finish a tiny mechanical mutation while the
-driver's cumulative cached-token accounting makes the attempt non-clean. The
-candidate was reviewed and merged because the user approved merging and the
-semantic gates passed, but the canonical receipt keeps
-`qualification_eligible=false`.
+The first failure demonstrates useful preflight semantics. The second exposed a
+workflow accounting problem: the worker finished a tiny mechanical mutation
+while the driver's cumulative cached-token accounting made the attempt
+non-clean. Per operator direction, the bindery route is now telemetry-first:
+the manifest records a temporary 1,000,000 soft / 2,000,000 hard observation
+bound, but ordinary contained local runs are not stopped at the old 32,000
+threshold. Timeout, containment, scope, and deterministic gates remain
+enforced. Qualification remains false.
+
+The follow-up reusable-placement pass then completed under that policy: 163,470
+cumulative tokens, reported cost `$0.00`, no budget stop, exact reference match,
+and all post-dispatch gates green.
 
 ## Evidence ledger
 
@@ -34,8 +40,9 @@ semantic gates passed, but the canonical receipt keeps
 | Containment | `agentworker` changed only `internal/externalruntime/fixtures.go`; coordinator tree stayed untouched; no containment override | `erm-204-fixture-placement-r2.receipt.json` |
 | Real local inference | OpenCode 1.18.21 emitted valid JSON events with stable session `ses_fcb6dd814ffeMG4BDIDNPCM4tc`; no terminal error | `erm-204-fixture-placement-r2.review-evidence.json` |
 | Independent review | Candidate exactly matched the coordinator reference patch; protected paths and diff scope passed | `erm-204-fixture-placement-r2.review-evidence.json`; Sprintctl note 2500 |
+| Follow-up mechanical pass | Reusable `fixtureRelayPlacement` builder was dispatched, independently reviewed, and merged without a budget stop | `erm-204-fixture-builder-r2.receipt.json`; Sprintctl note 2506 |
 | Code gates | Race, vet, redaction, verification artifacts, scope, and protected-path gates passed both in the worker/post-gate path and after coordinator merge | receipt; coordinator commit `85e1a23` |
-| Budget | Reported cost `$0.00`, cumulative tokens `207039`, soft ceiling `16000`, hard ceiling `32000`; driver disposition `budget_exceeded` | receipt; Auditctl `ad:01M0T9BXSR9CCRAA0PZ1WC4P8E` |
+| Budget/accounting | Initial fixture pass reported `$0.00` and `207039` tokens against `16k/32k`, producing `budget_exceeded`; approved telemetry-first follow-up reported `$0.00` and `163470` tokens under `1M/2M` with no budget stop | r2 receipts; Auditctl `ad:01M0T9BXSR9CCRAA0PZ1WC4P8E`, `ad:01M0TC18KF8BF9KQ1J90JN56F6` |
 | Qualification | Route remains globally unqualified. The raw run-stage eligibility field was operationally true, but the canonical receipt is false and this attempt is excluded from qualification evidence | receipt; review evidence |
 | Redaction contradiction | Coordinator fixed the legitimate public placement exception and added a regression test | commit `d927542`; Auditctl `ad:01M0T8J6QQ8Z9R8PSD6B0KCW33` records the rejected predecessor |
 | Adapter slice | Authenticated relay codec/client and two-client loopback tests passed; Windows CI passed | `erm-204-r1.integration-evidence.json`; [GitHub Actions run](https://github.com/bayleafwalker/bindery-ra2-adapter/actions/runs/32747960289) |
@@ -61,9 +68,9 @@ for each item:
   pass.
 - Review quality: compare candidate diff to the frozen reference independently
   and run cold coordinator gates from the merged commit.
-- Accounting: explain why a seven-line task accumulated 207,039 tokens and
-  decide whether the worker stop rule, context payload, or budget accounting
-  needs correction before a qualification exercise.
+- Accounting: collect frequent-use telemetry under the temporary
+  telemetry-first policy, then decide whether the worker stop rule, context
+  payload, or spend accounting needs a durable redesign before qualification.
 - Durability: confirm the Sprintctl candidate event, Auditctl event IDs,
   receipt, review evidence, and pushed commit all resolve without relying on
   conversational claims.
@@ -75,8 +82,8 @@ for each item:
   allocation; synthetic loopback evidence is not that match.
 - Kctl reusable-conclusion publication remains blocked until the served identity
   receives the real `knowledge.candidate.intake` authority.
-- The route is intentionally globally unqualified. The r2 result is a reviewed
-  candidate and a workflow observation, not qualification evidence.
+- The route is intentionally globally unqualified. Both r2 results are reviewed
+  candidates and workflow observations, not qualification evidence.
 - Oracle read tracing remains partial until `strace` is available or the
   assessment explicitly accepts the recorded `skipped:untraced` limitation.
 - No human acceptance gate was imposed in this workstream, per the approved
@@ -93,7 +100,6 @@ for each item:
 3. Keep containment and qualification as separate facts. The r2 worker was
    contained and on the requested model, but the route is still unqualified and
    the hard budget was exceeded.
-4. Treat `budget_exceeded` as a workflow finding, not as a code-quality pass.
-   The candidate can be merged under explicit coordinator judgment, while the
-   attempt remains unsuitable for qualification or unattended reuse.
-
+4. Treat spend as telemetry while local-provider behavior is being measured.
+   Keep the raw token/cost observations and qualification exclusion, but do not
+   confuse a provider-reported `$0.00` with a proven long-term resource bound.
