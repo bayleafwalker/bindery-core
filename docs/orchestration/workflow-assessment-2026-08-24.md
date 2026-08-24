@@ -33,6 +33,16 @@ and all post-dispatch gates green. The policy is now widened further to
 intentionally excessive telemetry-only bounds (`1B/2B` tokens and `$1M` schema
 cap) so no ordinary local run is rejected for lack of usage metrics.
 
+The wide fixture-wave pass then exercised three frozen implementation seams in
+one contained attempt: capture, harness, and relay placement fixtures. The
+worker reported 280,190 cumulative tokens and `$0.00`, matched the coordinator
+reference patch exactly, and produced no terminal error. Its registered race
+invocation was denied by the worker overlay, so Luna reran the cold race gate
+independently before merging `f2c8432`. This is a useful operational result:
+the excessive policy allowed the local attempt to complete, while the
+coordinator still retained an explicit post-gate obligation when the worker
+environment could not execute one registered command.
+
 ## Evidence ledger
 
 | Area | Verified result | Evidence |
@@ -43,8 +53,9 @@ cap) so no ordinary local run is rejected for lack of usage metrics.
 | Real local inference | OpenCode 1.18.21 emitted valid JSON events with stable session `ses_fcb6dd814ffeMG4BDIDNPCM4tc`; no terminal error | `erm-204-fixture-placement-r2.review-evidence.json` |
 | Independent review | Candidate exactly matched the coordinator reference patch; protected paths and diff scope passed | `erm-204-fixture-placement-r2.review-evidence.json`; Sprintctl note 2500 |
 | Follow-up mechanical pass | Reusable `fixtureRelayPlacement` builder was dispatched, independently reviewed, and merged without a budget stop | `erm-204-fixture-builder-r2.receipt.json`; Sprintctl note 2506 |
+| Wide mechanical pass | One contained r3 attempt covered capture, harness, and relay fixture seams; exact reference match; reservation 23 released after merge | `erm-wide-fixture-wave-r3.receipt.json`; `erm-wide-fixture-wave-r3.review.json`; Auditctl `ad:01M0TE724J8VGVS51P0MQWDCMG`, `ad:01M0TE726E94KVRFH7TXF9MHQ7` |
 | Code gates | Race, vet, redaction, verification artifacts, scope, and protected-path gates passed both in the worker/post-gate path and after coordinator merge | receipt; coordinator commit `85e1a23` |
-| Budget/accounting | Initial fixture pass reported `$0.00` and `207039` tokens against `16k/32k`, producing `budget_exceeded`; follow-up reported `$0.00` and `163470` tokens with no budget stop; current policy uses intentionally excessive `1B/2B` telemetry bounds and `$1M` schema cap | r2 receipts; Auditctl `ad:01M0T9BXSR9CCRAA0PZ1WC4P8E`, `ad:01M0TC18KF8BF9KQ1J90JN56F6` |
+| Budget/accounting | Initial fixture pass reported `$0.00` and `207039` tokens against `16k/32k`, producing `budget_exceeded`; follow-up reported `$0.00` and `163470` tokens with no budget stop; wide pass reported `$0.00` and `280190` tokens with no budget stop; current policy uses intentionally excessive `1B/2B` telemetry bounds and `$1M` schema cap | r2 receipts; wide receipt; Auditctl `ad:01M0T9BXSR9CCRAA0PZ1WC4P8E`, `ad:01M0TC18KF8BF9KQ1J90JN56F6`, `ad:01M0TE724J8VGVS51P0MQWDCMG` |
 | Qualification | Route remains globally unqualified. The raw run-stage eligibility field was operationally true, but the canonical receipt is false and this attempt is excluded from qualification evidence | receipt; review evidence |
 | Redaction contradiction | Coordinator fixed the legitimate public placement exception and added a regression test | commit `d927542`; Auditctl `ad:01M0T8J6QQ8Z9R8PSD6B0KCW33` records the rejected predecessor |
 | Adapter slice | Authenticated relay codec/client and two-client loopback tests passed; Windows CI passed | `erm-204-r1.integration-evidence.json`; [GitHub Actions run](https://github.com/bayleafwalker/bindery-ra2-adapter/actions/runs/32747960289) |
@@ -105,3 +116,7 @@ for each item:
 4. Treat spend as telemetry while local-provider behavior is being measured.
    Keep the raw token/cost observations and qualification exclusion, but do not
    use an unmeasured token threshold to reject ordinary local work.
+5. Preserve a coordinator post-gate path when the worker cannot run a
+   registered validation command. The wide pass remained reviewable and
+   mergeable because its exact reference, scope, and cold gates were captured
+   independently rather than treating an overlay denial as an implicit pass.
