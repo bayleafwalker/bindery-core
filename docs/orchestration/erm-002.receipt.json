@@ -1,0 +1,65 @@
+{
+  "schema_version": "agentops-hybrid-receipt/v1",
+  "recorded_at": "2026-08-24T10:54:51Z",
+  "execution_id": "ERM-002-token-verifier-fixture:43195ab993dc5659:attempt-1",
+  "task_id": "ERM-002-token-verifier-fixture",
+  "repo_id": "bindery-core",
+  "sprint_item": {
+    "ref": "bindery-core#2281",
+    "claim_id": 5,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "bindery_external_runtime_w0",
+  "attempt": 1,
+  "inputs": {
+    "packet_hash": "sha256:43195ab993dc565949185e623b42fd388291fad84b91d631b1461054de1eebd8",
+    "repository_commit": "7becf8a25334eb537f6fd55f9301529ff42cd9e6",
+    "gate_set_hash": "sha256:640ea15e0720d3180d621945d6dfc7083d94624deae249c83dbb6aab591e3583",
+    "reference_patch": "docs/orchestration/erm-002.reference.patch"
+  },
+  "harness": {
+    "name": "OpenCode",
+    "version": "1.18.21",
+    "model": "local3090/worker-fast",
+    "provider": "local3090",
+    "agent": "ao-bindery-external-runtime-w0",
+    "session_id": "ses_fcc9c2de4ffeQ3q189Sb2hkWrs",
+    "terminal_errors": 0
+  },
+  "worker": {
+    "identity": "agentworker",
+    "worktree": "/tmp/agentworker/worktrees/bindery-core/ERM-002-token-verifier-fixture",
+    "touched_paths": [
+      "internal/externalruntime/fixtures.go"
+    ],
+    "candidate_sha256": "315a3512de063b73ee79b1338a17cb72ff445fc8748a1c3d96c791861b183ccb",
+    "coordinator_tree_untouched": true,
+    "protected_paths_untouched": true
+  },
+  "spend": {
+    "reported_cost_usd": 0.0,
+    "reported_final_cumulative_tokens": 16804,
+    "hard_token_ceiling": 24000,
+    "within_hard_token_ceiling": true,
+    "accounting_reconciled": true,
+    "agentops_fix_commit": "ae0b03f",
+    "original_run_verdict": "budget_exceeded_due_to_cumulative_snapshot_summation"
+  },
+  "gates": {
+    "bindery.unit.race": "pass",
+    "bindery.unit.vet": "pass",
+    "bindery.redaction": "pass",
+    "bindery.verification.artifacts": "pass",
+    "diff_scope": "pass",
+    "protected_paths": "pass"
+  },
+  "review": {
+    "reviewer": "luna-coordinator",
+    "context": "independent",
+    "decision": "candidate",
+    "evidence": "docs/orchestration/erm-002.review-evidence.json",
+    "human_acceptance_required": true
+  },
+  "qualification_eligible": false,
+  "disposition": "candidate"
+}
