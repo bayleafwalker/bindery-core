@@ -1,0 +1,48 @@
+{
+  "schema_version": "bindery-external-runtime-integration-evidence/v1",
+  "task_id": "ERM-204-adapt-game-transport-r1",
+  "sprint_item": "bindery-core#2293",
+  "status": "slice-proven-full-acceptance-pending",
+  "core": {
+    "repository": "bindery-core",
+    "commit": "7a9e41eb532d59987977cb09484bbbf37aa160c7",
+    "placement_contract": "docs/orchestration/erm-204.reference.patch",
+    "cold_gates": {
+      "go test -race ./...": "pass",
+      "go vet ./...": "pass",
+      "go run ./cmd/bindery-redaction-scan": "pass",
+      "validate_verification_artifacts.py": "pass"
+    }
+  },
+  "adapter": {
+    "repository": "bindery-ra2-adapter",
+    "commit": "32726e774324a701281533ddb6df9f1ae4905e6b",
+    "branch": "feat/ra2-adapter-boundary",
+    "implemented": [
+      "bindery-relay/v1 98-byte codec with canonical UUID and HMAC-SHA256 validation",
+      "authenticated UDP client with allocation/recipient validation and replay window",
+      "public-session placement parsing and scoped transport-credential decoding",
+      "two-client opaque bidirectional loopback oracle"
+    ],
+    "local_gates": {
+      "dotnet test tests/Bindery.Ra2.Adapter.Tests/Bindery.Ra2.Adapter.Tests.csproj --configuration Release": "2 passed",
+      "git diff --check": "pass"
+    },
+    "github_actions": {
+      "workflow": "adapter-ci",
+      "run_id": 32747960289,
+      "url": "https://github.com/bayleafwalker/bindery-ra2-adapter/actions/runs/32747960289",
+      "windows": "pass",
+      "proprietary_asset_boundary": "pass",
+      "build": "pass",
+      "tests": "pass"
+    }
+  },
+  "dispatch": {
+    "receipt": "docs/orchestration/erm-204-placement-r1.receipt.json",
+    "review": "docs/orchestration/erm-204-placement-r1.review-evidence.json",
+    "packet_hash": "sha256:d37d5efdc229d25d7e3ac4b6469eff3555acaac362623cd22dcb58711adc6a15",
+    "qualification_eligible": false
+  },
+  "acceptance_boundary": "The adapter loopback and core synthetic relay proofs establish the relay slice. ERM-204 remains pending until a live control-plane session plus two separate RA2 clients complete a match through one allocation."
+}
