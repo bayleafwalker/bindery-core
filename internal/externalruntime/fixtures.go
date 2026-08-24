@@ -82,6 +82,13 @@ func fixtureSessionWithEnrollments() PublicSession {
 			{ClientID: "client-player-b", AccountID: "acct-player-b", ClientClass: ClientPlayer, Phase: EnrollmentReady, AdapterID: "bindery.ra2-adapter", AdapterVersion: "0.1.0", EnrolledAt: now},
 			{ClientID: "client-observer", AccountID: "acct-observer", ClientClass: ClientObserver, Phase: EnrollmentReady, AdapterID: "bindery.ra2-adapter", AdapterVersion: "0.1.0", EnrolledAt: now},
 		},
+		Placement: &PublicPlacement{
+			Region:            "eu-north",
+			RelayProviderID:   "bindery-native",
+			RelayAllocationID: "0198c2c3-4d5e-7f60-8123-456789abcdef",
+			RelayEndpoint:     "127.0.0.1:40000",
+			PolicyVersion:     "relay-placement/v1",
+		},
 		Transitions:             []PublicTransition{},
 		PublicDataNoticeVersion: "1.0",
 	}
