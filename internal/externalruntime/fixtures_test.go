@@ -43,3 +43,34 @@ func TestIdentityFixtureStoresVerifierWithoutBearerToken(t *testing.T) {
 		t.Fatal("identity fixture stored bearer token instead of a verifier")
 	}
 }
+
+func TestSessionFixtureRepresentsPlayersAndObserver(t *testing.T) {
+	fixture := fixtureSessionWithEnrollments()
+	players, observers := 0, 0
+	for _, enrollment := range fixture.Enrollments {
+		switch enrollment.ClientClass {
+		case ClientPlayer:
+			players++
+		case ClientObserver:
+			observers++
+		default:
+			t.Fatalf("unsupported fixture client class %q", enrollment.ClientClass)
+		}
+	}
+	if players != 2 || observers != 1 {
+		t.Fatalf("fixture cohort = %d players, %d observers; want 2 players, 1 observer", players, observers)
+	}
+	if fixture.Phase != SessionReady {
+		t.Fatalf("fixture phase = %s, want ready", fixture.Phase)
+	}
+}
+
+func TestExpiredSessionFixtureIsTerminal(t *testing.T) {
+	fixture := fixtureExpiredSession()
+	if fixture.Phase != SessionExpired {
+		t.Fatalf("expired fixture phase = %s, want expired", fixture.Phase)
+	}
+	if len(fixture.Enrollments) != 0 {
+		t.Fatalf("expired fixture enrollments = %d, want no active enrollments", len(fixture.Enrollments))
+	}
+}
