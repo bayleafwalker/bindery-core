@@ -66,6 +66,11 @@ type PlacementIntent struct {
 	LatencyP95MS   int      `json:"latency_p95_ms"`
 }
 
+// PlacementAllocator is the coordinator-owned seam between session creation
+// and the relay allocation authority. The client supplies only an intent;
+// allocation identity, endpoint, provider, and policy come from this seam.
+type PlacementAllocator func(PlacementIntent) (PublicPlacement, error)
+
 type CapturePolicy struct {
 	SemanticEvents    bool `json:"semantic_events"`
 	PostMatchDump     bool `json:"post_match_dump"`
@@ -76,6 +81,7 @@ type PublicPlacement struct {
 	Region            string `json:"region"`
 	RelayProviderID   string `json:"relay_provider_id"`
 	RelayAllocationID string `json:"relay_allocation_id"`
+	RelayEndpoint     string `json:"relay_endpoint"`
 	PolicyVersion     string `json:"policy_version"`
 	DecisionSummary   string `json:"decision_summary,omitempty"`
 }

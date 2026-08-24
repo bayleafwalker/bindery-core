@@ -54,11 +54,12 @@
     },
     "publicPlacement": {
       "type": "object", "additionalProperties": false,
-      "required": ["region", "relay_provider_id", "relay_allocation_id", "policy_version"],
+      "required": ["region", "relay_provider_id", "relay_allocation_id", "relay_endpoint", "policy_version"],
       "properties": {
         "region": {"type": "string", "minLength": 1, "maxLength": 64},
         "relay_provider_id": {"type": "string", "minLength": 1, "maxLength": 128},
         "relay_allocation_id": {"type": "string", "minLength": 36, "maxLength": 36},
+        "relay_endpoint": {"type": "string", "minLength": 3, "maxLength": 256},
         "policy_version": {"type": "string", "minLength": 1, "maxLength": 64},
         "decision_summary": {"type": "string", "maxLength": 2048}
       }

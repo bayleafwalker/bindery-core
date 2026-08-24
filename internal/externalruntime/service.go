@@ -43,7 +43,8 @@ type enrollmentCreateReplay struct {
 type Service struct {
 	mu sync.RWMutex
 
-	clock func() time.Time
+	clock              func() time.Time
+	placementAllocator PlacementAllocator
 
 	identities  map[string]*identityRecord
 	handles     map[string]string
@@ -56,8 +57,16 @@ type Service struct {
 }
 
 func NewService() *Service {
+	return NewServiceWithPlacementAllocator(nil)
+}
+
+// NewServiceWithPlacementAllocator wires the service to the external
+// allocation authority without making the client request authoritative for
+// relay identity or endpoint selection.
+func NewServiceWithPlacementAllocator(allocator PlacementAllocator) *Service {
 	return &Service{
 		clock:                 time.Now,
+		placementAllocator:    allocator,
 		identities:            make(map[string]*identityRecord),
 		handles:               make(map[string]string),
 		sessions:              make(map[string]*sessionRecord),
@@ -153,6 +162,10 @@ func (s *Service) CreateSession(accountToken, idempotencyKey string, req CreateS
 		}
 		return CreateSessionResponse{PublicSession: clonePublicSession(replay.Public), ExpiresAt: replay.ExpiresAt}, nil
 	}
+	placement, err := resolvePlacement(s.placementAllocator, req.Placement)
+	if err != nil {
+		return CreateSessionResponse{}, err
+	}
 	now := s.now()
 	sessionID, err := newUUIDv7(now)
 	if err != nil {
@@ -167,6 +180,7 @@ func (s *Service) CreateSession(accountToken, idempotencyKey string, req CreateS
 		CreatedByAccountID: accountID, CreatedAt: now, UpdatedAt: now,
 		Phase: SessionCreated, Compatibility: req.Compatibility,
 		ParticipantPolicy: req.ParticipantPolicy, CapturePolicy: req.Capture,
+		Placement:   placement,
 		Enrollments: []PublicEnrollment{}, Transitions: []PublicTransition{},
 		PublicDataNoticeVersion: "1.0",
 	}
