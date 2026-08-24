@@ -43,7 +43,11 @@ func TestERM102BoundedRelayEnforcesOpaqueSourceSizeAndRateLimits(t *testing.T) {
 	if err := service.Forward(overlarge, fixture.senderID, fixture.now, func(string, []byte) error { return nil }); !errors.Is(err, relayv1.ErrOversized) {
 		t.Fatalf("oversized datagram error = %v", err)
 	}
-	if err := service.Forward(valid, fixture.senderID, fixture.now, func(string, []byte) error { return nil }); !errors.Is(err, ErrRateLimited) {
+	validSecond, err := relayv1.Encode(relayv1.Packet{Type: relayv1.PacketData, AllocationID: fixture.allocationID, SenderID: fixture.senderID, RecipientID: fixture.recipientID, Sequence: 2, Payload: []byte("ok")}, fixture.senderKey, relayv1.DefaultDatagramLimit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.Forward(validSecond, fixture.senderID, fixture.now, func(string, []byte) error { return nil }); !errors.Is(err, ErrRateLimited) {
 		t.Fatalf("rate limit error = %v", err)
 	}
 
