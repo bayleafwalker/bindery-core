@@ -1,0 +1,91 @@
+{
+  "schema_version": "agentops-hybrid-receipt/v1",
+  "recorded_at": "2026-08-24T14:06:22Z",
+  "execution_id": "ERM-005-redaction-idempotency-r3:98fafcb561232d27:attempt-1",
+  "task_id": "ERM-005-redaction-idempotency-r3",
+  "repo_id": "bindery-core",
+  "sprint_item": {
+    "ref": "bindery-core#2284",
+    "claim_id": 9,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "bindery_external_runtime_w0",
+  "attempt": 1,
+  "inputs": {
+    "packet_hash": "sha256:98fafcb561232d27d941b913fe4375808dcccb2e79f30a7b7b58ba7c5aa93938",
+    "repository_commit": "c3e0e9664f1b3d00fac602665ba298c64634b8f9",
+    "packet_schema_version": "agentops-task/v2",
+    "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+    "gate_set_hash": "sha256:4ab3e87da37b9ebcaca15d9008b778d0423eaff1e7d192c76a1b6e6fb9b8765c"
+  },
+  "harness": {
+    "name": "OpenCode",
+    "version": "1.18.21",
+    "model": "local3090/worker-fast",
+    "provider": "local3090",
+    "agent": "ao-bindery-external-runtime-w0",
+    "session_id": "ses_fcbe9ffd8ffeWcjGGZnC63RpG6",
+    "terminal_errors": 0,
+    "event_stream": ["step_start", "text", "step_finish", "stable_session_id"]
+  },
+  "worker": {
+    "identity": "agentworker",
+    "worktree": "/tmp/agentworker/worktrees/bindery-core/ERM-005-redaction-idempotency-r3",
+    "touched_paths": ["internal/externalruntime/fixtures.go"],
+    "candidate_sha256": {
+      "internal/externalruntime/fixtures.go": "df6996aed8face7d5a849de1365021d93142f256183c55a3e85edb4145ae6b1c"
+    },
+    "coordinator_tree_untouched": true,
+    "protected_paths_untouched": true,
+    "worker_exit_code": 0
+  },
+  "spend": {
+    "reported_cost_usd": 0.0,
+    "reported_final_cumulative_tokens": 12543,
+    "soft_token_ceiling": 16000,
+    "hard_token_ceiling": 32000,
+    "soft_token_ceiling_exceeded": false,
+    "within_hard_token_ceiling": true,
+    "accounting_reconciled": true,
+    "accounting_rule": "maximum cumulative step-finish token snapshot"
+  },
+  "containment": {
+    "worker_user": "agentworker",
+    "containment_override": false,
+    "coordinator_tree_untouched": true,
+    "coordinator_tree_changes": []
+  },
+  "qualification": {
+    "state": "unqualified",
+    "qualification_eligible": false,
+    "unattended_eligible": false,
+    "reporting_fix_commit": "02bb2e156a1ab7d1a3761c289aa2c082030d0b59"
+  },
+  "gates": {
+    "bindery.unit.race": "pass",
+    "bindery.unit.vet": "pass",
+    "bindery.redaction": "pass",
+    "bindery.verification.artifacts": "pass",
+    "diff_scope": "pass",
+    "protected_paths": "pass",
+    "worktree_state": "pass",
+    "registered_commands": "pass"
+  },
+  "review": {
+    "reviewer": "luna-coordinator",
+    "context": "independent",
+    "decision": "candidate",
+    "evidence": "docs/orchestration/erm-005-r3.review-evidence.json",
+    "reference_patch_match": false,
+    "reference_patch_semantic_match": true,
+    "human_acceptance_required": false,
+    "acceptance_basis": "standing user approval treats human acceptance as a perpendicular workstream, not a merge gate"
+  },
+  "retry_history": [
+    "ERM-005-redaction-idempotency-r1 prepared but was superseded after cold vet was correctly recognized as red",
+    "ERM-005-redaction-idempotency-r2 rejected before mutation on absolute-path churn",
+    "ERM-005-redaction-idempotency-r3 is the first candidate-producing attempt"
+  ],
+  "disposition": "candidate",
+  "qualification_eligible": false
+}

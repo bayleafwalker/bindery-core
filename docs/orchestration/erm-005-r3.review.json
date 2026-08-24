@@ -1,0 +1,7 @@
+{
+  "context": "independent",
+  "decision": "candidate",
+  "evidence_path": "/home/bayleaf/dev/bindery-core/docs/orchestration/erm-005-r3.review-evidence.json",
+  "reviewer": "luna-coordinator",
+  "task_id": "ERM-005-redaction-idempotency-r3"
+}

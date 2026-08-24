@@ -1,0 +1,54 @@
+{
+  "schema_version": "bindery-external-runtime-independent-review/v1",
+  "task_id": "ERM-005-redaction-idempotency-r3",
+  "context": "independent",
+  "reviewer": "luna-coordinator",
+  "starting_commit": "c3e0e9664f1b3d00fac602665ba298c64634b8f9",
+  "packet_hash": "sha256:98fafcb561232d27d941b913fe4375808dcccb2e79f30a7b7b58ba7c5aa93938",
+  "candidate_worktree": "/tmp/agentworker/worktrees/bindery-core/ERM-005-redaction-idempotency-r3",
+  "candidate_paths": [
+    "internal/externalruntime/fixtures.go"
+  ],
+  "candidate_sha256": {
+    "internal/externalruntime/fixtures.go": "df6996aed8face7d5a849de1365021d93142f256183c55a3e85edb4145ae6b1c"
+  },
+  "candidate_diff_check": "pass",
+  "protected_paths_untouched": true,
+  "coordinator_tree_untouched": true,
+  "reference_patch_match": false,
+  "reference_patch_semantic_match": true,
+  "decision_basis": "The candidate adds exactly the coordinator-specified redactionFixture type and fixtureRedactionCorpus values, with no contract or behavior changes. It places the mechanically identical block before the existing session fixture rather than at the reference patch insertion point; this is semantically and syntactically equivalent, remains within the sole writable path, and the protected ERM-005 oracle passes. The extra blank line is harmless and diff-check clean.",
+  "worker_session": {
+    "id": "ses_fcbe9ffd8ffeWcjGGZnC63RpG6",
+    "model": "local3090/worker-fast",
+    "opencode_version": "1.18.21",
+    "route": "bindery_external_runtime_w0",
+    "terminal_errors": 0,
+    "event_stream": [
+      "step_start",
+      "text",
+      "step_finish",
+      "stable_session_id"
+    ]
+  },
+  "worker_gate_evidence": {
+    "bindery.unit.race": "pass",
+    "bindery.unit.vet": "pass"
+  },
+  "worker_spend": {
+    "reported_final_cumulative_tokens": 12543,
+    "reported_cost_usd": 0.0,
+    "soft_token_ceiling": 16000,
+    "hard_token_ceiling": 32000,
+    "soft_token_ceiling_exceeded": false,
+    "within_hard_token_ceiling": true,
+    "accounting": "maximum cumulative step-finish token snapshot"
+  },
+  "retry_history": [
+    {
+      "task_id": "ERM-005-redaction-idempotency-r2",
+      "disposition": "rejected",
+      "reason": "absolute-path churn; no mutation"
+    }
+  ]
+}
