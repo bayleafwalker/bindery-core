@@ -1,11 +1,12 @@
 diff --git a/internal/externalruntime/fixtures.go b/internal/externalruntime/fixtures.go
 --- a/internal/externalruntime/fixtures.go
 +++ b/internal/externalruntime/fixtures.go
-@@ -70,6 +70,13 @@ func fixtureSessionWithEnrollments() PublicSession {
+@@ -78,9 +78,16 @@ func fixtureSessionWithEnrollments() PublicSession {
  		ParticipantPolicy:  ParticipantPolicy{RequiredPlayers: 2, MaximumPlayers: 2, MaximumObservers: 1},
  		CapturePolicy:      CapturePolicy{SemanticEvents: true, PostMatchDump: true, ObserverPreferred: true},
  		Enrollments: []PublicEnrollment{
-@@
+ 			{ClientID: "client-player-a", AccountID: "acct-player-a", ClientClass: ClientPlayer, Phase: EnrollmentReady, AdapterID: "bindery.ra2-adapter", AdapterVersion: "0.1.0", EnrolledAt: now},
+ 			{ClientID: "client-player-b", AccountID: "acct-player-b", ClientClass: ClientPlayer, Phase: EnrollmentReady, AdapterID: "bindery.ra2-adapter", AdapterVersion: "0.1.0", EnrolledAt: now},
  			{ClientID: "client-observer", AccountID: "acct-observer", ClientClass: ClientObserver, Phase: EnrollmentReady, AdapterID: "bindery.ra2-adapter", AdapterVersion: "0.1.0", EnrolledAt: now},
  		},
 +		Placement: &PublicPlacement{
