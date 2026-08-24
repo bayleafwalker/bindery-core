@@ -195,6 +195,17 @@ func (s *Service) GetSession(sessionID string) (PublicSession, error) {
 	return clonePublicSession(session.PublicSession), nil
 }
 
+func (s *Service) GetEnrollment(clientID string) (PublicEnrollment, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.convergeLocked(s.now())
+	enrollment, ok := s.enrollments[clientID]
+	if !ok {
+		return PublicEnrollment{}, domainError("ENROLLMENT_NOT_FOUND", "enrollment was not found")
+	}
+	return enrollment.PublicEnrollment, nil
+}
+
 func (s *Service) Enroll(accountToken, sessionJoinCredential, sessionID, idempotencyKey string, req EnrollmentRequest) (EnrollmentCreateResponse, error) {
 	if idempotencyKey == "" {
 		return EnrollmentCreateResponse{}, domainError("IDEMPOTENCY_KEY_REQUIRED", "an idempotency key is required")

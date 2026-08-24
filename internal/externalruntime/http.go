@@ -47,6 +47,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, requestID, http.StatusNotFound, "NOT_FOUND", "session discovery is not exposed")
 	case len(parts) == 2 && parts[0] == "sessions" && r.Method == http.MethodGet:
 		h.getSession(w, requestID, parts[1])
+	case len(parts) == 2 && parts[0] == "enrollments" && r.Method == http.MethodGet:
+		h.getEnrollment(w, requestID, parts[1])
 	case len(parts) == 3 && parts[0] == "sessions" && parts[2] == "enrollments" && r.Method == http.MethodPost:
 		h.enroll(w, r, requestID, parts[1])
 	case len(parts) == 3 && parts[0] == "enrollments" && parts[2] == "reports" && r.Method == http.MethodPost:
@@ -100,6 +102,15 @@ func (h *Handler) getSession(w http.ResponseWriter, requestID, sessionID string)
 		return
 	}
 	writeJSON(w, http.StatusOK, session)
+}
+
+func (h *Handler) getEnrollment(w http.ResponseWriter, requestID, clientID string) {
+	enrollment, err := h.service.GetEnrollment(clientID)
+	if err != nil {
+		h.writeDomainError(w, requestID, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, enrollment)
 }
 
 func (h *Handler) enroll(w http.ResponseWriter, r *http.Request, requestID, sessionID string) {
