@@ -87,3 +87,38 @@ func TestHTTPEnrollmentHeartbeatDoesNotEchoCredentials(t *testing.T) {
 		t.Fatal("heartbeat response leaked credential")
 	}
 }
+
+func TestHTTPKnownEnrollmentReadIsPublicAndNotDiscoverable(t *testing.T) {
+	service := NewService()
+	handler := NewHandler(service)
+	identity := mustIdentity(t, service, "public-enrollment-reader")
+	created, err := service.CreateSession(identity.AccountToken, "public-enrollment-session", testSessionRequest())
+	if err != nil {
+		t.Fatal(err)
+	}
+	enrollment := mustEnroll(t, service, identity.AccountToken, created.SessionJoinCredential, created.PublicSession.SessionID, "public-enrollment-client", ClientPlayer)
+
+	knownID := httptest.NewRequest(http.MethodGet, "/v1/enrollments/"+enrollment.id, nil)
+	knownResponse := httptest.NewRecorder()
+	handler.ServeHTTP(knownResponse, knownID)
+	if knownResponse.Code != http.StatusOK {
+		t.Fatalf("public enrollment status = %d, body = %s", knownResponse.Code, knownResponse.Body.String())
+	}
+	var public PublicEnrollment
+	if err := json.NewDecoder(knownResponse.Body).Decode(&public); err != nil {
+		t.Fatal(err)
+	}
+	if public.ClientID != enrollment.id || public.ClientClass != ClientPlayer {
+		t.Fatalf("public enrollment = %+v, want known player enrollment", public)
+	}
+	if strings.Contains(knownResponse.Body.String(), enrollment.lease) || strings.Contains(knownResponse.Body.String(), enrollment.transport) {
+		t.Fatal("public enrollment response leaked scoped credentials")
+	}
+
+	discovery := httptest.NewRequest(http.MethodGet, "/v1/enrollments", nil)
+	discoveryResponse := httptest.NewRecorder()
+	handler.ServeHTTP(discoveryResponse, discovery)
+	if discoveryResponse.Code != http.StatusNotFound {
+		t.Fatalf("enrollment discovery status = %d, want 404", discoveryResponse.Code)
+	}
+}
