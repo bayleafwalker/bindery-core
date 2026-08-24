@@ -1,0 +1,32 @@
+package relay
+
+import (
+	"bytes"
+	"time"
+
+	"github.com/bayleafwalker/bindery-core/pkg/relayv1"
+)
+
+type drainLifecycleFixture struct {
+	config                  Config
+	now                     time.Time
+	allocationID            string
+	replacementAllocationID string
+	senderID                string
+	recipientID             string
+	senderKey               []byte
+	recipientKey            []byte
+}
+
+func fixtureDrainLifecycle() drainLifecycleFixture {
+	return drainLifecycleFixture{
+		config:                  Config{PacketsPerSecond: 100, BytesPerSecond: 100_000},
+		now:                     time.Date(2026, 8, 24, 12, 0, 0, 0, time.UTC),
+		allocationID:            "0198c2c3-4d5e-7f60-8123-456789abcdef",
+		replacementAllocationID: "0198c2c3-4d5e-7f63-8123-456789abcdef",
+		senderID:                "0198c2c3-4d5e-7f61-8123-456789abcdef",
+		recipientID:             "0198c2c3-4d5e-7f62-8123-456789abcdef",
+		senderKey:               bytes.Repeat([]byte{0x11}, relayv1.TransportKeyBytes),
+		recipientKey:            bytes.Repeat([]byte{0x22}, relayv1.TransportKeyBytes),
+	}
+}
