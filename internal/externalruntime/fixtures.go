@@ -35,6 +35,10 @@ func fixtureIdentityRecord() identityRecord {
 	}
 }
 
+// fixtureRelayPlacement is a coordinator-frozen seam for the worker's
+// mechanical placement-fixture implementation.
+func fixtureRelayPlacement() *PublicPlacement { return nil }
+
 type redactionFixture struct {
 	name      string
 	public    any
