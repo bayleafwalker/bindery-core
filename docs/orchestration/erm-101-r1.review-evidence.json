@@ -1,0 +1,43 @@
+{
+  "schema_version": "bindery-external-runtime-independent-review/v1",
+  "task_id": "ERM-101-relay-envelope-r1",
+  "context": "independent",
+  "reviewer": "luna-coordinator",
+  "starting_commit": "57e5cbbc0c378d6274ce6d9ebe697af7c569f29b",
+  "packet_hash": "sha256:bfc33d5e211b3c7438fbc6d5037ba84174d9d2a8a09592ef2643ed92c2f0f404",
+  "candidate_worktree": "/tmp/agentworker/worktrees/bindery-core/ERM-101-relay-envelope-r1",
+  "candidate_paths": [
+    "pkg/relayv1/fixtures.go"
+  ],
+  "candidate_sha256": {
+    "pkg/relayv1/fixtures.go": "4109bc33d9df0478bb00d675962526eced925c7cc288b0c597138ab36680003b"
+  },
+  "candidate_diff_check": "pass",
+  "protected_paths_untouched": true,
+  "coordinator_tree_untouched": true,
+  "reference_patch_match": true,
+  "decision_basis": "The candidate is byte-identical to the coordinator-authored new-file reference patch. It adds only the declared datagram fixture builder and covers data, registration, and heartbeat packet types without changing codec or relay behavior.",
+  "worker_session": {
+    "id": "ses_fcbe37fc3ffehty6EpAk3FcVaR",
+    "model": "local3090/worker-fast",
+    "opencode_version": "1.18.21",
+    "route": "bindery_external_runtime_w0",
+    "terminal_errors": 0,
+    "event_stream": ["step_start", "text", "step_finish", "stable_session_id"]
+  },
+  "worker_gate_evidence": {
+    "bindery.unit.race": "pass",
+    "bindery.unit.vet": "pass",
+    "bindery.redaction": "pass",
+    "bindery.verification.artifacts": "worker-permission-denied-coordinator-path"
+  },
+  "worker_spend": {
+    "reported_final_cumulative_tokens": 13396,
+    "reported_cost_usd": 0.0,
+    "soft_token_ceiling": 16000,
+    "hard_token_ceiling": 32000,
+    "soft_token_ceiling_exceeded": false,
+    "within_hard_token_ceiling": true,
+    "accounting": "maximum cumulative step-finish token snapshot"
+  }
+}
