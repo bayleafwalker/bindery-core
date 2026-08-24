@@ -1,0 +1,62 @@
+{
+  "schema_version": "bindery-external-runtime-independent-review/v1",
+  "task_id": "ERM-105-synthetic-harness-r2",
+  "context": "independent",
+  "reviewer": "luna-coordinator",
+  "starting_commit": "af7654672a91c7f059340b32cfc2b3090fdb794f",
+  "packet_hash": "sha256:f152a7c72637e39bd1f6b07b46da0865c26872e33bd423b9fab2ff2fbb8e8a8d",
+  "candidate_worktree": "/tmp/agentworker/worktrees/bindery-core/ERM-105-synthetic-harness-r2",
+  "candidate_paths": [
+    "internal/harness/fixtures.go"
+  ],
+  "candidate_sha256": {
+    "internal/harness/fixtures.go": "e232d547ac60788139c640ff2dc6a35b947b96e73f134b21cf2317e4013cc20a"
+  },
+  "candidate_blob": "477f92cd2524a189a5420420eb2f92d97f7022dc",
+  "candidate_diff_check": "pass",
+  "protected_paths_untouched": true,
+  "coordinator_tree_untouched": true,
+  "reference_patch_match": true,
+  "decision_basis": "The candidate is byte-identical to the coordinator-authored new-file reference patch. It adds only deterministic two-client harness configuration, allocation identities, transport keys, and a fixed clock for the protected ERM-105 synthetic relay oracle. No relay behavior, harness semantics, contract, credential, lifecycle, policy, test, or release path was modified.",
+  "worker_session": {
+    "id": "ses_fcbc4f61effeYDWW4vCPWGwlRQ",
+    "model": "local3090/worker-fast",
+    "opencode_version": "1.18.21",
+    "route": "bindery_external_runtime_w0",
+    "terminal_errors": 0,
+    "event_stream": [
+      "step_start",
+      "read",
+      "write",
+      "step_finish",
+      "stable_session_id"
+    ],
+    "worker_exit_code": 4,
+    "churn_stop": "churn_no_mutation after denied unregistered verification commands"
+  },
+  "worker_gate_evidence": {
+    "bindery.unit.race": "not-captured-worker-handoff",
+    "bindery.unit.vet": "not-captured-worker-handoff",
+    "bindery.redaction": "not-captured-worker-handoff",
+    "bindery.verification.artifacts": "not-captured-worker-handoff"
+  },
+  "coordinator_post_gates": {
+    "bindery.unit.race": "pass",
+    "bindery.unit.vet": "pass",
+    "bindery.redaction": "pass",
+    "bindery.verification.artifacts": "pass",
+    "diff_scope": "pass",
+    "protected_paths": "pass",
+    "worktree_state": "pass",
+    "registered_commands": "pass"
+  },
+  "worker_spend": {
+    "reported_final_cumulative_tokens": 9710,
+    "reported_cost_usd": 0.0,
+    "soft_token_ceiling": 16000,
+    "hard_token_ceiling": 32000,
+    "soft_token_ceiling_exceeded": false,
+    "within_hard_token_ceiling": true,
+    "accounting": "maximum cumulative step-finish token snapshot"
+  }
+}
