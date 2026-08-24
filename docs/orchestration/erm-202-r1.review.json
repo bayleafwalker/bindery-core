@@ -1,0 +1,7 @@
+{
+  "context": "coordinator",
+  "decision": "coordinator-complete",
+  "evidence_path": "docs/orchestration/erm-202-r1.review-evidence.json",
+  "reviewer": "luna-coordinator",
+  "task_id": "ERM-202-adapter-enrollment-r1"
+}

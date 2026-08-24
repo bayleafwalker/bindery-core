@@ -1,0 +1,33 @@
+{
+  "schema_version": "bindery-external-runtime-coordinator-receipt/v1",
+  "recorded_at": "2026-08-24T14:58:17Z",
+  "task_id": "ERM-202-adapter-enrollment-r1",
+  "repo_id": "bindery-core",
+  "sprint_item": "bindery-core#2291",
+  "disposition": "coordinator-complete",
+  "implementation_commits": {
+    "core": "c82f42d",
+    "adapter": "84981a9"
+  },
+  "gates": {
+    "game_mismatch_rejected": "pass",
+    "mod_mismatch_rejected": "pass",
+    "map_mismatch_rejected": "pass",
+    "adapter_mismatch_rejected": "pass",
+    "malformed_game_hash_rejected": "pass",
+    "lease_not_issued_on_rejection": "pass",
+    "go_test_race": "pass",
+    "go_vet": "pass",
+    "redaction_scan": "pass",
+    "verification_artifacts": "pass"
+  },
+  "review": {
+    "reviewer": "luna-coordinator",
+    "context": "coordinator",
+    "decision": "coordinator-complete",
+    "evidence": "docs/orchestration/erm-202-r1.review-evidence.json",
+    "human_acceptance_required": false,
+    "acceptance_basis": "Standing user approval treats human acceptance as a perpendicular workstream, not a merge gate."
+  },
+  "qualification_eligible": false
+}

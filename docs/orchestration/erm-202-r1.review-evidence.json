@@ -1,0 +1,43 @@
+{
+  "schema_version": "bindery-external-runtime-coordinator-review/v1",
+  "task_id": "ERM-202-adapter-enrollment-r1",
+  "context": "coordinator",
+  "reviewer": "luna-coordinator",
+  "decision": "coordinator-complete",
+  "acceptance": "Game, mod, map, and adapter mismatches fail before transport admission or launch.",
+  "starting_core_commit": "6745d6d",
+  "implementation_commit": "c82f42d",
+  "adapter_commit": "84981a9",
+  "cross_repository_contract": {
+    "adapter_request": "src/Bindery.Ra2.Adapter/AdapterClient.cs sends game_hash, mod_hash, and map_hash in EnrollAsync",
+    "core_type": "internal/externalruntime/types.go Compatibility.GameHash",
+    "public_schema": "contracts/externalruntime/v1/public-session.schema.json compatibility.game_hash",
+    "server_gate": "internal/externalruntime/service.go validates and compares game, mod, map, and adapter values before creating enrollment records"
+  },
+  "oracle": {
+    "test_file": "internal/externalruntime/erm202_test.go",
+    "mismatch_cases": [
+      "game",
+      "mod",
+      "map",
+      "adapter"
+    ],
+    "malformed_hash_case": "game",
+    "lease_issuance_on_rejection": "zero"
+  },
+  "gates": {
+    "go_test_race": "pass",
+    "go_vet": "pass",
+    "redaction_scan": "pass",
+    "verification_artifacts": "pass",
+    "diff_scope": "pass",
+    "protected_paths": "pass"
+  },
+  "boundary": {
+    "worker_route": "bindery_external_runtime_w0",
+    "worker_authority_used": false,
+    "qualification_eligible": false,
+    "reason": "Compatibility contract and admission semantics are cross-layer coordinator work; no worker packet was used."
+  },
+  "coordinator_tree_untouched": true
+}
