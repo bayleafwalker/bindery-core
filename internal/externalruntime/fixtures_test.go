@@ -86,6 +86,27 @@ func TestERM204SessionFixtureCarriesRelayPlacement(t *testing.T) {
 	}
 }
 
+func TestERM204RelayPlacementFixtureBuilder(t *testing.T) {
+	placement := fixtureRelayPlacement()
+	if placement == nil {
+		t.Fatal("relay placement fixture is nil")
+	}
+	if placement.Region != "eu-north" ||
+		placement.RelayProviderID != "bindery-native" ||
+		placement.RelayAllocationID != "0198c2c3-4d5e-7f60-8123-456789abcdef" ||
+		placement.RelayEndpoint != "127.0.0.1:40000" ||
+		placement.PolicyVersion != "relay-placement/v1" {
+		t.Fatalf("relay placement fixture = %+v", placement)
+	}
+	public, err := json.Marshal(placement)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ScanPublicOutput(public); err != nil {
+		t.Fatalf("relay placement fixture failed public redaction oracle: %v", err)
+	}
+}
+
 func TestExpiredSessionFixtureIsTerminal(t *testing.T) {
 	fixture := fixtureExpiredSession()
 	if fixture.Phase != SessionExpired {
