@@ -26,3 +26,20 @@ func TestDTOFixtureSeparatesPublicAndAuthenticatedFields(t *testing.T) {
 		t.Fatalf("handle = %q, want player-fixture", fixture.PublicIdentity.Handle)
 	}
 }
+
+func TestIdentityFixtureStoresVerifierWithoutBearerToken(t *testing.T) {
+	fixture := fixtureIdentityRecord()
+	if len(fixture.tokenVerifier) != 32 {
+		t.Fatalf("token verifier length = %d, want 32", len(fixture.tokenVerifier))
+	}
+	public, err := json.Marshal(fixture.PublicIdentity)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(public), "account-token-fixture") {
+		t.Fatal("identity fixture public DTO contains bearer token material")
+	}
+	if string(fixture.tokenVerifier) == "account-token-fixture" {
+		t.Fatal("identity fixture stored bearer token instead of a verifier")
+	}
+}
