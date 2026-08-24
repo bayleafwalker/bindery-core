@@ -1,0 +1,86 @@
+{
+  "schema_version": "agentops-hybrid-receipt/v1",
+  "recorded_at": "2026-08-24T14:35:26Z",
+  "execution_id": "ERM-104-drain-lifecycle-r1:1e253e87cd2e2e69:attempt-1",
+  "task_id": "ERM-104-drain-lifecycle-r1",
+  "repo_id": "bindery-core",
+  "sprint_item": {
+    "ref": "bindery-core#2288",
+    "claim_id": 13,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "bindery_external_runtime_w0",
+  "attempt": 1,
+  "inputs": {
+    "packet_hash": "sha256:1e253e87cd2e2e6921f4f4bc0144e3cd9fbe3285be5f5dfed7784723e2854236",
+    "repository_commit": "dbd8bc265e43c7ba298ed956017578cdb995a4b6",
+    "packet_schema_version": "agentops-task/v2",
+    "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+    "gate_set_hash": "sha256:838b044327b1f52c3e5f4dee564944454455309cab562f29d05d6795cf1f11f9"
+  },
+  "harness": {
+    "name": "OpenCode",
+    "version": "1.18.21",
+    "model": "local3090/worker-fast",
+    "provider": "local3090",
+    "agent": "ao-bindery-external-runtime-w0",
+    "session_id": "ses_fcbce8579ffe8wubvBYjdTEJBP",
+    "terminal_errors": 0,
+    "event_stream": ["step_start", "text", "step_finish", "stable_session_id"]
+  },
+  "worker": {
+    "identity": "agentworker",
+    "worktree": "/tmp/agentworker/worktrees/bindery-core/ERM-104-drain-lifecycle-r1",
+    "touched_paths": ["internal/relay/drain_fixtures.go"],
+    "candidate_sha256": {
+      "internal/relay/drain_fixtures.go": "01e5fd0ddea643465b394ed61adba4d9e92d7b981298e8fe79491ee3f5d52ebe"
+    },
+    "coordinator_tree_untouched": true,
+    "protected_paths_untouched": true,
+    "worker_exit_code": 0
+  },
+  "spend": {
+    "reported_cost_usd": 0.0,
+    "reported_final_cumulative_tokens": 11982,
+    "soft_token_ceiling": 16000,
+    "hard_token_ceiling": 32000,
+    "soft_token_ceiling_exceeded": false,
+    "within_hard_token_ceiling": true,
+    "accounting_reconciled": true,
+    "accounting_rule": "maximum cumulative step-finish token snapshot"
+  },
+  "containment": {
+    "worker_user": "agentworker",
+    "containment_override": false,
+    "coordinator_tree_untouched": true,
+    "coordinator_tree_changes": []
+  },
+  "qualification": {
+    "state": "unqualified",
+    "qualification_eligible": false,
+    "unattended_eligible": false,
+    "reporting_fix_commit": "02bb2e156a1ab7d1a3761c289aa2c082030d0b59"
+  },
+  "gates": {
+    "bindery.unit.race": "pass",
+    "bindery.unit.vet": "pass",
+    "bindery.redaction": "pass",
+    "bindery.verification.artifacts": "pass",
+    "diff_scope": "pass",
+    "protected_paths": "pass",
+    "worktree_state": "pass",
+    "registered_commands": "pass"
+  },
+  "worker_gate_note": "The worker focused race and vet commands passed; the worker handed off before redaction and artifact validation were captured. The coordinator post-gate ran all four registered commands successfully.",
+  "review": {
+    "reviewer": "luna-coordinator",
+    "context": "independent",
+    "decision": "candidate",
+    "evidence": "docs/orchestration/erm-104-r1.review-evidence.json",
+    "reference_patch_match": true,
+    "human_acceptance_required": false,
+    "acceptance_basis": "Standing user approval treats human acceptance as a perpendicular workstream, not a merge gate."
+  },
+  "disposition": "candidate",
+  "qualification_eligible": false
+}

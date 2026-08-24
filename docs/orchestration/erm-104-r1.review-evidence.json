@@ -1,0 +1,44 @@
+{
+  "schema_version": "bindery-external-runtime-independent-review/v1",
+  "task_id": "ERM-104-drain-lifecycle-r1",
+  "context": "independent",
+  "reviewer": "luna-coordinator",
+  "starting_commit": "dbd8bc265e43c7ba298ed956017578cdb995a4b6",
+  "packet_hash": "sha256:1e253e87cd2e2e6921f4f4bc0144e3cd9fbe3285be5f5dfed7784723e2854236",
+  "candidate_worktree": "/tmp/agentworker/worktrees/bindery-core/ERM-104-drain-lifecycle-r1",
+  "candidate_paths": [
+    "internal/relay/drain_fixtures.go"
+  ],
+  "candidate_sha256": {
+    "internal/relay/drain_fixtures.go": "01e5fd0ddea643465b394ed61adba4d9e92d7b981298e8fe79491ee3f5d52ebe"
+  },
+  "candidate_diff_check": "pass",
+  "protected_paths_untouched": true,
+  "coordinator_tree_untouched": true,
+  "reference_patch_match": true,
+  "decision_basis": "The candidate is byte-identical to the coordinator-authored new-file reference patch. It adds only deterministic drain configuration, allocation identities, transport keys, and clock fixtures for the protected ERM-104 oracle. No relay implementation, placement policy, contract, credential, lifecycle, or protected test was modified.",
+  "worker_session": {
+    "id": "ses_fcbce8579ffe8wubvBYjdTEJBP",
+    "model": "local3090/worker-fast",
+    "opencode_version": "1.18.21",
+    "route": "bindery_external_runtime_w0",
+    "terminal_errors": 0,
+    "event_stream": ["step_start", "text", "step_finish", "stable_session_id"],
+    "worker_exit_code": 0
+  },
+  "worker_gate_evidence": {
+    "bindery.unit.race": "pass",
+    "bindery.unit.vet": "pass",
+    "bindery.redaction": "not-captured-worker-handoff",
+    "bindery.verification.artifacts": "not-captured-worker-handoff"
+  },
+  "worker_spend": {
+    "reported_final_cumulative_tokens": 11982,
+    "reported_cost_usd": 0.0,
+    "soft_token_ceiling": 16000,
+    "hard_token_ceiling": 32000,
+    "soft_token_ceiling_exceeded": false,
+    "within_hard_token_ceiling": true,
+    "accounting": "maximum cumulative step-finish token snapshot"
+  }
+}

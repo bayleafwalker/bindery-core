@@ -1,0 +1,7 @@
+{
+  "context": "independent",
+  "decision": "candidate",
+  "evidence_path": "/home/bayleaf/dev/bindery-core/docs/orchestration/erm-104-r1.review-evidence.json",
+  "reviewer": "luna-coordinator",
+  "task_id": "ERM-104-drain-lifecycle-r1"
+}
