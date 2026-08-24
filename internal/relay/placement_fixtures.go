@@ -7,9 +7,16 @@ import (
 	"github.com/bayleafwalker/bindery-core/pkg/relayv1"
 )
 
-func fixturePlacementRequest() PlacementRequest { return PlacementRequest{} }
+func fixturePlacementRequest() PlacementRequest {
+	return PlacementRequest{AllowedRegions: []string{"eu-north"}, ParticipantIDs: []string{"player-a", "player-b"}, LatencyP95MS: 100}
+}
 
-func fixturePlacementCandidates() []Candidate { return nil }
+func fixturePlacementCandidates() []Candidate {
+	return []Candidate{
+		{ProviderID: "native", RelayID: "relay-b", Region: "eu-north", State: Accepting, RemainingPacketRate: 900, RemainingEgressBytesPS: 10_000, ParticipantRTTMS: map[string]int{"player-a": 30, "player-b": 50}},
+		{ProviderID: "native", RelayID: "relay-a", Region: "eu-north", State: Accepting, RemainingPacketRate: 900, RemainingEgressBytesPS: 10_000, ParticipantRTTMS: map[string]int{"player-a": 30, "player-b": 50}},
+	}
+}
 
 type allocationLeaseFixture struct {
 	now                time.Time

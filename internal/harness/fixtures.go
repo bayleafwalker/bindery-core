@@ -21,7 +21,13 @@ type twoClientHarnessFixture struct {
 	recipientKey            []byte
 }
 
-func fixtureScenarioResults(string) map[Scenario]Result { return map[Scenario]Result{} }
+func fixtureScenarioResults(observed string) map[Scenario]Result {
+	results := make(map[Scenario]Result, len(Scenarios))
+	for _, scenario := range Scenarios {
+		results[scenario] = Result{Passed: true, Observed: observed}
+	}
+	return results
+}
 
 func fixtureTwoClientHarness() twoClientHarnessFixture {
 	return twoClientHarnessFixture{

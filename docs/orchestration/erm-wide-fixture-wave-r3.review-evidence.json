@@ -1,0 +1,42 @@
+{
+  "schema_version": "bindery-external-runtime-independent-review/v1",
+  "task_id": "ERM-WIDE-fixture-wave-r3",
+  "context": "independent",
+  "reviewer": "luna-coordinator",
+  "starting_commit": "8945b62d9fb8586c059239544b13f2cca399e378",
+  "packet_hash": "sha256:feb4a4db7b989fc3167bd6e5a843ab4e06d02f4bef1171214423eac3da94a083",
+  "candidate_worktree": "/tmp/agentworker/worktrees/bindery-core/ERM-WIDE-fixture-wave-r3",
+  "candidate_paths": [
+    "internal/capture/fixtures.go",
+    "internal/harness/fixtures.go",
+    "internal/relay/placement_fixtures.go"
+  ],
+  "candidate_sha256": {
+    "internal/capture/fixtures.go": "47de73eac4aa183edbd120b3534f8e4bccb6e8cced1352e7a40eddcb24cb42ea",
+    "internal/harness/fixtures.go": "eaf4d9e080e51e8b888e98c3e7aaed73fc98bf23394e22565d0439adacc998a3",
+    "internal/relay/placement_fixtures.go": "4900d113a21ffb0abb8ef40440e71f74108b4a09ad6592d03f3d60fd662f08ec"
+  },
+  "candidate_diff_check": "pass",
+  "reference_patch_match": true,
+  "protected_paths_untouched": true,
+  "coordinator_tree_untouched": true,
+  "worker_session": {
+    "id": "ses_fcb211947ffe487efqVG33v3vS",
+    "opencode_version": "1.18.21",
+    "model": "local3090/worker-fast",
+    "route": "bindery_external_runtime_w0",
+    "event_stream": ["step_start", "tool_use", "text", "step_finish", "stable_session_id"],
+    "terminal_errors": 0
+  },
+  "worker_gate_evidence": {
+    "bindery.unit.vet": "pass",
+    "bindery.redaction": "pass",
+    "bindery.verification.artifacts": "pass",
+    "bindery.unit.race": "worker could not execute due to the worker overlay denying the registered bash call; coordinator post-gate required"
+  },
+  "review_findings": [],
+  "decision_basis": "The candidate exactly matches the coordinator reference patch, changes only the three declared fixture implementation paths, and supplies deterministic builders beneath frozen capture, harness, and placement interfaces. No production semantic, contract, test-oracle, credential, deployment, or security change is present. The worker race gate is intentionally re-run by the coordinator because the worker tool overlay denied that registered command.",
+  "decision": "candidate",
+  "human_acceptance_required": true,
+  "qualification_eligible": false
+}
