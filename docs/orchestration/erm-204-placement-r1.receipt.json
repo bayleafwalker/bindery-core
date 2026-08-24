@@ -1,0 +1,61 @@
+{
+  "schema_version": "agentops-hybrid-receipt/v1",
+  "recorded_at": "2026-08-24T15:44:16Z",
+  "execution_id": "ERM-204-placement-r1-worker-home-fix:d37d5efdc229d25d:attempt-1",
+  "task_id": "ERM-204-placement-r1-worker-home-fix",
+  "repo_id": "bindery-core",
+  "sprint_item": {
+    "ref": "bindery-core#2293",
+    "claim_id": 16,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "bindery_external_runtime_w0",
+  "attempt": 1,
+  "inputs": {
+    "packet_hash": "sha256:d37d5efdc229d25d7e3ac4b6469eff3555acaac362623cd22dcb58711adc6a15",
+    "repository_commit": "a489634d7ec6cb1d81297692d9a98a64b9e52f02",
+    "packet_schema_version": "agentops-task/v2",
+    "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+    "gate_set_hash": "sha256:a4292e7eb3915082a60303ff377452ceb269f7d3360a35146fa317e8a72befc2"
+  },
+  "harness": {
+    "model": "local3090/worker-fast",
+    "opencode_version": "1.18.21",
+    "worker_identity": "agentworker",
+    "qualification": "unqualified",
+    "qualification_eligible": false
+  },
+  "worker": {
+    "worktree": "/tmp/agentworker/worktrees/bindery-core/ERM-204-placement-r1-worker-home-fix",
+    "touched_paths": [
+      "internal/externalruntime/placement.go"
+    ],
+    "candidate_sha256": {
+      "internal/externalruntime/placement.go": "69a600c5a9c443976d0d87154b61dc0b5f3c1789a311cd084adc0a893a7e7635"
+    },
+    "coordinator_tree_untouched": true,
+    "protected_paths_untouched": true
+  },
+  "gates": {
+    "bindery.unit.race": "pass",
+    "bindery.unit.vet": "pass",
+    "bindery.redaction": "pass",
+    "bindery.verification.artifacts": "pass",
+    "diff_scope": "pass",
+    "protected_paths": "pass",
+    "worktree_state": "pass",
+    "registered_commands": "pass"
+  },
+  "review": {
+    "reviewer": "luna-coordinator",
+    "context": "independent",
+    "decision": "candidate",
+    "evidence": "docs/orchestration/erm-204-placement-r1.review-evidence.json",
+    "reference_patch_match": false,
+    "coordinator_correction": true,
+    "human_acceptance_required": false,
+    "acceptance_basis": "Standing user approval treats human acceptance as a perpendicular workstream, not a merge gate."
+  },
+  "disposition": "candidate",
+  "qualification_eligible": false
+}
