@@ -28,3 +28,7 @@
 .kube/
 engine-module-client
 engine-module-server
+
+# sprintctl/kctl local backend marker and state (see agentops .gitignore)
+.sprintctl/
+.envrc.local
