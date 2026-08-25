@@ -14,8 +14,22 @@ func main() {
 		addr = ":8080"
 	}
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
-	server := &http.Server{Addr: addr, Handler: externalruntime.NewHandler(externalruntime.NewService())}
-	logger.Info("bindery external-runtime reference service listening", "addr", addr)
+
+	// Without an allocator the service admits sessions with no placement, so
+	// clients never receive a relay endpoint and no live match can happen.
+	config, err := allocatorConfigFromEnv()
+	if err != nil {
+		logger.Error("placement allocator is not configured", "error", err)
+		os.Exit(2)
+	}
+	service := externalruntime.NewServiceWithPlacementAllocator(newCncNetPrivateAllocator(config))
+	server := &http.Server{Addr: addr, Handler: externalruntime.NewHandler(service)}
+	logger.Info("bindery external-runtime reference service listening",
+		"addr", addr,
+		"relay_provider", config.Provider,
+		"relay_endpoint", config.Endpoint,
+		"region", config.Region,
+		"policy_version", config.PolicyVersion)
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		logger.Error("server stopped", "error", err)
 		os.Exit(1)
