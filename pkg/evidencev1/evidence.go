@@ -125,6 +125,7 @@ func Reconcile(request ReconcileRequest) (EvidenceSet, error) {
 			if !digestPattern.MatchString(observation.OrderedHash) {
 				return EvidenceSet{}, errors.New("ordered-hash reconciliation requires a sha256 digest for every stream")
 			}
+		}
 		reconciliation.DistinctHashes = distinctHashes(observations)
 		reconciliation.Outcome = outcome(len(reconciliation.DistinctHashes) == 1)
 	case MethodSemanticEquivalent, MethodQuorum, MethodDomainSpecific:
