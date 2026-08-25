@@ -2,10 +2,14 @@ package main
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"os"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -17,11 +21,22 @@ import (
 // allocator refuses to serve anything else rather than falling back.
 const cncnetPrivateProviderID = "cncnet-private"
 
+const allocatorRepository = "https://github.com/bayleafwalker/bindery-core"
+
+var revisionPattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
+
+// buildRevision is set from the image build. go run/local tests may supply
+// BINDERY_BUILD_REVISION instead; a supplied value may not contradict an exact
+// revision already embedded in the binary.
+var buildRevision = "unknown"
+
 type allocatorConfig struct {
 	Provider      string
 	Endpoint      string
 	Region        string
 	PolicyVersion string
+	Revision      string
+	ConfigDigest  string
 }
 
 // allocatorConfigFromEnv reads the deployment-owned placement policy. The
@@ -34,6 +49,10 @@ func allocatorConfigFromEnv() (allocatorConfig, error) {
 		Endpoint:      os.Getenv("BINDERY_RELAY_ENDPOINT"),
 		Region:        envOrDefault("BINDERY_RELAY_REGION", "eu-north"),
 		PolicyVersion: envOrDefault("BINDERY_PLACEMENT_POLICY_VERSION", "cncnet-private-lab-v1"),
+		Revision:      strings.TrimSpace(os.Getenv("BINDERY_BUILD_REVISION")),
+	}
+	if config.Revision == "" {
+		config.Revision = buildRevision
 	}
 	if config.Provider != cncnetPrivateProviderID {
 		return allocatorConfig{}, fmt.Errorf("this service serves only %q, not %q", cncnetPrivateProviderID, config.Provider)
@@ -45,6 +64,23 @@ func allocatorConfigFromEnv() (allocatorConfig, error) {
 	if err != nil || host == "" || port == "" {
 		return allocatorConfig{}, fmt.Errorf("BINDERY_RELAY_ENDPOINT %q is not host:port", config.Endpoint)
 	}
+	if !revisionPattern.MatchString(config.Revision) {
+		return allocatorConfig{}, errors.New("BINDERY_BUILD_REVISION must be the full 40-character Git commit")
+	}
+	if revisionPattern.MatchString(buildRevision) && config.Revision != buildRevision {
+		return allocatorConfig{}, errors.New("BINDERY_BUILD_REVISION does not match the revision embedded in the binary")
+	}
+	encoded, err := json.Marshal(struct {
+		Provider      string `json:"provider"`
+		Endpoint      string `json:"endpoint"`
+		Region        string `json:"region"`
+		PolicyVersion string `json:"policy_version"`
+	}{config.Provider, config.Endpoint, config.Region, config.PolicyVersion})
+	if err != nil {
+		return allocatorConfig{}, fmt.Errorf("encode allocator config: %w", err)
+	}
+	digest := sha256.Sum256(encoded)
+	config.ConfigDigest = "sha256:" + hex.EncodeToString(digest[:])
 	return config, nil
 }
 
@@ -69,6 +105,12 @@ func newCncNetPrivateAllocator(config allocatorConfig) externalruntime.Placement
 			RelayEndpoint:     config.Endpoint,
 			PolicyVersion:     config.PolicyVersion,
 			DecisionSummary:   fmt.Sprintf("private CnCNet tunnel in %s; p95 intent %dms", config.Region, intent.LatencyP95MS),
+			Allocator: externalruntime.ImplementationIdentity{
+				Implementation: cncnetPrivateProviderID,
+				Repository:     allocatorRepository,
+				Revision:       config.Revision,
+				ConfigDigest:   config.ConfigDigest,
+			},
 		}, nil
 	}
 }

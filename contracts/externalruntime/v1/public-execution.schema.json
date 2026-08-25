@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bindery.dev/contracts/externalruntime/v1/public-execution.schema.json",
+  "title": "Bindery external-runtime public execution",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "execution_id", "session_id", "phase", "created_at"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "execution_id": {"type": "string", "format": "uuid"},
+    "session_id": {"type": "string", "format": "uuid"},
+    "placement_id": {"type": "string", "format": "uuid"},
+    "phase": {"type": "string", "enum": ["prepared", "running", "ended", "failed", "expired"]},
+    "created_at": {"type": "string", "format": "date-time"},
+    "started_at": {"type": "string", "format": "date-time"},
+    "ended_at": {"type": "string", "format": "date-time"},
+    "evidence_set_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+    }
+  }
+}

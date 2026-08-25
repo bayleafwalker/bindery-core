@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bindery.dev/contracts/externalruntime/v1/evidence-set.schema.json",
+  "title": "Bindery reconciled evidence set",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "evidence_set_id", "execution_id", "observations", "reconciliation", "created_at"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "evidence_set_id": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "execution_id": {"type": "string", "format": "uuid"},
+    "observations": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["observer_id", "execution_id", "stream_id", "event_count"],
+        "properties": {
+          "observer_id": {"type": "string", "format": "uuid"},
+          "execution_id": {"type": "string", "format": "uuid"},
+          "stream_id": {"type": "string", "minLength": 1, "maxLength": 256},
+          "event_count": {"type": "integer", "minimum": 0},
+          "ordered_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+        }
+      }
+    },
+    "reconciliation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "outcome", "compared_observers"],
+      "properties": {
+        "method": {"type": "string", "enum": ["exact-count", "ordered-hash", "semantic-equivalence", "quorum", "domain-specific"]},
+        "outcome": {"type": "string", "enum": ["consistent", "inconsistent"]},
+        "compared_observers": {"type": "integer", "minimum": 2},
+        "distinct_counts": {"type": "array", "items": {"type": "integer", "minimum": 0}},
+        "distinct_hashes": {"type": "array", "items": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}
+      }
+    },
+    "created_at": {"type": "string", "format": "date-time"}
+  }
+}

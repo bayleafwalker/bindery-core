@@ -36,7 +36,7 @@ func TestBatchIngestIsAtLeastOnceWithGapsAndLateAppend(t *testing.T) {
 	if _, err := store.Ingest(testBatchWithPayload("capture-1", "player-1", 3, 3, `{"different":true}`)); !errors.Is(err, ErrSequenceConflict) {
 		t.Fatalf("conflicting sequence = %v", err)
 	}
-	if err := store.Close("capture-1", "player-1", StreamClose{FinalSequence: 3, LocalDrops: 1, EndReason: "client-exit", ClosedAt: time.Now().UTC()}); err != nil {
+	if err := store.Close("capture-1", "player-1", StreamClose{ExecutionID: "execution-1", FinalSequence: 3, LocalDrops: 1, EndReason: "client-exit", ClosedAt: time.Now().UTC()}); err != nil {
 		t.Fatal(err)
 	}
 	manifest, err := store.Manifest("capture-1", "player-1")
@@ -72,7 +72,7 @@ func testBatch(captureID, producerID string, first, last uint64) Batch {
 func testBatchWithPayload(captureID, producerID string, first, last uint64, payload string) Batch {
 	events := make([]RawEvent, 0, last-first+1)
 	for sequence := first; sequence <= last; sequence++ {
-		events = append(events, RawEvent{EventID: captureID + "-" + string(rune('a'+sequence)), SessionID: "session-1", CaptureID: captureID, ProducerClientID: producerID, ProducerClass: "player", CaptureMethod: "test", AdapterID: "adapter", AdapterVersion: "1", Sequence: sequence, ReceivedAt: time.Now().UTC(), EventType: "game.event", Payload: []byte(payload)})
+		events = append(events, RawEvent{EventID: captureID + "-" + string(rune('a'+sequence)), SessionID: "session-1", ExecutionID: "execution-1", CaptureID: captureID, ProducerClientID: producerID, ProducerClass: "player", CaptureMethod: "test", AdapterID: "adapter", AdapterVersion: "1", Sequence: sequence, ReceivedAt: time.Now().UTC(), EventType: "game.event", Payload: []byte(payload)})
 	}
-	return Batch{CaptureID: captureID, ProducerClientID: producerID, FirstSequence: first, LastSequence: last, Events: events}
+	return Batch{CaptureID: captureID, ExecutionID: "execution-1", ProducerClientID: producerID, FirstSequence: first, LastSequence: last, Events: events}
 }

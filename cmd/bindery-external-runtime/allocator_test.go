@@ -1,7 +1,6 @@
 package main
 
 import (
-	"os"
 	"testing"
 
 	"github.com/bayleafwalker/bindery-core/internal/externalruntime"
@@ -9,6 +8,7 @@ import (
 )
 
 func TestAllocatorConfigRequiresAnEndpoint(t *testing.T) {
+	t.Setenv("BINDERY_BUILD_REVISION", testBuildRevision)
 	t.Setenv("BINDERY_RELAY_ENDPOINT", "")
 	if _, err := allocatorConfigFromEnv(); err == nil {
 		t.Fatal("expected a missing endpoint to be refused")
@@ -16,6 +16,7 @@ func TestAllocatorConfigRequiresAnEndpoint(t *testing.T) {
 }
 
 func TestAllocatorConfigRejectsOtherProviders(t *testing.T) {
+	t.Setenv("BINDERY_BUILD_REVISION", testBuildRevision)
 	t.Setenv("BINDERY_RELAY_ENDPOINT", "192.168.122.1:50001")
 	t.Setenv("BINDERY_RELAY_PROVIDER", "cncnet-public")
 	if _, err := allocatorConfigFromEnv(); err == nil {
@@ -24,6 +25,7 @@ func TestAllocatorConfigRejectsOtherProviders(t *testing.T) {
 }
 
 func TestAllocatorConfigRejectsMalformedEndpoints(t *testing.T) {
+	t.Setenv("BINDERY_BUILD_REVISION", testBuildRevision)
 	t.Setenv("BINDERY_RELAY_ENDPOINT", "192.168.122.1")
 	if _, err := allocatorConfigFromEnv(); err == nil {
 		t.Fatal("expected an endpoint without a port to be refused")
@@ -31,8 +33,8 @@ func TestAllocatorConfigRejectsMalformedEndpoints(t *testing.T) {
 }
 
 func TestBothClientsReceiveTheSameEndpointWithDistinctAllocations(t *testing.T) {
-	os.Setenv("BINDERY_RELAY_ENDPOINT", "192.168.122.1:50001")
-	defer os.Unsetenv("BINDERY_RELAY_ENDPOINT")
+	t.Setenv("BINDERY_RELAY_ENDPOINT", "192.168.122.1:50001")
+	t.Setenv("BINDERY_BUILD_REVISION", testBuildRevision)
 	config, err := allocatorConfigFromEnv()
 	if err != nil {
 		t.Fatalf("config: %v", err)
@@ -61,10 +63,14 @@ func TestBothClientsReceiveTheSameEndpointWithDistinctAllocations(t *testing.T) 
 	if _, err := relayv1.PeekMustUUID(first.RelayAllocationID); err != nil {
 		t.Fatalf("allocation id must be a canonical UUID: %v", err)
 	}
+	if first.Allocator.Revision != testBuildRevision || first.Allocator.ConfigDigest == "" {
+		t.Fatalf("allocator identity is incomplete: %+v", first.Allocator)
+	}
 }
 
 func TestIntentWithoutTheServedRegionIsRefused(t *testing.T) {
 	t.Setenv("BINDERY_RELAY_ENDPOINT", "192.168.122.1:50001")
+	t.Setenv("BINDERY_BUILD_REVISION", testBuildRevision)
 	config, err := allocatorConfigFromEnv()
 	if err != nil {
 		t.Fatalf("config: %v", err)
@@ -75,3 +81,13 @@ func TestIntentWithoutTheServedRegionIsRefused(t *testing.T) {
 		t.Fatal("expected an unservable region to be refused rather than silently reassigned")
 	}
 }
+
+func TestAllocatorConfigRequiresAnExactImplementationRevision(t *testing.T) {
+	t.Setenv("BINDERY_RELAY_ENDPOINT", "192.168.122.1:50001")
+	t.Setenv("BINDERY_BUILD_REVISION", "unknown")
+	if _, err := allocatorConfigFromEnv(); err == nil {
+		t.Fatal("expected an unresolved allocator revision to be refused")
+	}
+}
+
+const testBuildRevision = "738e9f752ad1d892bdad8852cd4bd4e29182c16a"

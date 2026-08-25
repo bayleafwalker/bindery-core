@@ -20,6 +20,7 @@ var (
 type RawEvent struct {
 	EventID          string          `json:"event_id"`
 	SessionID        string          `json:"session_id"`
+	ExecutionID      string          `json:"execution_id"`
 	CaptureID        string          `json:"capture_id"`
 	ProducerClientID string          `json:"producer_client_id"`
 	ProducerClass    string          `json:"producer_class"`
@@ -37,6 +38,7 @@ type RawEvent struct {
 
 type Batch struct {
 	CaptureID        string     `json:"capture_id"`
+	ExecutionID      string     `json:"execution_id"`
 	ProducerClientID string     `json:"producer_client_id"`
 	FirstSequence    uint64     `json:"first_sequence"`
 	LastSequence     uint64     `json:"last_sequence"`
@@ -46,6 +48,7 @@ type Batch struct {
 
 type Receipt struct {
 	CaptureID           string      `json:"capture_id"`
+	ExecutionID         string      `json:"execution_id"`
 	ProducerClientID    string      `json:"producer_client_id"`
 	FirstSequence       uint64      `json:"first_sequence"`
 	LastSequence        uint64      `json:"last_sequence"`
@@ -56,6 +59,7 @@ type Receipt struct {
 }
 
 type StreamClose struct {
+	ExecutionID   string      `json:"execution_id"`
 	FinalSequence uint64      `json:"final_sequence"`
 	ObservedGaps  [][2]uint64 `json:"observed_gaps,omitempty"`
 	LocalDrops    uint64      `json:"local_drops"`
@@ -65,6 +69,7 @@ type StreamClose struct {
 
 type CompletenessManifest struct {
 	CaptureID        string      `json:"capture_id"`
+	ExecutionID      string      `json:"execution_id"`
 	ProducerClientID string      `json:"producer_client_id"`
 	ExpectedThrough  *uint64     `json:"expected_through,omitempty"`
 	ObservedRanges   [][2]uint64 `json:"observed_ranges"`
@@ -77,6 +82,7 @@ type CompletenessManifest struct {
 }
 
 type stream struct {
+	executionID string
 	events      map[uint64]RawEvent
 	batches     map[string]string
 	objects     []string
@@ -104,8 +110,11 @@ func (s *Store) Ingest(batch Batch) (Receipt, error) {
 	defer s.mu.Unlock()
 	state := s.streams[key]
 	if state == nil {
-		state = &stream{events: make(map[uint64]RawEvent), batches: make(map[string]string)}
+		state = &stream{executionID: batch.ExecutionID, events: make(map[uint64]RawEvent), batches: make(map[string]string)}
 		s.streams[key] = state
+	}
+	if state.executionID != batch.ExecutionID {
+		return Receipt{}, ErrSequenceConflict
 	}
 	if previous, ok := state.batches[batchKey]; ok {
 		if previous != batch.ContentHash {
@@ -132,10 +141,10 @@ func (s *Store) Close(captureID, producerID string, close StreamClose) error {
 	defer s.mu.Unlock()
 	state := s.streams[key]
 	if state == nil {
-		state = &stream{events: make(map[uint64]RawEvent), batches: make(map[string]string)}
+		state = &stream{executionID: close.ExecutionID, events: make(map[uint64]RawEvent), batches: make(map[string]string)}
 		s.streams[key] = state
 	}
-	if close.EndReason == "" {
+	if close.ExecutionID == "" || close.EndReason == "" || state.executionID != close.ExecutionID {
 		return ErrBatchInvalid
 	}
 	state.close = &close
@@ -151,8 +160,7 @@ func (s *Store) AppendDerivation(captureID, producerID, derivationID string) err
 	key := streamKey(captureID, producerID)
 	state := s.streams[key]
 	if state == nil {
-		state = &stream{events: make(map[uint64]RawEvent), batches: make(map[string]string)}
-		s.streams[key] = state
+		return errors.New("capture stream not found")
 	}
 	state.derivations = append(state.derivations, derivationID)
 	return nil
@@ -171,7 +179,7 @@ func (s *Store) Manifest(captureID, producerID string) (CompletenessManifest, er
 	}
 	sort.Slice(sequences, func(i, j int) bool { return sequences[i] < sequences[j] })
 	ranges := toRanges(sequences)
-	manifest := CompletenessManifest{CaptureID: captureID, ProducerClientID: producerID, ObservedRanges: ranges, MissingRanges: missingRanges(sequences), RawObjectHashes: unique(state.objects), DerivationIDs: append([]string(nil), state.derivations...)}
+	manifest := CompletenessManifest{CaptureID: captureID, ExecutionID: state.executionID, ProducerClientID: producerID, ObservedRanges: ranges, MissingRanges: missingRanges(sequences), RawObjectHashes: unique(state.objects), DerivationIDs: append([]string(nil), state.derivations...)}
 	if state.close != nil {
 		expected := state.close.FinalSequence
 		manifest.ExpectedThrough = &expected
@@ -184,18 +192,18 @@ func (s *Store) Manifest(captureID, producerID string) (CompletenessManifest, er
 }
 
 func (s *Store) receiptLocked(batch Batch, state *stream, duplicate bool) Receipt {
-	return Receipt{CaptureID: batch.CaptureID, ProducerClientID: batch.ProducerClientID, FirstSequence: batch.FirstSequence, LastSequence: batch.LastSequence, AcknowledgedThrough: acknowledgedThrough(state.events), MissingRanges: missingRangesFrom(state.events), RawObjectHash: batch.ContentHash, Duplicate: duplicate}
+	return Receipt{CaptureID: batch.CaptureID, ExecutionID: batch.ExecutionID, ProducerClientID: batch.ProducerClientID, FirstSequence: batch.FirstSequence, LastSequence: batch.LastSequence, AcknowledgedThrough: acknowledgedThrough(state.events), MissingRanges: missingRangesFrom(state.events), RawObjectHash: batch.ContentHash, Duplicate: duplicate}
 }
 
 func validateBatch(batch Batch) error {
-	if batch.CaptureID == "" || batch.ProducerClientID == "" || len(batch.Events) == 0 || batch.FirstSequence > batch.LastSequence {
+	if batch.CaptureID == "" || batch.ExecutionID == "" || batch.ProducerClientID == "" || len(batch.Events) == 0 || batch.FirstSequence > batch.LastSequence {
 		return ErrBatchInvalid
 	}
 	if uint64(len(batch.Events)) != batch.LastSequence-batch.FirstSequence+1 {
 		return ErrBatchInvalid
 	}
 	for index, event := range batch.Events {
-		if event.CaptureID != batch.CaptureID || event.ProducerClientID != batch.ProducerClientID || event.Sequence != batch.FirstSequence+uint64(index) || len(event.Payload) == 0 || !json.Valid(event.Payload) {
+		if event.CaptureID != batch.CaptureID || event.ExecutionID != batch.ExecutionID || event.ProducerClientID != batch.ProducerClientID || event.Sequence != batch.FirstSequence+uint64(index) || len(event.Payload) == 0 || !json.Valid(event.Payload) {
 			return ErrBatchInvalid
 		}
 	}

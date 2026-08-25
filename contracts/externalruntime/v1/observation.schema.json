@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bindery.dev/contracts/externalruntime/v1/observation.schema.json",
+  "title": "Bindery attributable observation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["observation_id", "observer_id", "execution_id", "stream_id", "sequence", "observed_at", "event"],
+  "properties": {
+    "observation_id": {"type": "string", "format": "uuid"},
+    "observer_id": {"type": "string", "format": "uuid"},
+    "execution_id": {"type": "string", "format": "uuid"},
+    "stream_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "sequence": {"type": "integer", "minimum": 0},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "event": {}
+  }
+}

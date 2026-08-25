@@ -5,7 +5,15 @@ metadata:
   labels:
     {{- include "bindery-external-runtime.labels" . | nindent 4 }}
 spec:
+  {{- if ne (int .Values.replicaCount) 1 }}
+  {{- fail "file-backed control state supports exactly one replica; configure a shared relational store before scaling" }}
+  {{- end }}
+  {{- if not .Values.persistence.enabled }}
+  {{- fail "durable control state is mandatory for the external-runtime service" }}
+  {{- end }}
   replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "bindery-external-runtime.name" . }}
@@ -29,6 +37,10 @@ spec:
               containerPort: 8080
               protocol: TCP
           env:
+            - name: BINDERY_BUILD_REVISION
+              value: {{ .Values.buildRevision | quote }}
+            - name: BINDERY_STATE_PATH
+              value: {{ printf "%s/control-state.json" .Values.persistence.mountPath | quote }}
             {{- range $key, $value := .Values.env }}
             - name: {{ $key }}
               value: {{ $value | quote }}
@@ -46,3 +58,14 @@ spec:
             httpGet: {path: /healthz, port: http}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          {{- if .Values.persistence.enabled }}
+          volumeMounts:
+            - name: control-state
+              mountPath: {{ .Values.persistence.mountPath | quote }}
+          {{- end }}
+      {{- if .Values.persistence.enabled }}
+      volumes:
+        - name: control-state
+          persistentVolumeClaim:
+            claimName: {{ default (printf "%s-state" (include "bindery-external-runtime.fullname" .)) .Values.persistence.existingClaim }}
+      {{- end }}

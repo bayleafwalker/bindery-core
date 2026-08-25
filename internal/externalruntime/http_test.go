@@ -122,3 +122,43 @@ func TestHTTPKnownEnrollmentReadIsPublicAndNotDiscoverable(t *testing.T) {
 		t.Fatalf("enrollment discovery status = %d, want 404", discoveryResponse.Code)
 	}
 }
+
+func TestHTTPReconcilesAndPublishesExecutionEvidence(t *testing.T) {
+	service := NewServiceWithPlacementAllocator(testPersistentAllocator)
+	handler := NewHandler(service)
+	owner := mustIdentity(t, service, "evidence-owner")
+	peer := mustIdentity(t, service, "evidence-peer")
+	created, err := service.CreateSession(owner.AccountToken, "evidence-session", testSessionRequest())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := mustEnroll(t, service, owner.AccountToken, created.SessionJoinCredential, created.PublicSession.SessionID, "evidence-a", ClientPlayer)
+	b := mustEnroll(t, service, peer.AccountToken, created.SessionJoinCredential, created.PublicSession.SessionID, "evidence-b", ClientPlayer)
+
+	body := `{"method":"exact-count","observations":[` +
+		`{"observer_id":"` + a.id + `","execution_id":"` + created.PublicSession.ExecutionID + `","stream_id":"telemetry-a","event_count":6651},` +
+		`{"observer_id":"` + b.id + `","execution_id":"` + created.PublicSession.ExecutionID + `","stream_id":"telemetry-b","event_count":6651}]}`
+	request := httptest.NewRequest(http.MethodPost, "/v1/executions/"+created.PublicSession.ExecutionID+"/evidence-sets", strings.NewReader(body))
+	request.Header.Set("Authorization", "Bearer "+owner.AccountToken)
+	request.Header.Set("Idempotency-Key", "evidence-reconcile")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusCreated {
+		t.Fatalf("evidence status = %d, body = %s", response.Code, response.Body.String())
+	}
+	var set struct {
+		EvidenceSetID string `json:"evidence_set_id"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&set); err != nil {
+		t.Fatal(err)
+	}
+	publicRequest := httptest.NewRequest(http.MethodGet, "/v1/evidence-sets/"+set.EvidenceSetID, nil)
+	publicResponse := httptest.NewRecorder()
+	handler.ServeHTTP(publicResponse, publicRequest)
+	if publicResponse.Code != http.StatusOK || !strings.Contains(publicResponse.Body.String(), `"outcome":"consistent"`) {
+		t.Fatalf("public evidence status = %d, body = %s", publicResponse.Code, publicResponse.Body.String())
+	}
+	if strings.Contains(publicResponse.Body.String(), owner.AccountToken) {
+		t.Fatal("public evidence response leaked account token")
+	}
+}

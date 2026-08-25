@@ -36,6 +36,36 @@ paths:
       parameters: [{in: path, name: session_id, required: true, schema: {type: string, format: uuid}}]
       responses:
         '200': {description: Public session, content: {application/json: {schema: {$ref: './public-session.schema.json'}}}}
+  /v1/placements/{placement_id}:
+    get:
+      operationId: getPlacement
+      parameters: [{in: path, name: placement_id, required: true, schema: {type: string, format: uuid}}]
+      responses:
+        '200': {description: Public placement and allocator implementation identity, content: {application/json: {schema: {$ref: './public-placement.schema.json'}}}}
+  /v1/executions/{execution_id}:
+    get:
+      operationId: getExecution
+      parameters: [{in: path, name: execution_id, required: true, schema: {type: string, format: uuid}}]
+      responses:
+        '200': {description: Public external execution, content: {application/json: {schema: {$ref: './public-execution.schema.json'}}}}
+  /v1/executions/{execution_id}/evidence-sets:
+    post:
+      operationId: reconcileExecutionEvidence
+      security: [{bearerAuth: []}]
+      parameters:
+        - {in: path, name: execution_id, required: true, schema: {type: string, format: uuid}}
+        - {in: header, name: Idempotency-Key, required: true, schema: {type: string, minLength: 1}}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/ReconcileEvidenceRequest'}}}
+      responses:
+        '201': {description: Reconciled evidence set, content: {application/json: {schema: {$ref: './evidence-set.schema.json'}}}}
+  /v1/evidence-sets/{evidence_set_id}:
+    get:
+      operationId: getEvidenceSet
+      parameters: [{in: path, name: evidence_set_id, required: true, schema: {type: string, pattern: '^sha256:[0-9a-f]{64}$'}}]
+      responses:
+        '200': {description: Public reconciled evidence set, content: {application/json: {schema: {$ref: './evidence-set.schema.json'}}}}
   /v1/sessions/{session_id}/enrollments:
     post:
       operationId: enrollClient
@@ -162,3 +192,22 @@ components:
         report_id: {type: string, format: uuid}
         kind: {type: string, enum: [ready, started, exited, failed, capture_degraded]}
         reason: {type: string, maxLength: 256}
+    ReconcileEvidenceRequest:
+      type: object
+      additionalProperties: false
+      required: [method, observations]
+      properties:
+        method: {type: string, enum: [exact-count, ordered-hash, semantic-equivalence, quorum, domain-specific]}
+        observations:
+          type: array
+          minItems: 2
+          items:
+            type: object
+            additionalProperties: false
+            required: [observer_id, execution_id, stream_id, event_count]
+            properties:
+              observer_id: {type: string, format: uuid}
+              execution_id: {type: string, format: uuid}
+              stream_id: {type: string, minLength: 1, maxLength: 256}
+              event_count: {type: integer, minimum: 0}
+              ordered_hash: {type: string, pattern: '^sha256:[0-9a-f]{64}$'}

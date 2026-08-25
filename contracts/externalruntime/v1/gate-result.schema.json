@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bindery.dev/contracts/externalruntime/v1/gate-result.schema.json",
+  "title": "Bindery calibrated gate result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["gate_id", "gate_version", "implementation_hash", "status", "reason", "calibration_valid"],
+  "properties": {
+    "gate_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "gate_version": {"type": "string", "minLength": 1, "maxLength": 64},
+    "implementation_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "status": {"type": "string", "enum": ["PASS", "FAIL", "NOT_APPLICABLE", "UNRESOLVED", "ERROR"]},
+    "reason": {"type": "string", "minLength": 1, "maxLength": 2048},
+    "calibration_valid": {"type": "boolean"}
+  }
+}

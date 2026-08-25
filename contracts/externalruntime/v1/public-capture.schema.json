@@ -4,10 +4,11 @@
   "title": "Bindery public capture stream",
   "type": "object",
   "additionalProperties": false,
-  "required": ["capture_id", "session_id", "producer_client_id", "producer_class", "capture_method", "adapter_id", "adapter_version", "status", "created_at"],
+  "required": ["capture_id", "session_id", "execution_id", "producer_client_id", "producer_class", "capture_method", "adapter_id", "adapter_version", "status", "created_at"],
   "properties": {
     "capture_id": {"type": "string", "format": "uuid"},
     "session_id": {"type": "string", "format": "uuid"},
+    "execution_id": {"type": "string", "format": "uuid"},
     "producer_client_id": {"type": "string", "format": "uuid"},
     "producer_class": {"type": "string", "enum": ["player", "observer", "relay", "normalizer"]},
     "capture_method": {"type": "string", "minLength": 1, "maxLength": 128},
@@ -20,4 +21,3 @@
     "objects": {"type": "array", "items": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}
   }
 }
-
