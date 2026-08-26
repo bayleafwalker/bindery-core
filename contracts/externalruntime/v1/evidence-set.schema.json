@@ -15,13 +15,18 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["observer_id", "execution_id", "stream_id", "event_count"],
+        "required": ["observer_id", "execution_id", "stream_id", "event_count", "source"],
         "properties": {
           "observer_id": {"type": "string", "format": "uuid"},
           "execution_id": {"type": "string", "format": "uuid"},
           "stream_id": {"type": "string", "minLength": 1, "maxLength": 256},
           "event_count": {"type": "integer", "minimum": 0},
-          "ordered_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+          "ordered_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+          "source": {
+            "type": "string",
+            "enum": ["client-reported", "broker-derived"],
+            "description": "Who counted. A summary the producer supplied is a claim about itself; one the broker computed from persisted observations is not. The field is part of the evidence set's content-derived identity, because an evidence set that cannot say which it holds cannot support a claim of independence."
+          }
         }
       }
     },

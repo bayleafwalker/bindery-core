@@ -1,16 +1,19 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://bindery.dev/contracts/externalruntime/v1/gate-result.schema.json",
-  "title": "Bindery calibrated gate result",
+  "title": "Bindery gate result",
+  "description": "The outcome of one gate evaluation. FAIL is reserved for an applicable, calibrated evaluator rejecting its subject; missing applicability evidence is UNRESOLVED, a known context mismatch is NOT_APPLICABLE, and a verifier that cannot do its job is ERROR. None of those silently become FAIL.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["gate_id", "gate_version", "implementation_hash", "status", "reason", "calibration_valid"],
+  "required": ["schema_version", "gate_id", "gate_version", "implementation_hash", "status", "calibration_valid"],
   "properties": {
+    "schema_version": {"const": "1.0.0"},
     "gate_id": {"type": "string", "minLength": 1, "maxLength": 128},
-    "gate_version": {"type": "string", "minLength": 1, "maxLength": 64},
+    "gate_version": {"type": "string", "minLength": 1, "maxLength": 32},
     "implementation_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "capture_id": {"type": "string", "format": "uuid"},
     "status": {"type": "string", "enum": ["PASS", "FAIL", "NOT_APPLICABLE", "UNRESOLVED", "ERROR"]},
-    "reason": {"type": "string", "minLength": 1, "maxLength": 2048},
+    "reason": {"type": "string", "maxLength": 512},
     "calibration_valid": {"type": "boolean"}
   }
 }

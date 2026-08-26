@@ -49,8 +49,10 @@ docker-build:
 	docker build -f Dockerfile -t bindery-core:dev .
 	docker build -f Dockerfile.external-runtime -t bindery-external-runtime:dev .
 
+# The release-blocking redaction oracle, run over the public DTO shapes that
+# actually cross the boundary rather than one hand-written line.
 redaction:
-	printf '%s\n' '{"account_id":"public","handle":"safe"}' | go run ./cmd/bindery-redaction-scan
+	go run ./hack/redaction-corpus | go run ./cmd/bindery-redaction-scan
 
 # The checks the external-runtime line ran in its own CI, kept as one target.
 verify-external-runtime: test-race vet lint-charts

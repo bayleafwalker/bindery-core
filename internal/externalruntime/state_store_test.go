@@ -36,15 +36,23 @@ func TestPersistentServiceRestoresResolvableControlAndEvidenceGraph(t *testing.T
 	mustReport(t, service, a, "persistent-start-a", "started")
 	mustReport(t, service, b, "persistent-start-b", "started")
 
+	// The RA2 vertical slice's two matching 6,651-event accounts, kept as the
+	// regression fixture for exact-count -- but now driven through the capture
+	// plane, so the counts are the broker's rather than the adapters'.
+	closeMatchingStreams(t, service, a, b, 6651)
 	set, err := service.CreateEvidenceSet(playerA.AccountToken, created.PublicSession.ExecutionID, "persistent-evidence", ReconcileEvidenceRequest{
 		Method: evidencev1.MethodExactCount,
-		Observations: []evidencev1.ObservationSummary{
-			{ObserverID: a.id, ExecutionID: created.PublicSession.ExecutionID, StreamID: "telemetry-a", EventCount: 6651},
-			{ObserverID: b.id, ExecutionID: created.PublicSession.ExecutionID, StreamID: "telemetry-b", EventCount: 6651},
-		},
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if len(set.Observations) != 2 {
+		t.Fatalf("observations = %+v", set.Observations)
+	}
+	for _, observation := range set.Observations {
+		if observation.EventCount != 6651 || observation.Source != evidencev1.SourceBrokerDerived {
+			t.Fatalf("observation = %+v", observation)
+		}
 	}
 
 	reopenedStore, err := NewFileStateStore(path)
@@ -76,6 +84,31 @@ func TestPersistentServiceRestoresResolvableControlAndEvidenceGraph(t *testing.T
 	restoredSet, err := reopened.GetEvidenceSet(set.EvidenceSetID)
 	if err != nil || restoredSet.ExecutionID != execution.ExecutionID || restoredSet.Reconciliation.Outcome != evidencev1.OutcomeConsistent {
 		t.Fatalf("evidence after restart = %+v, error = %v", restoredSet, err)
+	}
+	// The evidence set must still resolve to the captures it was derived from,
+	// their gate results, and the observations behind those.
+	if len(restoredSet.GateResults) != 2 {
+		t.Fatalf("gate results after restart = %+v", restoredSet.GateResults)
+	}
+	for _, result := range restoredSet.GateResults {
+		if result.Status != "PASS" || !result.CalibrationValid || result.ImplementationHash == "" {
+			t.Fatalf("gate result after restart = %+v", result)
+		}
+		record, err := reopened.GetCapture(result.CaptureID)
+		if err != nil || record.Completeness.EventCount != 6651 || !record.Completeness.Closed {
+			t.Fatalf("capture %s after restart = %+v, error = %v", result.CaptureID, record.Completeness, err)
+		}
+	}
+	// Re-deriving from the restored bytes must reach the same evidence set id,
+	// which is what makes the identity content-addressed rather than incidental.
+	rederived, err := reopened.CreateEvidenceSet(playerA.AccountToken, created.PublicSession.ExecutionID, "persistent-evidence-again", ReconcileEvidenceRequest{
+		Method: evidencev1.MethodExactCount,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rederived.EvidenceSetID != set.EvidenceSetID {
+		t.Fatalf("re-derivation after restart produced %s, want %s", rederived.EvidenceSetID, set.EvidenceSetID)
 	}
 	if _, err := reopened.CreateSession(playerA.AccountToken, "after-restart", testSessionRequest()); err != nil {
 		t.Fatalf("persisted account verifier no longer authenticates: %v", err)

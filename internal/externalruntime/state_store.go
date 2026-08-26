@@ -10,6 +10,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/bayleafwalker/bindery-core/internal/capture"
 	"github.com/bayleafwalker/bindery-core/pkg/evidencev1"
 )
 
@@ -68,6 +69,19 @@ type storedEnrollmentReplay struct {
 	ExpiresAt   time.Time        `json:"expires_at"`
 }
 
+// storedCapture keeps the index -- hashes and sequence ranges -- in the
+// snapshot while the bytes those hashes name live in the object store. A
+// snapshot write therefore stays proportional to the number of batches, not
+// the number of events.
+type storedCapture struct {
+	Public        PublicCapture       `json:"public"`
+	Index         []CaptureIndexEntry `json:"index"`
+	Close         *CaptureClose       `json:"close,omitempty"`
+	ClockQuality  string              `json:"clock_quality,omitempty"`
+	TimedEvents   uint64              `json:"timed_events,omitempty"`
+	DerivationIDs []string            `json:"derivation_ids,omitempty"`
+}
+
 type storedEvidenceReplay struct {
 	RequestHash string                 `json:"request_hash"`
 	Public      evidencev1.EvidenceSet `json:"public"`
@@ -81,7 +95,9 @@ type serviceSnapshot struct {
 	Enrollments           map[string]storedEnrollment       `json:"enrollments"`
 	Placements            map[string]PublicPlacement        `json:"placements"`
 	Executions            map[string]PublicExecution        `json:"executions"`
+	Captures              map[string]storedCapture          `json:"captures"`
 	EvidenceSets          map[string]evidencev1.EvidenceSet `json:"evidence_sets"`
+	GateResults           map[string][]PublicGateResult     `json:"gate_results,omitempty"`
 	IdentityIdempotency   map[string]storedIdentityReplay   `json:"identity_idempotency"`
 	SessionIdempotency    map[string]storedSessionReplay    `json:"session_idempotency"`
 	EnrollmentIdempotency map[string]storedEnrollmentReplay `json:"enrollment_idempotency"`
@@ -90,6 +106,26 @@ type serviceSnapshot struct {
 
 type FileStateStore struct {
 	path string
+}
+
+// objectRooted is implemented by state stores that also have somewhere to put
+// capture bytes. It is an optional interface so an in-memory or test state
+// store stays usable without inventing a filesystem for it.
+type objectRooted interface {
+	Objects() (ObjectStore, error)
+}
+
+// Objects roots the capture object store beside the control snapshot, so a
+// single persistent volume carries the whole durable boundary.
+func (s *FileStateStore) Objects() (ObjectStore, error) {
+	store, err := capture.NewFileObjectStore(filepath.Dir(s.path))
+	if err != nil {
+		return nil, err
+	}
+	if _, err := store.SweepTemps(); err != nil {
+		return nil, err
+	}
+	return store, nil
 }
 
 func NewFileStateStore(path string) (*FileStateStore, error) {
@@ -193,6 +229,13 @@ func OpenPersistentService(allocator PlacementAllocator, store StateStore) (*Ser
 	}
 	service := NewServiceWithPlacementAllocator(allocator)
 	service.stateStore = store
+	if rooted, ok := store.(objectRooted); ok {
+		objects, err := rooted.Objects()
+		if err != nil {
+			return nil, fmt.Errorf("open capture object store: %w", err)
+		}
+		service.objects = objects
+	}
 	snapshot, err := store.Load()
 	if err != nil {
 		return nil, err
@@ -214,7 +257,9 @@ func emptyServiceSnapshot() serviceSnapshot {
 		Enrollments:           make(map[string]storedEnrollment),
 		Placements:            make(map[string]PublicPlacement),
 		Executions:            make(map[string]PublicExecution),
+		Captures:              make(map[string]storedCapture),
 		EvidenceSets:          make(map[string]evidencev1.EvidenceSet),
+		GateResults:           make(map[string][]PublicGateResult),
 		IdentityIdempotency:   make(map[string]storedIdentityReplay),
 		SessionIdempotency:    make(map[string]storedSessionReplay),
 		EnrollmentIdempotency: make(map[string]storedEnrollmentReplay),
@@ -270,8 +315,21 @@ func (s *Service) snapshotLocked() serviceSnapshot {
 	for id, execution := range s.executions {
 		snapshot.Executions[id] = clonePublicExecution(execution)
 	}
+	for id, record := range s.captures {
+		snapshot.Captures[id] = storedCapture{
+			Public:        clonePublicCapture(record.PublicCapture),
+			Index:         append([]CaptureIndexEntry(nil), record.Index...),
+			Close:         record.clone().Close,
+			ClockQuality:  record.ClockQuality,
+			TimedEvents:   record.TimedEvents,
+			DerivationIDs: append([]string(nil), record.DerivationIDs...),
+		}
+	}
 	for id, set := range s.evidenceSets {
 		snapshot.EvidenceSets[id] = cloneEvidenceSet(set)
+	}
+	for id, results := range s.gateResults {
+		snapshot.GateResults[id] = append([]PublicGateResult(nil), results...)
 	}
 	for key, replay := range s.identityIdempotency {
 		snapshot.IdentityIdempotency[key] = storedIdentityReplay{RequestHash: replay.RequestHash, Public: clonePublicIdentity(replay.Public)}
@@ -384,6 +442,10 @@ func (s *Service) restoreSnapshotLocked(snapshot serviceSnapshot) error {
 			return fmt.Errorf("enrollment %q has dangling session %q", id, enrollment.sessionID)
 		}
 	}
+	captures, err := restoreCaptures(snapshot, sessions, enrollments, s.objects)
+	if err != nil {
+		return err
+	}
 	evidenceSets := make(map[string]evidencev1.EvidenceSet, len(snapshot.EvidenceSets))
 	for id, set := range snapshot.EvidenceSets {
 		if set.EvidenceSetID != id {
@@ -405,6 +467,14 @@ func (s *Service) restoreSnapshotLocked(snapshot serviceSnapshot) error {
 
 	s.identities, s.handles, s.sessions, s.enrollments = identities, handles, sessions, enrollments
 	s.placements, s.executions, s.evidenceSets = placements, executions, evidenceSets
+	s.captures = captures
+	s.gateResults = make(map[string][]PublicGateResult, len(snapshot.GateResults))
+	for id, results := range snapshot.GateResults {
+		if _, ok := evidenceSets[id]; !ok {
+			return fmt.Errorf("gate results reference unknown evidence set %q", id)
+		}
+		s.gateResults[id] = append([]PublicGateResult(nil), results...)
+	}
 	s.identityIdempotency = make(map[string]identityCreateReplay, len(snapshot.IdentityIdempotency))
 	for key, replay := range snapshot.IdentityIdempotency {
 		s.identityIdempotency[key] = identityCreateReplay{RequestHash: replay.RequestHash, Public: clonePublicIdentity(replay.Public)}
@@ -423,8 +493,84 @@ func (s *Service) restoreSnapshotLocked(snapshot serviceSnapshot) error {
 	}
 	for _, session := range s.sessions {
 		s.refreshPublicEnrollmentsLocked(session)
+		s.refreshSessionCapturesLocked(session)
 	}
 	return nil
+}
+
+// restoreCaptures is the referential gate for the observation leg. It refuses
+// the whole load rather than dropping a bad edge, matching how every other
+// record type here is validated: a control plane that silently forgets one
+// capture is worse than one that will not start.
+//
+// It deliberately checks that each indexed object *exists*, not that it still
+// hashes correctly. Re-hashing every object on every boot is proportional to
+// total capture volume, and a mismatch has no consequence until evidence is
+// derived -- which is exactly where the content check does run.
+func restoreCaptures(snapshot serviceSnapshot, sessions map[string]*sessionRecord, enrollments map[string]*enrollmentRecord, objects ObjectStore) (map[string]*captureRecord, error) {
+	captures := make(map[string]*captureRecord, len(snapshot.Captures))
+	for id, stored := range snapshot.Captures {
+		if stored.Public.CaptureID != id {
+			return nil, fmt.Errorf("capture %q has a different identity", id)
+		}
+		switch CaptureStatus(stored.Public.Status) {
+		case CaptureOpen, CaptureClosed, CaptureDegraded, CaptureAbandoned:
+		default:
+			return nil, fmt.Errorf("capture %q has unknown status %q", id, stored.Public.Status)
+		}
+		terminal := CaptureStatus(stored.Public.Status) == CaptureClosed || CaptureStatus(stored.Public.Status) == CaptureAbandoned
+		if terminal != (stored.Public.ClosedAt != nil) {
+			return nil, fmt.Errorf("capture %q status %q disagrees with its close time", id, stored.Public.Status)
+		}
+		session, ok := sessions[stored.Public.SessionID]
+		if !ok {
+			return nil, fmt.Errorf("capture %q has dangling session %q", id, stored.Public.SessionID)
+		}
+		if session.executionID != stored.Public.ExecutionID {
+			return nil, fmt.Errorf("capture %q names execution %q but its session runs %q", id, stored.Public.ExecutionID, session.executionID)
+		}
+		producer, ok := enrollments[stored.Public.ProducerClientID]
+		if !ok || producer.sessionID != stored.Public.SessionID {
+			return nil, fmt.Errorf("capture %q has dangling producer %q", id, stored.Public.ProducerClientID)
+		}
+		for _, entry := range stored.Index {
+			if entry.Kind != CaptureEntryRaw && entry.Kind != CaptureEntryObject && entry.Kind != CaptureEntryDerived {
+				return nil, fmt.Errorf("capture %q has index entry of unknown kind %q", id, entry.Kind)
+			}
+			if objects == nil {
+				return nil, fmt.Errorf("capture %q cannot be restored without an object store", id)
+			}
+			size, err := objects.Size(entry.ContentHash)
+			if err != nil {
+				return nil, fmt.Errorf("capture %q references unresolvable object %s: %w", id, entry.ContentHash, err)
+			}
+			if size != entry.Bytes {
+				return nil, fmt.Errorf("capture %q object %s is %d bytes, index says %d", id, entry.ContentHash, size, entry.Bytes)
+			}
+		}
+		record := &captureRecord{
+			PublicCapture: clonePublicCapture(stored.Public),
+			Index:         append([]CaptureIndexEntry(nil), stored.Index...),
+			ClockQuality:  stored.ClockQuality,
+			TimedEvents:   stored.TimedEvents,
+			DerivationIDs: append([]string(nil), stored.DerivationIDs...),
+		}
+		if stored.Close != nil {
+			closeCopy := *stored.Close
+			closeCopy.ObservedGaps = append([][2]uint64(nil), stored.Close.ObservedGaps...)
+			record.Close = &closeCopy
+		}
+		captures[id] = record
+	}
+	for sessionID, session := range sessions {
+		for _, captureID := range session.CaptureIDs {
+			record, ok := captures[captureID]
+			if !ok || record.SessionID != sessionID {
+				return nil, fmt.Errorf("session %q has dangling capture %q", sessionID, captureID)
+			}
+		}
+	}
+	return captures, nil
 }
 
 func (s *Service) commitLocked(before serviceSnapshot) error {

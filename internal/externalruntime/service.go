@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bayleafwalker/bindery-core/internal/capture"
 	"github.com/bayleafwalker/bindery-core/pkg/evidencev1"
 )
 
@@ -40,6 +41,7 @@ type enrollmentCreateReplay struct {
 	RequestHash string
 	Public      PublicEnrollment
 	ExpiresAt   time.Time
+	Offers      []CaptureStreamOffer
 }
 
 type evidenceCreateReplay struct {
@@ -60,7 +62,17 @@ type Service struct {
 	enrollments  map[string]*enrollmentRecord
 	placements   map[string]PublicPlacement
 	executions   map[string]PublicExecution
+	captures     map[string]*captureRecord
 	evidenceSets map[string]evidencev1.EvidenceSet
+	// gateResults records which captures were admitted to an evidence set and
+	// why, keyed by evidence set id. It is kept beside the set rather than
+	// inside it so the reconciliation type stays about reconciliation.
+	gateResults map[string][]PublicGateResult
+
+	// objects holds capture bytes outside the control snapshot. It defaults to
+	// an in-memory store so a non-persistent Service stays usable in tests;
+	// OpenPersistentService replaces it with the file-backed one.
+	objects ObjectStore
 
 	identityIdempotency   map[string]identityCreateReplay
 	sessionIdempotency    map[string]sessionCreateReplay
@@ -85,7 +97,10 @@ func NewServiceWithPlacementAllocator(allocator PlacementAllocator) *Service {
 		enrollments:           make(map[string]*enrollmentRecord),
 		placements:            make(map[string]PublicPlacement),
 		executions:            make(map[string]PublicExecution),
+		captures:              make(map[string]*captureRecord),
 		evidenceSets:          make(map[string]evidencev1.EvidenceSet),
+		gateResults:           make(map[string][]PublicGateResult),
+		objects:               capture.NewMemoryObjectStore(),
 		identityIdempotency:   make(map[string]identityCreateReplay),
 		sessionIdempotency:    make(map[string]sessionCreateReplay),
 		enrollmentIdempotency: make(map[string]enrollmentCreateReplay),
@@ -288,72 +303,106 @@ func (s *Service) GetExecution(executionID string) (PublicExecution, error) {
 	return clonePublicExecution(execution), nil
 }
 
-func (s *Service) GetEvidenceSet(evidenceSetID string) (evidencev1.EvidenceSet, error) {
+func (s *Service) GetEvidenceSet(evidenceSetID string) (EvidenceSetResult, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	set, ok := s.evidenceSets[evidenceSetID]
 	if !ok {
-		return evidencev1.EvidenceSet{}, domainError("EVIDENCE_SET_NOT_FOUND", "evidence set was not found")
+		return EvidenceSetResult{}, domainError("EVIDENCE_SET_NOT_FOUND", "evidence set was not found")
 	}
-	return cloneEvidenceSet(set), nil
+	return EvidenceSetResult{
+		EvidenceSet: cloneEvidenceSet(set),
+		GateResults: append([]PublicGateResult(nil), s.gateResults[evidenceSetID]...),
+	}, nil
 }
 
-func (s *Service) CreateEvidenceSet(accountToken, executionID, idempotencyKey string, req ReconcileEvidenceRequest) (evidencev1.EvidenceSet, error) {
+// CreateEvidenceSet reconciles independent accounts of one execution.
+//
+// Where a capture plane exists, the broker derives the observation summaries
+// itself and refuses client-supplied ones outright. That refusal is the point:
+// an evidence set assembled from numbers the adapters reported about
+// themselves records agreement between two self-assessments, which is a weaker
+// claim than it looks and was mistaken for a stronger one once already.
+func (s *Service) CreateEvidenceSet(accountToken, executionID, idempotencyKey string, req ReconcileEvidenceRequest) (EvidenceSetResult, error) {
 	if idempotencyKey == "" {
-		return evidencev1.EvidenceSet{}, domainError("IDEMPOTENCY_KEY_REQUIRED", "an idempotency key is required")
+		return EvidenceSetResult{}, domainError("IDEMPOTENCY_KEY_REQUIRED", "an idempotency key is required")
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.convergeAndPersistLocked(s.now()); err != nil {
-		return evidencev1.EvidenceSet{}, err
+		return EvidenceSetResult{}, err
 	}
 	accountID, err := s.authenticateAccountLocked(accountToken)
 	if err != nil {
-		return evidencev1.EvidenceSet{}, err
+		return EvidenceSetResult{}, err
 	}
 	execution, ok := s.executions[executionID]
 	if !ok {
-		return evidencev1.EvidenceSet{}, domainError("EXECUTION_NOT_FOUND", "execution was not found")
+		return EvidenceSetResult{}, domainError("EXECUTION_NOT_FOUND", "execution was not found")
 	}
 	session, ok := s.sessions[execution.SessionID]
 	if !ok {
-		return evidencev1.EvidenceSet{}, domainError("STATE_INTEGRITY_ERROR", "execution does not resolve to a session")
+		return EvidenceSetResult{}, domainError("STATE_INTEGRITY_ERROR", "execution does not resolve to a session")
 	}
 	if session.creatorID != accountID {
-		return evidencev1.EvidenceSet{}, domainError("TOKEN_INVALID", "only the session creator may reconcile execution evidence")
+		return EvidenceSetResult{}, domainError("TOKEN_INVALID", "only the session creator may reconcile execution evidence")
 	}
 	hash := requestHash(req)
 	replayKey := accountID + ":" + executionID + ":" + idempotencyKey
 	if replay, exists := s.evidenceIdempotency[replayKey]; exists {
 		if replay.RequestHash != hash {
-			return evidencev1.EvidenceSet{}, domainError("IDEMPOTENCY_CONFLICT", "idempotency key was reused with a different request")
+			return EvidenceSetResult{}, domainError("IDEMPOTENCY_CONFLICT", "idempotency key was reused with a different request")
 		}
-		return cloneEvidenceSet(replay.Public), nil
+		return EvidenceSetResult{
+			EvidenceSet: cloneEvidenceSet(replay.Public),
+			GateResults: append([]PublicGateResult(nil), s.gateResults[replay.Public.EvidenceSetID]...),
+		}, nil
 	}
-	for _, observation := range req.Observations {
+
+	available := s.executionCaptureIDsLocked(executionID)
+	observations := req.Observations
+	var gateResults []PublicGateResult
+	if len(available) > 0 {
+		if len(req.Observations) > 0 {
+			return EvidenceSetResult{}, domainError("OBSERVATION_ADJUDICATION_FORBIDDEN", "this execution has captured observations; the broker derives the summaries and will not accept supplied counts")
+		}
+		requested := req.CaptureIDs
+		if len(requested) == 0 {
+			requested = available
+		}
+		observations, gateResults, err = s.deriveObservationsLocked(executionID, requested)
+		if err != nil {
+			return EvidenceSetResult{}, err
+		}
+	}
+
+	for _, observation := range observations {
 		enrollment, exists := session.enrollments[observation.ObserverID]
 		if !exists || enrollment.sessionID != session.SessionID {
-			return evidencev1.EvidenceSet{}, domainError("OBSERVER_NOT_ENROLLED", "every observer must be enrolled in the execution session")
+			return EvidenceSetResult{}, domainError("OBSERVER_NOT_ENROLLED", "every observer must be enrolled in the execution session")
 		}
 	}
 	set, err := evidencev1.Reconcile(evidencev1.ReconcileRequest{
 		ExecutionID:  executionID,
 		Method:       req.Method,
-		Observations: req.Observations,
+		Observations: observations,
 		CreatedAt:    s.now(),
 	})
 	if err != nil {
-		return evidencev1.EvidenceSet{}, domainError("RECONCILIATION_INVALID", err.Error())
+		return EvidenceSetResult{}, domainError("RECONCILIATION_INVALID", err.Error())
 	}
 	before := s.snapshotLocked()
 	s.evidenceSets[set.EvidenceSetID] = cloneEvidenceSet(set)
+	if len(gateResults) > 0 {
+		s.gateResults[set.EvidenceSetID] = append([]PublicGateResult(nil), gateResults...)
+	}
 	execution.EvidenceSetIDs = appendUnique(execution.EvidenceSetIDs, set.EvidenceSetID)
 	s.executions[executionID] = execution
 	s.evidenceIdempotency[replayKey] = evidenceCreateReplay{RequestHash: hash, Public: cloneEvidenceSet(set)}
 	if err := s.commitLocked(before); err != nil {
-		return evidencev1.EvidenceSet{}, err
+		return EvidenceSetResult{}, err
 	}
-	return set, nil
+	return EvidenceSetResult{EvidenceSet: set, GateResults: gateResults}, nil
 }
 
 func (s *Service) Enroll(accountToken, sessionJoinCredential, sessionID, idempotencyKey string, req EnrollmentRequest) (EnrollmentCreateResponse, error) {
@@ -418,7 +467,7 @@ func (s *Service) Enroll(accountToken, sessionJoinCredential, sessionID, idempot
 		if replay.RequestHash != hash {
 			return EnrollmentCreateResponse{}, domainError("IDEMPOTENCY_CONFLICT", "enrollment key was reused with a different request")
 		}
-		return EnrollmentCreateResponse{PublicEnrollment: replay.Public, ExpiresAt: replay.ExpiresAt}, nil
+		return EnrollmentCreateResponse{PublicEnrollment: replay.Public, ExpiresAt: replay.ExpiresAt, CaptureStreamOffers: append([]CaptureStreamOffer(nil), replay.Offers...)}, nil
 	}
 	before := s.snapshotLocked()
 	now := s.now()
@@ -442,8 +491,17 @@ func (s *Service) Enroll(accountToken, sessionJoinCredential, sessionID, idempot
 		transitionSession(session, SessionAdmitting, "match-broker", "first-client-enrolled", now)
 	}
 	s.refreshPublicEnrollmentsLocked(session)
-	response := EnrollmentCreateResponse{PublicEnrollment: public, ClientLeaseToken: lease, TransportCredential: transport, ExpiresAt: enrollment.expiresAt}
-	s.enrollmentIdempotency[replayKey] = enrollmentCreateReplay{RequestHash: hash, Public: public, ExpiresAt: enrollment.expiresAt}
+	var offers []CaptureStreamOffer
+	offer, minted, err := s.mintCaptureLocked(session, enrollment, req.CaptureMethod, now)
+	if err != nil {
+		return EnrollmentCreateResponse{}, fmt.Errorf("open capture stream: %w", err)
+	}
+	if minted {
+		offers = append(offers, offer)
+		s.refreshSessionCapturesLocked(session)
+	}
+	response := EnrollmentCreateResponse{PublicEnrollment: public, ClientLeaseToken: lease, TransportCredential: transport, ExpiresAt: enrollment.expiresAt, CaptureStreamOffers: offers}
+	s.enrollmentIdempotency[replayKey] = enrollmentCreateReplay{RequestHash: hash, Public: public, ExpiresAt: enrollment.expiresAt, Offers: append([]CaptureStreamOffer(nil), offers...)}
 	if err := s.commitLocked(before); err != nil {
 		return EnrollmentCreateResponse{}, err
 	}
@@ -483,6 +541,9 @@ func (s *Service) Report(clientLease, clientID, idempotencyKey string, req Lifec
 	now := s.now()
 	if err := applyReport(session, enrollment, req, now); err != nil {
 		return LifecycleReportResponse{}, err
+	}
+	if req.Kind == "capture_degraded" {
+		s.markCaptureDegradedLocked(enrollment.ClientID)
 	}
 	s.syncExecutionLocked(session, now)
 	enrollment.reportIDs[idempotencyKey] = hash
@@ -560,6 +621,9 @@ func (s *Service) convergeLocked(now time.Time) bool {
 		}
 		s.refreshPublicEnrollmentsLocked(session)
 		s.syncExecutionLocked(session, now)
+	}
+	if s.abandonExpiredCapturesLocked(now) {
+		changed = true
 	}
 	return changed
 }
@@ -782,8 +846,10 @@ func applyReport(session *sessionRecord, enrollment *enrollmentRecord, req Lifec
 			transitionSession(session, SessionFailed, "client-report", reportReason(req, "player-failed"), now)
 		}
 	case "capture_degraded":
-		// Capture degradation is recorded by W3. It never mutates the player
-		// lifecycle in W0, especially for an observer.
+		// Recorded against the producer's stream only. It never mutates the
+		// player lifecycle, especially for an observer: a worse witness is not
+		// a failed participant.
+		return nil
 	default:
 		return domainError("REPORT_KIND_INVALID", "report kind is unsupported")
 	}

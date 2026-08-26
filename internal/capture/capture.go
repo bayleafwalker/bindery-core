@@ -1,22 +1,22 @@
 package capture
 
 import (
-	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"sort"
-	"sync"
 	"time"
 )
 
-var (
-	ErrSequenceConflict = errors.New("capture sequence conflicts with immutable raw observation")
-	ErrBatchInvalid     = errors.New("capture batch is invalid")
-)
+// ErrBatchInvalid covers every way a batch can be malformed. Callers that
+// serve HTTP map it onto their own domain codes; this package deliberately
+// does not know about them.
+var ErrBatchInvalid = errors.New("capture batch is invalid")
 
+// RawEvent is one immutable observation.
+//
+// Its JSON tags are load-bearing beyond serialization: canon.go derives the
+// content-addressed encoding from this struct, so changing a tag, a field, or
+// the field order changes every hash this repository has published. See
+// canon_test.go, which freezes the result.
 type RawEvent struct {
 	EventID          string          `json:"event_id"`
 	SessionID        string          `json:"session_id"`
@@ -36,6 +36,7 @@ type RawEvent struct {
 	Payload          json.RawMessage `json:"payload"`
 }
 
+// Batch is a contiguous run of observations from one producer.
 type Batch struct {
 	CaptureID        string     `json:"capture_id"`
 	ExecutionID      string     `json:"execution_id"`
@@ -46,18 +47,9 @@ type Batch struct {
 	Events           []RawEvent `json:"events"`
 }
 
-type Receipt struct {
-	CaptureID           string      `json:"capture_id"`
-	ExecutionID         string      `json:"execution_id"`
-	ProducerClientID    string      `json:"producer_client_id"`
-	FirstSequence       uint64      `json:"first_sequence"`
-	LastSequence        uint64      `json:"last_sequence"`
-	AcknowledgedThrough int64       `json:"acknowledged_through"`
-	MissingRanges       [][2]uint64 `json:"missing_ranges,omitempty"`
-	RawObjectHash       string      `json:"raw_object_hash"`
-	Duplicate           bool        `json:"duplicate,omitempty"`
-}
-
+// StreamClose is a producer's own account of how its stream ended. It is a
+// claim, retained beside what the broker independently observed rather than in
+// place of it.
 type StreamClose struct {
 	ExecutionID   string      `json:"execution_id"`
 	FinalSequence uint64      `json:"final_sequence"`
@@ -67,133 +59,10 @@ type StreamClose struct {
 	ClosedAt      time.Time   `json:"closed_at"`
 }
 
-type CompletenessManifest struct {
-	CaptureID        string      `json:"capture_id"`
-	ExecutionID      string      `json:"execution_id"`
-	ProducerClientID string      `json:"producer_client_id"`
-	ExpectedThrough  *uint64     `json:"expected_through,omitempty"`
-	ObservedRanges   [][2]uint64 `json:"observed_ranges"`
-	MissingRanges    [][2]uint64 `json:"missing_ranges"`
-	LocalDrops       uint64      `json:"local_drops"`
-	RawObjectHashes  []string    `json:"raw_object_hashes"`
-	DerivationIDs    []string    `json:"derivation_ids"`
-	Closed           bool        `json:"closed"`
-	EndReason        string      `json:"end_reason,omitempty"`
-}
-
-type stream struct {
-	executionID string
-	events      map[uint64]RawEvent
-	batches     map[string]string
-	objects     []string
-	close       *StreamClose
-	derivations []string
-}
-
-type Store struct {
-	mu      sync.RWMutex
-	streams map[string]*stream
-}
-
-func NewStore() *Store { return &Store{streams: make(map[string]*stream)} }
-
-func (s *Store) Ingest(batch Batch) (Receipt, error) {
-	if err := validateBatch(batch); err != nil {
-		return Receipt{}, err
-	}
-	if batch.ContentHash == "" {
-		batch.ContentHash = hashEvents(batch.Events)
-	}
-	key := streamKey(batch.CaptureID, batch.ProducerClientID)
-	batchKey := fmt.Sprintf("%s:%d:%d", key, batch.FirstSequence, batch.LastSequence)
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	state := s.streams[key]
-	if state == nil {
-		state = &stream{executionID: batch.ExecutionID, events: make(map[uint64]RawEvent), batches: make(map[string]string)}
-		s.streams[key] = state
-	}
-	if state.executionID != batch.ExecutionID {
-		return Receipt{}, ErrSequenceConflict
-	}
-	if previous, ok := state.batches[batchKey]; ok {
-		if previous != batch.ContentHash {
-			return Receipt{}, ErrSequenceConflict
-		}
-		return s.receiptLocked(batch, state, true), nil
-	}
-	for _, event := range batch.Events {
-		if previous, ok := state.events[event.Sequence]; ok && !bytes.Equal(previous.Payload, event.Payload) {
-			return Receipt{}, ErrSequenceConflict
-		}
-	}
-	for _, event := range batch.Events {
-		state.events[event.Sequence] = cloneEvent(event)
-	}
-	state.batches[batchKey] = batch.ContentHash
-	state.objects = append(state.objects, batch.ContentHash)
-	return s.receiptLocked(batch, state, false), nil
-}
-
-func (s *Store) Close(captureID, producerID string, close StreamClose) error {
-	key := streamKey(captureID, producerID)
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	state := s.streams[key]
-	if state == nil {
-		state = &stream{executionID: close.ExecutionID, events: make(map[uint64]RawEvent), batches: make(map[string]string)}
-		s.streams[key] = state
-	}
-	if close.ExecutionID == "" || close.EndReason == "" || state.executionID != close.ExecutionID {
-		return ErrBatchInvalid
-	}
-	state.close = &close
-	return nil
-}
-
-func (s *Store) AppendDerivation(captureID, producerID, derivationID string) error {
-	if derivationID == "" {
-		return ErrBatchInvalid
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	key := streamKey(captureID, producerID)
-	state := s.streams[key]
-	if state == nil {
-		return errors.New("capture stream not found")
-	}
-	state.derivations = append(state.derivations, derivationID)
-	return nil
-}
-
-func (s *Store) Manifest(captureID, producerID string) (CompletenessManifest, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	state, ok := s.streams[streamKey(captureID, producerID)]
-	if !ok {
-		return CompletenessManifest{}, errors.New("capture stream not found")
-	}
-	sequences := make([]uint64, 0, len(state.events))
-	for sequence := range state.events {
-		sequences = append(sequences, sequence)
-	}
-	sort.Slice(sequences, func(i, j int) bool { return sequences[i] < sequences[j] })
-	ranges := toRanges(sequences)
-	manifest := CompletenessManifest{CaptureID: captureID, ExecutionID: state.executionID, ProducerClientID: producerID, ObservedRanges: ranges, MissingRanges: missingRanges(sequences), RawObjectHashes: unique(state.objects), DerivationIDs: append([]string(nil), state.derivations...)}
-	if state.close != nil {
-		expected := state.close.FinalSequence
-		manifest.ExpectedThrough = &expected
-		manifest.LocalDrops = state.close.LocalDrops
-		manifest.Closed = true
-		manifest.EndReason = state.close.EndReason
-		manifest.MissingRanges = missingThrough(sequences, expected)
-	}
-	return manifest, nil
-}
-
-func (s *Store) receiptLocked(batch Batch, state *stream, duplicate bool) Receipt {
-	return Receipt{CaptureID: batch.CaptureID, ExecutionID: batch.ExecutionID, ProducerClientID: batch.ProducerClientID, FirstSequence: batch.FirstSequence, LastSequence: batch.LastSequence, AcknowledgedThrough: acknowledgedThrough(state.events), MissingRanges: missingRangesFrom(state.events), RawObjectHash: batch.ContentHash, Duplicate: duplicate}
-}
+// ValidateBatch is the single definition of a well-formed batch. The served
+// control plane calls it rather than re-deriving the rules, so HTTP ingest and
+// any other caller cannot disagree about what they accept.
+func ValidateBatch(batch Batch) error { return validateBatch(batch) }
 
 func validateBatch(batch Batch) error {
 	if batch.CaptureID == "" || batch.ExecutionID == "" || batch.ProducerClientID == "" || len(batch.Events) == 0 || batch.FirstSequence > batch.LastSequence {
@@ -210,36 +79,25 @@ func validateBatch(batch Batch) error {
 	return nil
 }
 
-func streamKey(captureID, producerID string) string { return captureID + ":" + producerID }
+// The sequence arithmetic below is shared by the ingest receipt and the
+// completeness manifest. Having one implementation is the point: two would
+// eventually disagree about what is missing, and the manifest exists precisely
+// to be believed about that.
 
-func hashEvents(events []RawEvent) string {
-	encoded, _ := json.Marshal(events)
-	hash := sha256.Sum256(encoded)
-	return "sha256:" + hex.EncodeToString(hash[:])
-}
-
-func cloneEvent(event RawEvent) RawEvent {
-	event.Payload = append(json.RawMessage(nil), event.Payload...)
-	return event
-}
-
-func acknowledgedThrough(events map[uint64]RawEvent) int64 {
-	sequence := uint64(0)
-	for {
-		if _, ok := events[sequence]; !ok {
-			return int64(sequence) - 1
+func toRanges(sequences []uint64) [][2]uint64 {
+	if len(sequences) == 0 {
+		return nil
+	}
+	result := make([][2]uint64, 0)
+	start, previous := sequences[0], sequences[0]
+	for _, sequence := range sequences[1:] {
+		if sequence != previous+1 {
+			result = append(result, [2]uint64{start, previous})
+			start = sequence
 		}
-		sequence++
+		previous = sequence
 	}
-}
-
-func missingRangesFrom(events map[uint64]RawEvent) [][2]uint64 {
-	sequences := make([]uint64, 0, len(events))
-	for sequence := range events {
-		sequences = append(sequences, sequence)
-	}
-	sort.Slice(sequences, func(i, j int) bool { return sequences[i] < sequences[j] })
-	return missingRanges(sequences)
+	return append(result, [2]uint64{start, previous})
 }
 
 func missingRanges(sequences []uint64) [][2]uint64 {
@@ -255,6 +113,8 @@ func missingRanges(sequences []uint64) [][2]uint64 {
 	return result
 }
 
+// missingThrough also accounts for sequences the producer promised at close
+// but never delivered, which a gap analysis over what arrived cannot see.
 func missingThrough(sequences []uint64, final uint64) [][2]uint64 {
 	present := make(map[uint64]struct{}, len(sequences))
 	for _, sequence := range sequences {
@@ -276,35 +136,6 @@ func missingThrough(sequences []uint64, final uint64) [][2]uint64 {
 		if sequence == final && inGap {
 			result = append(result, [2]uint64{start, final})
 		}
-	}
-	return result
-}
-
-func toRanges(sequences []uint64) [][2]uint64 {
-	if len(sequences) == 0 {
-		return nil
-	}
-	result := make([][2]uint64, 0)
-	start, previous := sequences[0], sequences[0]
-	for _, sequence := range sequences[1:] {
-		if sequence != previous+1 {
-			result = append(result, [2]uint64{start, previous})
-			start = sequence
-		}
-		previous = sequence
-	}
-	return append(result, [2]uint64{start, previous})
-}
-
-func unique(values []string) []string {
-	seen := make(map[string]struct{}, len(values))
-	result := make([]string, 0, len(values))
-	for _, value := range values {
-		if _, ok := seen[value]; ok {
-			continue
-		}
-		seen[value] = struct{}{}
-		result = append(result, value)
 	}
 	return result
 }

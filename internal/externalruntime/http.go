@@ -5,7 +5,10 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
+
+	"github.com/bayleafwalker/bindery-core/internal/capture"
 )
 
 type Handler struct {
@@ -60,6 +63,22 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.createEvidenceSet(w, r, requestID, parts[1])
 	case len(parts) == 2 && parts[0] == "evidence-sets" && r.Method == http.MethodGet:
 		h.getEvidenceSet(w, requestID, parts[1])
+	case len(parts) == 2 && parts[0] == "captures" && strings.HasSuffix(parts[1], ":close") && r.Method == http.MethodPost:
+		h.closeCapture(w, r, requestID, strings.TrimSuffix(parts[1], ":close"))
+	case len(parts) == 2 && parts[0] == "captures" && strings.HasSuffix(parts[1], ":normalize") && r.Method == http.MethodPost:
+		h.normalizeCapture(w, r, requestID, strings.TrimSuffix(parts[1], ":normalize"))
+	case len(parts) == 3 && parts[0] == "captures" && parts[2] == "events" && r.Method == http.MethodGet:
+		h.readCaptureEvents(w, r, requestID, parts[1])
+	case len(parts) == 3 && parts[0] == "sessions" && parts[2] == "events" && r.Method == http.MethodGet:
+		h.readSessionEvents(w, r, requestID, parts[1])
+	case len(parts) == 3 && parts[0] == "captures" && parts[2] == "objects" && r.Method == http.MethodPost:
+		h.storeCaptureObject(w, r, requestID, parts[1])
+	case len(parts) == 3 && parts[0] == "captures" && parts[2] == "batches" && r.Method == http.MethodPost:
+		h.ingestCaptureBatch(w, r, requestID, parts[1])
+	case len(parts) == 2 && parts[0] == "captures" && r.Method == http.MethodGet:
+		h.getCapture(w, requestID, parts[1])
+	case len(parts) == 3 && parts[0] == "sessions" && parts[2] == "captures" && r.Method == http.MethodGet:
+		h.listSessionCaptures(w, requestID, parts[1])
 	case len(parts) == 3 && parts[0] == "sessions" && parts[2] == "enrollments" && r.Method == http.MethodPost:
 		h.enroll(w, r, requestID, parts[1])
 	case len(parts) == 3 && parts[0] == "enrollments" && parts[2] == "reports" && r.Method == http.MethodPost:
@@ -164,6 +183,109 @@ func (h *Handler) getEvidenceSet(w http.ResponseWriter, requestID, evidenceSetID
 	writeJSON(w, http.StatusOK, set)
 }
 
+func (h *Handler) ingestCaptureBatch(w http.ResponseWriter, r *http.Request, requestID, captureID string) {
+	var req IngestBatchRequest
+	if !decodeJSONLimited(w, r, &req, requestID, MaxCaptureBatchBytes) {
+		return
+	}
+	receipt, err := h.service.IngestCaptureBatch(bearer(r), captureID, r.Header.Get("Idempotency-Key"), req)
+	if err != nil {
+		h.writeDomainError(w, requestID, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, receipt)
+}
+
+func (h *Handler) closeCapture(w http.ResponseWriter, r *http.Request, requestID, captureID string) {
+	var req CaptureCloseRequest
+	if !decodeJSON(w, r, &req, requestID) {
+		return
+	}
+	record, err := h.service.CloseCapture(bearer(r), captureID, req)
+	if err != nil {
+		h.writeDomainError(w, requestID, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, record)
+}
+
+func (h *Handler) storeCaptureObject(w http.ResponseWriter, r *http.Request, requestID, captureID string) {
+	// The bytes arrive directly rather than through an upload reservation.
+	// A reservation would have to hand back a location, and a public response
+	// naming where to send bytes is exactly what the redaction oracle exists
+	// to keep out of this contract.
+	body, ok := readBodyLimited(w, r, requestID, capture.MaxObjectBytes)
+	if !ok {
+		return
+	}
+	manifest, err := h.service.StoreCaptureObject(bearer(r), captureID, r.Header.Get("Content-Type"), body)
+	if err != nil {
+		h.writeDomainError(w, requestID, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, manifest)
+}
+
+func (h *Handler) readCaptureEvents(w http.ResponseWriter, r *http.Request, requestID, captureID string) {
+	page, err := h.service.ReadCaptureEvents(captureID, r.URL.Query().Get("cursor"), r.URL.Query().Get("kind"), pageLimit(r))
+	if err != nil {
+		h.writeDomainError(w, requestID, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, page)
+}
+
+func (h *Handler) readSessionEvents(w http.ResponseWriter, r *http.Request, requestID, sessionID string) {
+	page, err := h.service.ReadSessionEvents(sessionID, r.URL.Query().Get("cursor"), r.URL.Query().Get("kind"), pageLimit(r))
+	if err != nil {
+		h.writeDomainError(w, requestID, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, page)
+}
+
+// pageLimit treats an unparseable limit as "unspecified" rather than an error:
+// the value is clamped anyway, so rejecting the request would trade a working
+// read for a lecture.
+func pageLimit(r *http.Request) int {
+	value, err := strconv.Atoi(r.URL.Query().Get("limit"))
+	if err != nil {
+		return 0
+	}
+	return value
+}
+
+func (h *Handler) normalizeCapture(w http.ResponseWriter, r *http.Request, requestID, captureID string) {
+	var req NormalizeRequest
+	if !decodeJSON(w, r, &req, requestID) {
+		return
+	}
+	record, err := h.service.NormalizeCapture(bearer(r), captureID, req)
+	if err != nil {
+		h.writeDomainError(w, requestID, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, record)
+}
+
+func (h *Handler) getCapture(w http.ResponseWriter, requestID, captureID string) {
+	record, err := h.service.GetCapture(captureID)
+	if err != nil {
+		h.writeDomainError(w, requestID, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, record)
+}
+
+func (h *Handler) listSessionCaptures(w http.ResponseWriter, requestID, sessionID string) {
+	captures, err := h.service.ListSessionCaptures(sessionID)
+	if err != nil {
+		h.writeDomainError(w, requestID, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"schema_version": SchemaVersion, "captures": captures})
+}
+
 func (h *Handler) enroll(w http.ResponseWriter, r *http.Request, requestID, sessionID string) {
 	var req EnrollmentRequest
 	if !decodeJSON(w, r, &req, requestID) {
@@ -207,19 +329,61 @@ func bearer(r *http.Request) string {
 	return strings.TrimSpace(value[len("Bearer "):])
 }
 
+// defaultBodyLimit is the control-plane request cap. Capture batches negotiate
+// a larger one through their stream offer; everything else stays here.
+const defaultBodyLimit = 1 << 20
+
 func decodeJSON(w http.ResponseWriter, r *http.Request, destination any, requestID string) bool {
-	decoder := json.NewDecoder(io.LimitReader(r.Body, 1<<20))
+	return decodeJSONLimited(w, r, destination, requestID, defaultBodyLimit)
+}
+
+// decodeJSONLimited distinguishes "this body is too big" from "this body is
+// malformed". io.LimitReader cannot: it truncates, and the truncation surfaces
+// as a JSON syntax error, which sends the client off to debug its serializer
+// over what is really a size limit. http.MaxBytesReader reports the overrun.
+func decodeJSONLimited(w http.ResponseWriter, r *http.Request, destination any, requestID string, limit int64) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
+	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(destination); err != nil {
+		if bodyTooLarge(err) {
+			writeError(w, http.StatusRequestEntityTooLarge, ErrorResponse{Code: "PAYLOAD_TOO_LARGE", Message: "request body exceeds the negotiated limit", RequestID: requestID})
+			return false
+		}
 		writeError(w, http.StatusBadRequest, ErrorResponse{Code: "INVALID_JSON", Message: "request body is invalid", RequestID: requestID})
 		return false
 	}
 	var extra any
 	if err := decoder.Decode(&extra); err != io.EOF {
+		if bodyTooLarge(err) {
+			writeError(w, http.StatusRequestEntityTooLarge, ErrorResponse{Code: "PAYLOAD_TOO_LARGE", Message: "request body exceeds the negotiated limit", RequestID: requestID})
+			return false
+		}
 		writeError(w, http.StatusBadRequest, ErrorResponse{Code: "INVALID_JSON", Message: "request body must contain one JSON value", RequestID: requestID})
 		return false
 	}
 	return true
+}
+
+func bodyTooLarge(err error) bool {
+	var overrun *http.MaxBytesError
+	return errors.As(err, &overrun)
+}
+
+// readBodyLimited returns the raw bytes of a non-JSON body, used by the heavy
+// capture object lane where the payload is opaque.
+func readBodyLimited(w http.ResponseWriter, r *http.Request, requestID string, limit int64) ([]byte, bool) {
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		if bodyTooLarge(err) {
+			writeError(w, http.StatusRequestEntityTooLarge, ErrorResponse{Code: "PAYLOAD_TOO_LARGE", Message: "request body exceeds the negotiated limit", RequestID: requestID})
+			return nil, false
+		}
+		writeError(w, http.StatusBadRequest, ErrorResponse{Code: "INVALID_BODY", Message: "request body could not be read", RequestID: requestID})
+		return nil, false
+	}
+	return body, true
 }
 
 func (h *Handler) writeDomainError(w http.ResponseWriter, requestID string, err error) {
@@ -229,14 +393,24 @@ func (h *Handler) writeDomainError(w http.ResponseWriter, requestID string, err 
 		switch domain.Code {
 		case "TOKEN_INVALID", "JOIN_CREDENTIAL_INVALID", "IDENTITY_SUSPENDED":
 			status = http.StatusUnauthorized
-		case "IDENTITY_NOT_FOUND", "SESSION_NOT_FOUND", "ENROLLMENT_NOT_FOUND", "PLACEMENT_NOT_FOUND", "EXECUTION_NOT_FOUND", "EVIDENCE_SET_NOT_FOUND":
+		case "IDENTITY_NOT_FOUND", "SESSION_NOT_FOUND", "ENROLLMENT_NOT_FOUND", "PLACEMENT_NOT_FOUND", "EXECUTION_NOT_FOUND", "EVIDENCE_SET_NOT_FOUND", "CAPTURE_NOT_FOUND":
 			status = http.StatusNotFound
-		case "HANDLE_TAKEN", "IDEMPOTENCY_CONFLICT":
+		case "HANDLE_TAKEN", "IDEMPOTENCY_CONFLICT", "SEQUENCE_CONFLICT", "OBSERVATION_ADJUDICATION_FORBIDDEN":
 			status = http.StatusConflict
+		case "PAYLOAD_TOO_LARGE":
+			status = http.StatusRequestEntityTooLarge
 		case "SESSION_NOT_ADMITTING", "LEASE_EXPIRED":
 			status = http.StatusGone
+		case "CAPTURE_NOT_OPEN", "CAPTURE_NOT_CLOSED", "CAPTURE_IS_DERIVED":
+			status = http.StatusConflict
+		case "NORMALIZER_UNKNOWN":
+			status = http.StatusNotFound
+		case "STATE_INTEGRITY_ERROR":
+			status = http.StatusInternalServerError
 		case "STATE_PERSISTENCE_FAILED":
 			status = http.StatusServiceUnavailable
+		case "OBSERVATION_UNREADABLE":
+			status = http.StatusInternalServerError
 		}
 		h.fail(w, requestID, status, domain.Code, domain.Message)
 		return

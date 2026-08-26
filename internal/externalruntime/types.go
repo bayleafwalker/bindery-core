@@ -162,16 +162,63 @@ type PublicEnrollment struct {
 }
 
 type PublicCapture struct {
-	CaptureID        string    `json:"capture_id"`
-	SessionID        string    `json:"session_id"`
-	ExecutionID      string    `json:"execution_id"`
-	ProducerClientID string    `json:"producer_client_id"`
-	ProducerClass    string    `json:"producer_class"`
-	CaptureMethod    string    `json:"capture_method"`
-	AdapterID        string    `json:"adapter_id"`
-	AdapterVersion   string    `json:"adapter_version"`
-	Status           string    `json:"status"`
-	CreatedAt        time.Time `json:"created_at"`
+	CaptureID        string               `json:"capture_id"`
+	SessionID        string               `json:"session_id"`
+	ExecutionID      string               `json:"execution_id"`
+	ProducerClientID string               `json:"producer_client_id"`
+	ProducerClass    string               `json:"producer_class"`
+	CaptureMethod    string               `json:"capture_method"`
+	AdapterID        string               `json:"adapter_id"`
+	AdapterVersion   string               `json:"adapter_version"`
+	Status           string               `json:"status"`
+	CreatedAt        time.Time            `json:"created_at"`
+	ClosedAt         *time.Time           `json:"closed_at,omitempty"`
+	Objects          []string             `json:"objects,omitempty"`
+	Completeness     *CaptureCompleteness `json:"completeness,omitempty"`
+	// DerivedFromCaptureID and Normalizer are set only on derived captures.
+	// A derived stream is published as a capture in its own right so that it
+	// is readable, attributable, and impossible to mistake for an observation.
+	DerivedFromCaptureID string         `json:"derived_from_capture_id,omitempty"`
+	Normalizer           *NormalizerRef `json:"normalizer,omitempty"`
+}
+
+type NormalizerRef struct {
+	ID      string `json:"id"`
+	Version string `json:"version"`
+}
+
+// CaptureCompleteness is the answer to "how much of this stream do we
+// actually have", published instead of an unexplained boolean. Observed ranges
+// are the broker's own count; expected_through and local_drops are the
+// producer's claim at close. Both are retained so a disagreement stays visible.
+type CaptureCompleteness struct {
+	ExpectedThrough *uint64     `json:"expected_through,omitempty"`
+	ObservedRanges  [][2]uint64 `json:"observed_ranges"`
+	MissingRanges   [][2]uint64 `json:"missing_ranges"`
+	EventCount      uint64      `json:"event_count"`
+	LocalDrops      uint64      `json:"local_drops"`
+	RawObjectHashes []string    `json:"raw_object_hashes"`
+	Closed          bool        `json:"closed"`
+	EndReason       string      `json:"end_reason,omitempty"`
+	// DerivationIDs names the derived captures produced from this stream, so a
+	// reader following the raw record can find every interpretation of it.
+	DerivationIDs  []string `json:"derivation_ids,omitempty"`
+	SourceCoverage string   `json:"source_coverage,omitempty"`
+	ClockQuality   string   `json:"clock_quality,omitempty"`
+}
+
+// CaptureStreamOffer is handed to a client at enrollment. It carries limits
+// and identity, never a location: a field naming where to send bytes would be
+// an operational endpoint in a public DTO, which ScanPublicOutput rejects on
+// sight and rightly so. The route is in the contract, not in the response.
+type CaptureStreamOffer struct {
+	SchemaVersion  string      `json:"schema_version"`
+	CaptureID      string      `json:"capture_id"`
+	ProducerClass  ClientClass `json:"producer_class"`
+	CaptureMethod  string      `json:"capture_method"`
+	MaxBatchBytes  int64       `json:"max_batch_bytes"`
+	MaxBatchEvents int         `json:"max_batch_events"`
+	MaxObjectBytes int64       `json:"max_object_bytes"`
 }
 
 type PublicSession struct {
@@ -221,6 +268,7 @@ type CreateSessionResponse struct {
 type EnrollmentRequest struct {
 	ClientInstanceID string        `json:"client_instance_id"`
 	ClientClass      ClientClass   `json:"client_class"`
+	CaptureMethod    string        `json:"capture_method,omitempty"`
 	Adapter          AdapterRef    `json:"adapter"`
 	Compatibility    ClientHashes  `json:"compatibility"`
 	RegionProbes     []RegionProbe `json:"region_probes,omitempty"`
@@ -243,10 +291,11 @@ type RegionProbe struct {
 }
 
 type EnrollmentCreateResponse struct {
-	PublicEnrollment    PublicEnrollment `json:"public_enrollment"`
-	ClientLeaseToken    string           `json:"client_lease_token"`
-	TransportCredential string           `json:"transport_credential"`
-	ExpiresAt           time.Time        `json:"expires_at"`
+	PublicEnrollment    PublicEnrollment     `json:"public_enrollment"`
+	ClientLeaseToken    string               `json:"client_lease_token"`
+	TransportCredential string               `json:"transport_credential"`
+	ExpiresAt           time.Time            `json:"expires_at"`
+	CaptureStreamOffers []CaptureStreamOffer `json:"capture_stream_offers,omitempty"`
 }
 
 type LifecycleReportRequest struct {
@@ -266,8 +315,15 @@ type HeartbeatResponse struct {
 }
 
 type ReconcileEvidenceRequest struct {
-	Method       evidencev1.Method               `json:"method"`
-	Observations []evidencev1.ObservationSummary `json:"observations"`
+	Method evidencev1.Method `json:"method"`
+	// CaptureIDs selects which captured streams to compare. Empty means every
+	// capture on the execution.
+	CaptureIDs []string `json:"capture_ids,omitempty"`
+	// Observations is the pre-capture-plane path, kept only for executions
+	// that have no captured streams at all. Supplying it for an execution that
+	// does have them is refused rather than merged: the two are not
+	// interchangeable, because only one of them is independent of the client.
+	Observations []evidencev1.ObservationSummary `json:"observations,omitempty"`
 }
 
 type ErrorResponse struct {

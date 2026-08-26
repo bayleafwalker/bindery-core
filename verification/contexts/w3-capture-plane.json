@@ -1,0 +1,82 @@
+{
+  "schema_version": "test-context/v1",
+  "id": "bindery.external-runtime.w3.capture-plane",
+  "owner_repo": "bindery-core",
+  "subject": "durable-observation-capture-and-broker-derived-evidence",
+  "contract_ref": {
+    "doc_id": "contracts/externalruntime/v1/openapi.yaml",
+    "revision": "git:5beddff27f8d55e097527c463b7ddb0568a4d3aa"
+  },
+  "source_of_truth": "contracts/externalruntime/v1/openapi.yaml",
+  "depth": 2,
+  "backends": ["file-object-store", "memory-object-store", "file-state-store"],
+  "actors": ["player-a", "player-b", "session-creator", "normalizer", "completeness-gate"],
+  "initial_state": [
+    "a session whose capture policy asks for semantic events opens one capture per enrolled client",
+    "no capture holds observations and no evidence set exists",
+    "the object store holds no uncommitted write transactions"
+  ],
+  "operations": [
+    {"name": "ingest-batch", "actors": ["player-a", "player-b"], "synchronization": "contiguous sequence range under a client lease"},
+    {"name": "retry-batch", "actors": ["player-a"], "synchronization": "identical producer digest for a recorded range"},
+    {"name": "rewrite-batch", "actors": ["player-a"], "synchronization": "divergent producer digest for a recorded range"},
+    {"name": "late-append", "actors": ["player-a"], "synchronization": "range beyond a known gap"},
+    {"name": "store-object", "actors": ["player-a"], "synchronization": "content-addressed heavy artifact"},
+    {"name": "close-stream", "actors": ["player-a", "player-b"], "synchronization": "final sequence and producer drop count"},
+    {"name": "abandon-stream", "actors": ["player-a"], "synchronization": "client lease expiry through the converger"},
+    {"name": "page-events", "actors": ["session-creator"], "synchronization": "cursor across batch boundaries"},
+    {"name": "normalize", "actors": ["normalizer"], "synchronization": "explicit normalizer id and version"},
+    {"name": "replay-normalizer", "actors": ["normalizer"], "synchronization": "same version, then a new version"},
+    {"name": "derive-evidence", "actors": ["session-creator", "completeness-gate"], "synchronization": "closed captures on one execution"},
+    {"name": "restart", "actors": ["session-creator"], "synchronization": "state store reopen"}
+  ],
+  "consistency": {
+    "target": "application-invariant",
+    "object": "capture index, content-addressed observation bytes, completeness manifest, derivation lineage, and evidence provenance"
+  },
+  "invariants": [
+    "the-index-never-references-bytes-that-are-not-fully-durable",
+    "an-identical-retry-writes-nothing-and-is-acknowledged-as-duplicate",
+    "raw-observations-are-immutable-and-content-addressed",
+    "broker-receive-time-is-never-supplied-by-a-producer",
+    "client-supplied-counts-are-refused-where-captures-exist",
+    "every-observation-summary-records-whether-it-was-broker-derived",
+    "derivations-are-additive-versioned-and-never-independent-observations",
+    "gaps-and-drops-are-published-rather-than-encoded-in-a-status",
+    "unreadable-evidence-is-gate-ERROR-and-never-gate-FAIL",
+    "missing-applicability-context-is-UNRESOLVED-and-never-FAIL",
+    "public-capture-and-object-manifests-name-no-storage-location"
+  ],
+  "oracles": ["go-test-race", "canonical-encoding-golden-vector", "redaction-cli", "restart-drill", "gate-calibration-controls"],
+  "faults": [
+    "divergent-batch-bytes",
+    "overlapping-sequence-range",
+    "missing-object-file",
+    "corrupted-object-file",
+    "uncommitted-write-transaction",
+    "expired-client-lease",
+    "foreign-client-lease",
+    "tampered-cursor",
+    "unclosed-stream-at-reconciliation",
+    "always-failing-verifier"
+  ],
+  "implementation_anchors": [
+    "internal/capture/canon.go:CanonicalBatchBytes",
+    "internal/capture/canon.go:OrderedHash",
+    "internal/capture/canon.go:ProducerDigest",
+    "internal/capture/filestore.go:FileObjectStore.Put",
+    "internal/capture/normalize_gap.go:captureGapNormalizer.Normalize",
+    "internal/externalruntime/capture_ingest.go:Service.IngestCaptureBatch",
+    "internal/externalruntime/capture_close.go:Service.CloseCapture",
+    "internal/externalruntime/capture_object.go:Service.StoreCaptureObject",
+    "internal/externalruntime/capture_read.go:Service.ReadSessionEvents",
+    "internal/externalruntime/capture_normalize.go:Service.NormalizeCapture",
+    "internal/externalruntime/capture_gate.go:captureCompletenessVerdict",
+    "internal/externalruntime/capture_evidence.go:Service.deriveObservationsLocked",
+    "internal/externalruntime/state_store.go:restoreCaptures",
+    "internal/externalruntime/erh006_test.go:TestReconciliationDerivesCountsFromPersistedObservations",
+    "internal/externalruntime/capture_gate_test.go:TestCompletenessGateSeparatesAllFiveOutcomes",
+    "internal/externalruntime/state_store_test.go:TestPersistentServiceRestoresResolvableControlAndEvidenceGraph"
+  ],
+  "expansions": ["semantic-doc", "stateful-test", "fault-scenario", "restart-drill"]
+}

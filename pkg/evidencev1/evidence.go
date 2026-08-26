@@ -44,6 +44,20 @@ type Observation struct {
 	Event         json.RawMessage `json:"event"`
 }
 
+// Source records who counted.
+//
+// A summary the producer supplied is a claim about itself; one the broker
+// computed from persisted observations is not. An evidence set that cannot
+// say which it holds cannot support any statement about independence, so the
+// field is required rather than optional -- including in the evidence set's
+// content-derived identity.
+type Source string
+
+const (
+	SourceClientReported Source = "client-reported"
+	SourceBrokerDerived  Source = "broker-derived"
+)
+
 // ObservationSummary is a compact claim about one independently produced
 // stream. It never becomes truth merely because reconciliation accepts it.
 type ObservationSummary struct {
@@ -52,6 +66,7 @@ type ObservationSummary struct {
 	StreamID    string `json:"stream_id"`
 	EventCount  uint64 `json:"event_count"`
 	OrderedHash string `json:"ordered_hash,omitempty"`
+	Source      Source `json:"source"`
 }
 
 type Reconciliation struct {
@@ -78,6 +93,9 @@ type ReconcileRequest struct {
 	CreatedAt    time.Time
 }
 
+// ErrSourceUnknown rejects a summary that does not say how it was produced.
+var ErrSourceUnknown = errors.New("observation summary does not record how it was produced")
+
 var ErrUnsupportedMethod = errors.New("reconciliation method is not implemented")
 
 // Reconcile compares independent observation streams without changing or
@@ -98,6 +116,9 @@ func Reconcile(request ReconcileRequest) (EvidenceSet, error) {
 	for _, observation := range observations {
 		if observation.ObserverID == "" || observation.StreamID == "" || observation.ExecutionID != request.ExecutionID {
 			return EvidenceSet{}, errors.New("every observation must name its observer, stream, and requested execution")
+		}
+		if observation.Source != SourceClientReported && observation.Source != SourceBrokerDerived {
+			return EvidenceSet{}, fmt.Errorf("%w: stream %q", ErrSourceUnknown, observation.StreamID)
 		}
 		if _, duplicate := streams[observation.StreamID]; duplicate {
 			return EvidenceSet{}, fmt.Errorf("duplicate observation stream %q", observation.StreamID)

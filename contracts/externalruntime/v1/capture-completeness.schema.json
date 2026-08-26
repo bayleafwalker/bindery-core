@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bindery.dev/contracts/externalruntime/v1/capture-completeness.schema.json",
+  "title": "Bindery capture completeness manifest",
+  "description": "How much of a stream the broker actually holds. Observed ranges and event count are the broker's own arithmetic over persisted observations; expected_through, local_drops and end_reason are the producer's claim at close. Both are published so a disagreement between them stays visible.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["observed_ranges", "missing_ranges", "event_count", "local_drops", "raw_object_hashes", "closed"],
+  "properties": {
+    "expected_through": {"type": "integer", "minimum": 0},
+    "observed_ranges": {"$ref": "#/$defs/sequenceRanges"},
+    "missing_ranges": {"$ref": "#/$defs/sequenceRanges"},
+    "event_count": {"type": "integer", "minimum": 0},
+    "local_drops": {"type": "integer", "minimum": 0},
+    "raw_object_hashes": {"type": "array", "items": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}},
+    "derivation_ids": {"type": "array", "items": {"type": "string", "format": "uuid"}},
+    "closed": {"type": "boolean"},
+    "end_reason": {"type": "string", "maxLength": 256},
+    "source_coverage": {"type": "string", "enum": ["player", "observer", "relay", "normalizer"]},
+    "clock_quality": {"type": "string", "enum": ["producer-timed", "partially-producer-timed", "receive-time-only"]}
+  },
+  "$defs": {
+    "sequenceRanges": {
+      "type": "array",
+      "items": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 0}}
+    }
+  }
+}

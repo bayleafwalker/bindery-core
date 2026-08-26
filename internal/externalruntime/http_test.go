@@ -134,11 +134,11 @@ func TestHTTPReconcilesAndPublishesExecutionEvidence(t *testing.T) {
 	}
 	a := mustEnroll(t, service, owner.AccountToken, created.SessionJoinCredential, created.PublicSession.SessionID, "evidence-a", ClientPlayer)
 	b := mustEnroll(t, service, peer.AccountToken, created.SessionJoinCredential, created.PublicSession.SessionID, "evidence-b", ClientPlayer)
+	closeMatchingStreams(t, service, a, b, 8)
 
-	body := `{"method":"exact-count","observations":[` +
-		`{"observer_id":"` + a.id + `","execution_id":"` + created.PublicSession.ExecutionID + `","stream_id":"telemetry-a","event_count":6651},` +
-		`{"observer_id":"` + b.id + `","execution_id":"` + created.PublicSession.ExecutionID + `","stream_id":"telemetry-b","event_count":6651}]}`
-	request := httptest.NewRequest(http.MethodPost, "/v1/executions/"+created.PublicSession.ExecutionID+"/evidence-sets", strings.NewReader(body))
+	// The request names a method and nothing else. The counts are the
+	// broker's to compute.
+	request := httptest.NewRequest(http.MethodPost, "/v1/executions/"+created.PublicSession.ExecutionID+"/evidence-sets", strings.NewReader(`{"method":"exact-count"}`))
 	request.Header.Set("Authorization", "Bearer "+owner.AccountToken)
 	request.Header.Set("Idempotency-Key", "evidence-reconcile")
 	response := httptest.NewRecorder()
@@ -148,10 +148,32 @@ func TestHTTPReconcilesAndPublishesExecutionEvidence(t *testing.T) {
 	}
 	var set struct {
 		EvidenceSetID string `json:"evidence_set_id"`
+		Observations  []struct {
+			Source     string `json:"source"`
+			EventCount uint64 `json:"event_count"`
+		} `json:"observations"`
+		GateResults []PublicGateResult `json:"gate_results"`
 	}
 	if err := json.NewDecoder(response.Body).Decode(&set); err != nil {
 		t.Fatal(err)
 	}
+	if len(set.Observations) != 2 {
+		t.Fatalf("observations = %+v", set.Observations)
+	}
+	for _, observation := range set.Observations {
+		if observation.Source != "broker-derived" || observation.EventCount != 8 {
+			t.Fatalf("observation was not derived by the broker: %+v", observation)
+		}
+	}
+	if len(set.GateResults) != 2 {
+		t.Fatalf("gate results = %+v", set.GateResults)
+	}
+	for _, result := range set.GateResults {
+		if result.Status != "PASS" || !result.CalibrationValid {
+			t.Fatalf("gate result = %+v", result)
+		}
+	}
+
 	publicRequest := httptest.NewRequest(http.MethodGet, "/v1/evidence-sets/"+set.EvidenceSetID, nil)
 	publicResponse := httptest.NewRecorder()
 	handler.ServeHTTP(publicResponse, publicRequest)
@@ -160,5 +182,58 @@ func TestHTTPReconcilesAndPublishesExecutionEvidence(t *testing.T) {
 	}
 	if strings.Contains(publicResponse.Body.String(), owner.AccountToken) {
 		t.Fatal("public evidence response leaked account token")
+	}
+}
+
+func TestHTTPRefusesAdapterSuppliedCountsWhereCapturesExist(t *testing.T) {
+	service := NewServiceWithPlacementAllocator(testPersistentAllocator)
+	handler := NewHandler(service)
+	owner := mustIdentity(t, service, "adjudication-owner")
+	created, err := service.CreateSession(owner.AccountToken, "adjudication-session", testSessionRequest())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := mustEnroll(t, service, owner.AccountToken, created.SessionJoinCredential, created.PublicSession.SessionID, "adjudication-a", ClientPlayer)
+	b := mustEnroll(t, service, owner.AccountToken, created.SessionJoinCredential, created.PublicSession.SessionID, "adjudication-b", ClientPlayer)
+	closeMatchingStreams(t, service, a, b, 4)
+
+	body := `{"method":"exact-count","observations":[` +
+		`{"observer_id":"` + a.id + `","execution_id":"` + created.PublicSession.ExecutionID + `","stream_id":"telemetry-a","event_count":6651,"source":"client-reported"},` +
+		`{"observer_id":"` + b.id + `","execution_id":"` + created.PublicSession.ExecutionID + `","stream_id":"telemetry-b","event_count":6651,"source":"client-reported"}]}`
+	request := httptest.NewRequest(http.MethodPost, "/v1/executions/"+created.PublicSession.ExecutionID+"/evidence-sets", strings.NewReader(body))
+	request.Header.Set("Authorization", "Bearer "+owner.AccountToken)
+	request.Header.Set("Idempotency-Key", "adjudication-attempt")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), "OBSERVATION_ADJUDICATION_FORBIDDEN") {
+		t.Fatalf("supplied counts status = %d, body = %s", response.Code, response.Body.String())
+	}
+}
+
+func TestOversizedBodyIsTooLargeRatherThanInvalidJSON(t *testing.T) {
+	// Truncating an oversized body and reporting a syntax error sends the
+	// client off to debug its serializer over what is really a size limit.
+	handler := NewHandler(NewService())
+	oversized := `{"handle":"` + strings.Repeat("a", (1<<20)+64) + `"}`
+	request := httptest.NewRequest(http.MethodPost, "/v1/identities", strings.NewReader(oversized))
+	request.Header.Set("Idempotency-Key", "http-oversized")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("oversized body status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "PAYLOAD_TOO_LARGE") {
+		t.Fatalf("oversized body code = %s", response.Body.String())
+	}
+}
+
+func TestMalformedBodyIsStillInvalidJSON(t *testing.T) {
+	handler := NewHandler(NewService())
+	request := httptest.NewRequest(http.MethodPost, "/v1/identities", strings.NewReader(`{"handle":`))
+	request.Header.Set("Idempotency-Key", "http-malformed")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), "INVALID_JSON") {
+		t.Fatalf("malformed body status = %d, body = %s", response.Code, response.Body.String())
 	}
 }

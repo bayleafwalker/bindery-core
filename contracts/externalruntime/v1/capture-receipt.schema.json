@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bindery.dev/contracts/externalruntime/v1/capture-receipt.schema.json",
+  "title": "Bindery capture batch acknowledgement",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "capture_id", "execution_id", "acknowledged_through", "missing_ranges", "raw_object_hash"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "capture_id": {"type": "string", "format": "uuid"},
+    "execution_id": {"type": "string", "format": "uuid"},
+    "acknowledged_through": {
+      "type": "integer",
+      "minimum": -1,
+      "description": "Highest contiguous sequence held from zero. It is -1 when sequence zero has not arrived, and it is not a count."
+    },
+    "missing_ranges": {
+      "type": "array",
+      "items": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 0}}
+    },
+    "raw_object_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "duplicate": {"type": "boolean", "description": "The batch was already held; nothing was written."}
+  }
+}

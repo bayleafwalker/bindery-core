@@ -12,8 +12,8 @@ func TestExactCountReconcilesIndependentRA2Streams(t *testing.T) {
 		Method:      MethodExactCount,
 		CreatedAt:   time.Date(2026, 8, 25, 19, 0, 0, 0, time.UTC),
 		Observations: []ObservationSummary{
-			{ObserverID: "client-b", ExecutionID: "execution-ra2-vertical-slice", StreamID: "telemetry-b", EventCount: 6651},
-			{ObserverID: "client-a", ExecutionID: "execution-ra2-vertical-slice", StreamID: "telemetry-a", EventCount: 6651},
+			{ObserverID: "client-b", ExecutionID: "execution-ra2-vertical-slice", StreamID: "telemetry-b", EventCount: 6651, Source: SourceClientReported},
+			{ObserverID: "client-a", ExecutionID: "execution-ra2-vertical-slice", StreamID: "telemetry-a", EventCount: 6651, Source: SourceClientReported},
 		},
 	})
 	if err != nil {
@@ -36,8 +36,8 @@ func TestExactCountRetainsDisagreement(t *testing.T) {
 		Method:      MethodExactCount,
 		CreatedAt:   time.Now(),
 		Observations: []ObservationSummary{
-			{ObserverID: "a", ExecutionID: "execution-1", StreamID: "a-stream", EventCount: 6651},
-			{ObserverID: "b", ExecutionID: "execution-1", StreamID: "b-stream", EventCount: 6650},
+			{ObserverID: "a", ExecutionID: "execution-1", StreamID: "a-stream", EventCount: 6651, Source: SourceClientReported},
+			{ObserverID: "b", ExecutionID: "execution-1", StreamID: "b-stream", EventCount: 6650, Source: SourceClientReported},
 		},
 	})
 	if err != nil {
@@ -54,8 +54,8 @@ func TestReconciliationRequiresIndependentObservers(t *testing.T) {
 		Method:      MethodExactCount,
 		CreatedAt:   time.Now(),
 		Observations: []ObservationSummary{
-			{ObserverID: "same", ExecutionID: "execution-1", StreamID: "stream-1", EventCount: 10},
-			{ObserverID: "same", ExecutionID: "execution-1", StreamID: "stream-2", EventCount: 10},
+			{ObserverID: "same", ExecutionID: "execution-1", StreamID: "stream-1", EventCount: 10, Source: SourceClientReported},
+			{ObserverID: "same", ExecutionID: "execution-1", StreamID: "stream-2", EventCount: 10, Source: SourceClientReported},
 		},
 	})
 	if err == nil {
@@ -69,8 +69,8 @@ func TestUnimplementedPoliciesRemainExplicit(t *testing.T) {
 		Method:      MethodSemanticEquivalent,
 		CreatedAt:   time.Now(),
 		Observations: []ObservationSummary{
-			{ObserverID: "a", ExecutionID: "execution-1", StreamID: "stream-a"},
-			{ObserverID: "b", ExecutionID: "execution-1", StreamID: "stream-b"},
+			{ObserverID: "a", ExecutionID: "execution-1", StreamID: "stream-a", Source: SourceClientReported},
+			{ObserverID: "b", ExecutionID: "execution-1", StreamID: "stream-b", Source: SourceClientReported},
 		},
 	})
 	if !errors.Is(err, ErrUnsupportedMethod) {

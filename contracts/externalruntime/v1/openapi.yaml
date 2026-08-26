@@ -59,13 +59,14 @@ paths:
         required: true
         content: {application/json: {schema: {$ref: '#/components/schemas/ReconcileEvidenceRequest'}}}
       responses:
-        '201': {description: Reconciled evidence set, content: {application/json: {schema: {$ref: './evidence-set.schema.json'}}}}
+        '201': {description: Reconciled evidence set, content: {application/json: {schema: {$ref: '#/components/schemas/EvidenceSetResult'}}}}
+        '409': {description: OBSERVATION_ADJUDICATION_FORBIDDEN or IDEMPOTENCY_CONFLICT, content: {application/json: {schema: {$ref: './error.schema.json'}}}}
   /v1/evidence-sets/{evidence_set_id}:
     get:
       operationId: getEvidenceSet
       parameters: [{in: path, name: evidence_set_id, required: true, schema: {type: string, pattern: '^sha256:[0-9a-f]{64}$'}}]
       responses:
-        '200': {description: Public reconciled evidence set, content: {application/json: {schema: {$ref: './evidence-set.schema.json'}}}}
+        '200': {description: Public reconciled evidence set, content: {application/json: {schema: {$ref: '#/components/schemas/EvidenceSetResult'}}}}
   /v1/sessions/{session_id}/enrollments:
     post:
       operationId: enrollClient
@@ -97,49 +98,138 @@ paths:
     get:
       operationId: getCapture
       parameters: [{in: path, name: capture_id, required: true, schema: {type: string, format: uuid}}]
-      responses: {'200': {description: Public capture, content: {application/json: {schema: {$ref: './public-capture.schema.json'}}}}}
+      responses:
+        '200': {description: Public capture, content: {application/json: {schema: {$ref: './public-capture.schema.json'}}}}
+        '404': {description: Unknown capture, content: {application/json: {schema: {$ref: './error.schema.json'}}}}
   /v1/captures/{capture_id}/batches:
     post:
       operationId: ingestCaptureBatch
+      description: >-
+        Accepts one immutable batch of raw observations. Delivery is at-least-once
+        from the producer and idempotent here: an identical retry is answered from
+        state already held and writes nothing. Idempotency is keyed on the sequence
+        range together with the producer digest, not on the Idempotency-Key header,
+        because a per-header replay table would grow without bound across a stream.
       security: [{clientLease: []}]
       parameters:
         - {in: path, name: capture_id, required: true, schema: {type: string, format: uuid}}
         - {in: header, name: Idempotency-Key, required: true, schema: {type: string}}
       requestBody:
         required: true
-        content: {application/json: {schema: {type: object}}}
-      responses: {'200': {description: Batch acknowledgement}}
+        content: {application/json: {schema: {$ref: './capture-batch.schema.json'}}}
+      responses:
+        '200': {description: Batch acknowledgement, content: {application/json: {schema: {$ref: './capture-receipt.schema.json'}}}}
+        '400': {description: Malformed batch, content: {application/json: {schema: {$ref: './error.schema.json'}}}}
+        '401': {description: Invalid client lease, content: {application/json: {schema: {$ref: './error.schema.json'}}}}
+        '404': {description: Unknown capture, content: {application/json: {schema: {$ref: './error.schema.json'}}}}
+        '409': {description: SEQUENCE_CONFLICT or CAPTURE_NOT_OPEN, content: {application/json: {schema: {$ref: './error.schema.json'}}}}
+        '410': {description: Client lease has expired, content: {application/json: {schema: {$ref: './error.schema.json'}}}}
+        '413': {description: Batch exceeds the negotiated limit, content: {application/json: {schema: {$ref: './error.schema.json'}}}}
   /v1/captures/{capture_id}/events:
     get:
       operationId: readCaptureEvents
+      description: Cursor-paged public events for one producer, in sequence order.
       parameters:
         - {in: path, name: capture_id, required: true, schema: {type: string, format: uuid}}
         - {in: query, name: cursor, required: false, schema: {type: string}}
-      responses: {'200': {description: Cursor-based public events}}
+        - {in: query, name: limit, required: false, schema: {type: integer, minimum: 1, maximum: 1000, default: 500}}
+        - {in: query, name: kind, required: false, schema: {type: string, enum: [raw, derived], default: raw}}
+      responses:
+        '200': {description: Cursor-based public events, content: {application/json: {schema: {$ref: '#/components/schemas/EventPage'}}}}
+        '400': {description: Invalid cursor or kind, content: {application/json: {schema: {$ref: './error.schema.json'}}}}
+        '404': {description: Unknown capture, content: {application/json: {schema: {$ref: './error.schema.json'}}}}
   /v1/captures/{capture_id}/objects:
     post:
-      operationId: reserveCaptureObject
+      operationId: storeCaptureObject
+      description: >-
+        Uploads one heavy capture artifact. The bytes are sent directly rather than
+        through an upload reservation: a reservation response would have to name an
+        upload location, and a public field naming where to send bytes is exactly
+        what the secret-redaction invariant excludes. Content addressing makes the
+        upload idempotent.
       security: [{clientLease: []}]
-      parameters: [{in: path, name: capture_id, required: true, schema: {type: string, format: uuid}}]
-      responses: {'201': {description: Public object manifest}}
+      parameters:
+        - {in: path, name: capture_id, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          '*/*':
+            schema: {type: string, format: binary}
+      responses:
+        '201': {description: Public object manifest, content: {application/json: {schema: {$ref: './public-object-manifest.schema.json'}}}}
+        '400': {description: Empty body or invalid media type, content: {application/json: {schema: {$ref: './error.schema.json'}}}}
+        '401': {description: Invalid client lease, content: {application/json: {schema: {$ref: './error.schema.json'}}}}
+        '409': {description: These bytes are already recorded under a different media type, content: {application/json: {schema: {$ref: './error.schema.json'}}}}
+        '413': {description: Object exceeds the negotiated limit, content: {application/json: {schema: {$ref: './error.schema.json'}}}}
   /v1/captures/{capture_id}:close:
     post:
       operationId: closeCapture
+      description: >-
+        Ends a producer stream with its own final account. A stream that closes with
+        gaps closes as `closed`, not `degraded`; the gaps are published in the
+        completeness manifest rather than encoded in a status.
       security: [{clientLease: []}]
       parameters: [{in: path, name: capture_id, required: true, schema: {type: string, format: uuid}}]
-      responses: {'200': {description: Capture closed}}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/CaptureCloseRequest'}}}
+      responses:
+        '200': {description: Closed capture with its completeness manifest, content: {application/json: {schema: {$ref: './public-capture.schema.json'}}}}
+        '401': {description: Invalid client lease, content: {application/json: {schema: {$ref: './error.schema.json'}}}}
+        '404': {description: Unknown capture, content: {application/json: {schema: {$ref: './error.schema.json'}}}}
+        '409': {description: Already closed with a different account, or abandoned, content: {application/json: {schema: {$ref: './error.schema.json'}}}}
+  /v1/captures/{capture_id}:normalize:
+    post:
+      operationId: normalizeCapture
+      description: >-
+        Derives a versioned public dataset from a closed raw stream. Raw
+        observations are never edited; replaying the same normalizer version
+        returns the existing derivation and a new version creates another one
+        alongside it. Requires the session creator's account token, because a
+        derivation is a broker-side interpretation rather than a producer's report.
+      security: [{bearerAuth: []}]
+      parameters: [{in: path, name: capture_id, required: true, schema: {type: string, format: uuid}}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/NormalizeRequest'}}}
+      responses:
+        '201': {description: The derived capture, content: {application/json: {schema: {$ref: './public-capture.schema.json'}}}}
+        '401': {description: Not the session creator, content: {application/json: {schema: {$ref: './error.schema.json'}}}}
+        '404': {description: Unknown capture or normalizer version, content: {application/json: {schema: {$ref: './error.schema.json'}}}}
+        '409': {description: Stream is not closed, or is itself a derivation, content: {application/json: {schema: {$ref: './error.schema.json'}}}}
   /v1/sessions/{session_id}/captures:
     get:
       operationId: listSessionCaptures
       parameters: [{in: path, name: session_id, required: true, schema: {type: string, format: uuid}}]
-      responses: {'200': {description: Public captures for a known session}}
+      responses:
+        '200':
+          description: Public captures for a known session
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [schema_version, captures]
+                properties:
+                  schema_version: {const: '1.0.0'}
+                  captures: {type: array, items: {$ref: './public-capture.schema.json'}}
+        '404': {description: Unknown session, content: {application/json: {schema: {$ref: './error.schema.json'}}}}
   /v1/sessions/{session_id}/events:
     get:
       operationId: readSessionEvents
+      description: >-
+        Cursor-paged public events across every producer on a session, ordered by
+        broker receipt with capture id and sequence as deterministic tie-breaks.
+        That is a retrieval order and the response labels it as one: there is no
+        total order across independent producers and none is fabricated here.
       parameters:
         - {in: path, name: session_id, required: true, schema: {type: string, format: uuid}}
         - {in: query, name: cursor, required: false, schema: {type: string}}
-      responses: {'200': {description: Cursor-based public events}}
+        - {in: query, name: limit, required: false, schema: {type: integer, minimum: 1, maximum: 1000, default: 500}}
+        - {in: query, name: kind, required: false, schema: {type: string, enum: [raw, derived], default: raw}}
+      responses:
+        '200': {description: Cursor-based public events, content: {application/json: {schema: {$ref: '#/components/schemas/EventPage'}}}}
+        '400': {description: Invalid cursor or kind, content: {application/json: {schema: {$ref: './error.schema.json'}}}}
+        '404': {description: Unknown session, content: {application/json: {schema: {$ref: './error.schema.json'}}}}
 components:
   securitySchemes:
     bearerAuth: {type: http, scheme: bearer}
@@ -184,6 +274,65 @@ components:
         client_lease_token: {type: string, format: byte}
         transport_credential: {type: string, format: byte}
         expires_at: {type: string, format: date-time}
+        capture_stream_offers:
+          type: array
+          description: >-
+            One offer per stream opened for this client, present when the session's
+            capture policy asks for semantic events. An offer carries identity and
+            limits and deliberately no location: the ingest route is in this
+            contract, not in the response.
+          items: {$ref: '#/components/schemas/CaptureStreamOffer'}
+    CaptureStreamOffer:
+      type: object
+      additionalProperties: false
+      required: [schema_version, capture_id, producer_class, capture_method, max_batch_bytes, max_batch_events, max_object_bytes]
+      properties:
+        schema_version: {const: '1.0.0'}
+        capture_id: {type: string, format: uuid}
+        producer_class: {type: string, enum: [player, observer]}
+        capture_method: {type: string, minLength: 1, maxLength: 128}
+        max_batch_bytes: {type: integer, minimum: 1}
+        max_batch_events: {type: integer, minimum: 1}
+        max_object_bytes: {type: integer, minimum: 1}
+    CaptureCloseRequest:
+      type: object
+      additionalProperties: false
+      required: [final_sequence, end_reason]
+      properties:
+        final_sequence: {type: integer, minimum: 0}
+        observed_gaps:
+          type: array
+          items: {type: array, minItems: 2, maxItems: 2, items: {type: integer, minimum: 0}}
+        local_drops: {type: integer, minimum: 0}
+        end_reason: {type: string, minLength: 1, maxLength: 256}
+    NormalizeRequest:
+      type: object
+      additionalProperties: false
+      required: [normalizer_id, normalizer_version]
+      properties:
+        normalizer_id: {type: string, minLength: 1, maxLength: 128}
+        normalizer_version:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: Exact version. There is no "latest"; a derivation that cannot name the version that produced it is not reproducible.
+    EventPage:
+      type: object
+      additionalProperties: false
+      required: [schema_version, events, ordering]
+      properties:
+        schema_version: {const: '1.0.0'}
+        events: {type: array, items: {$ref: './telemetry-event.schema.json'}}
+        next_cursor: {type: string, description: Absent at the tail rather than empty.}
+        ordering: {type: string, enum: [capture-sequence, broker-receipt-order]}
+    EvidenceSetResult:
+      type: object
+      description: The evidence set, with the gate results that decided which captures were allowed to contribute to it.
+      allOf:
+        - {$ref: './evidence-set.schema.json'}
+        - type: object
+          properties:
+            gate_results: {type: array, items: {$ref: './gate-result.schema.json'}}
     LifecycleReportRequest:
       type: object
       additionalProperties: false
@@ -195,19 +344,30 @@ components:
     ReconcileEvidenceRequest:
       type: object
       additionalProperties: false
-      required: [method, observations]
+      required: [method]
+      description: >-
+        Where the execution has captured streams the broker derives the observation
+        summaries itself and rejects supplied ones with
+        OBSERVATION_ADJUDICATION_FORBIDDEN. `observations` survives only for
+        executions with no capture plane at all.
       properties:
         method: {type: string, enum: [exact-count, ordered-hash, semantic-equivalence, quorum, domain-specific]}
+        capture_ids:
+          type: array
+          description: Which captured streams to compare. Empty means every non-derived capture on the execution.
+          items: {type: string, format: uuid}
         observations:
           type: array
           minItems: 2
+          description: Rejected outright when the execution has captured streams.
           items:
             type: object
             additionalProperties: false
-            required: [observer_id, execution_id, stream_id, event_count]
+            required: [observer_id, execution_id, stream_id, event_count, source]
             properties:
               observer_id: {type: string, format: uuid}
               execution_id: {type: string, format: uuid}
               stream_id: {type: string, minLength: 1, maxLength: 256}
               event_count: {type: integer, minimum: 0}
               ordered_hash: {type: string, pattern: '^sha256:[0-9a-f]{64}$'}
+              source: {type: string, enum: [client-reported, broker-derived]}

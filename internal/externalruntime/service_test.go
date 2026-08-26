@@ -135,7 +135,7 @@ func TestLeaseConvergenceExpiresAdmission(t *testing.T) {
 	}
 }
 
-type testEnrollmentSecrets struct{ id, lease, transport string }
+type testEnrollmentSecrets struct{ id, lease, transport, capture string }
 
 func mustIdentity(t *testing.T, service *Service, handle string) CreateIdentityResponse {
 	t.Helper()
@@ -152,7 +152,11 @@ func mustEnroll(t *testing.T, service *Service, accountToken, join, sessionID, i
 	if err != nil {
 		t.Fatal(err)
 	}
-	return testEnrollmentSecrets{id: response.PublicEnrollment.ClientID, lease: response.ClientLeaseToken, transport: response.TransportCredential}
+	secrets := testEnrollmentSecrets{id: response.PublicEnrollment.ClientID, lease: response.ClientLeaseToken, transport: response.TransportCredential}
+	if len(response.CaptureStreamOffers) > 0 {
+		secrets.capture = response.CaptureStreamOffers[0].CaptureID
+	}
+	return secrets
 }
 
 func reportReady(t *testing.T, service *Service, enrollment testEnrollmentSecrets, key string) LifecycleReportResponse {
