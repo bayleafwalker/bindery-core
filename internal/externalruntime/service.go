@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/bayleafwalker/bindery-core/pkg/evidencev1"
 )
 
 var handlePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{2,31}$`)
@@ -40,20 +42,30 @@ type enrollmentCreateReplay struct {
 	ExpiresAt   time.Time
 }
 
+type evidenceCreateReplay struct {
+	RequestHash string
+	Public      evidencev1.EvidenceSet
+}
+
 type Service struct {
 	mu sync.RWMutex
 
 	clock              func() time.Time
 	placementAllocator PlacementAllocator
+	stateStore          StateStore
 
 	identities  map[string]*identityRecord
 	handles     map[string]string
 	sessions    map[string]*sessionRecord
 	enrollments map[string]*enrollmentRecord
+	placements  map[string]PublicPlacement
+	executions  map[string]PublicExecution
+	evidenceSets map[string]evidencev1.EvidenceSet
 
 	identityIdempotency   map[string]identityCreateReplay
 	sessionIdempotency    map[string]sessionCreateReplay
 	enrollmentIdempotency map[string]enrollmentCreateReplay
+	evidenceIdempotency   map[string]evidenceCreateReplay
 }
 
 func NewService() *Service {
@@ -71,9 +83,13 @@ func NewServiceWithPlacementAllocator(allocator PlacementAllocator) *Service {
 		handles:               make(map[string]string),
 		sessions:              make(map[string]*sessionRecord),
 		enrollments:           make(map[string]*enrollmentRecord),
+		placements:            make(map[string]PublicPlacement),
+		executions:            make(map[string]PublicExecution),
+		evidenceSets:          make(map[string]evidencev1.EvidenceSet),
 		identityIdempotency:   make(map[string]identityCreateReplay),
 		sessionIdempotency:    make(map[string]sessionCreateReplay),
 		enrollmentIdempotency: make(map[string]enrollmentCreateReplay),
+		evidenceIdempotency:   make(map[string]evidenceCreateReplay),
 	}
 }
 
@@ -108,6 +124,7 @@ func (s *Service) CreateIdentity(req CreateIdentityRequest, idempotencyKey strin
 	if _, exists := s.handles[req.Handle]; exists {
 		return CreateIdentityResponse{}, domainError("HANDLE_TAKEN", "handle is already claimed")
 	}
+	before := s.snapshotLocked()
 	now := s.now()
 	accountID, err := newUUIDv7(now)
 	if err != nil {
@@ -127,6 +144,9 @@ func (s *Service) CreateIdentity(req CreateIdentityRequest, idempotencyKey strin
 	s.handles[req.Handle] = accountID
 	response := CreateIdentityResponse{PublicIdentity: public, AccountToken: token, Recovery: "none"}
 	s.identityIdempotency[idempotencyKey] = identityCreateReplay{RequestHash: hash, Public: public}
+	if err := s.commitLocked(before); err != nil {
+		return CreateIdentityResponse{}, err
+	}
 	return response, nil
 }
 
@@ -162,14 +182,19 @@ func (s *Service) CreateSession(accountToken, idempotencyKey string, req CreateS
 		}
 		return CreateSessionResponse{PublicSession: clonePublicSession(replay.Public), ExpiresAt: replay.ExpiresAt}, nil
 	}
-	placement, err := resolvePlacement(s.placementAllocator, req.Placement)
-	if err != nil {
-		return CreateSessionResponse{}, err
-	}
+	before := s.snapshotLocked()
 	now := s.now()
 	sessionID, err := newUUIDv7(now)
 	if err != nil {
 		return CreateSessionResponse{}, fmt.Errorf("create session id: %w", err)
+	}
+	executionID, err := newUUIDv7(now)
+	if err != nil {
+		return CreateSessionResponse{}, fmt.Errorf("create execution id: %w", err)
+	}
+	placement, err := resolvePlacement(s.placementAllocator, req.Placement, sessionID, now)
+	if err != nil {
+		return CreateSessionResponse{}, err
 	}
 	join, joinVerifier, err := newCredential()
 	if err != nil {
@@ -177,6 +202,7 @@ func (s *Service) CreateSession(accountToken, idempotencyKey string, req CreateS
 	}
 	public := PublicSession{
 		SchemaVersion: SchemaVersion, SessionID: sessionID,
+		ExecutionID: executionID,
 		CreatedByAccountID: accountID, CreatedAt: now, UpdatedAt: now,
 		Phase: SessionCreated, Compatibility: req.Compatibility,
 		ParticipantPolicy: req.ParticipantPolicy, CapturePolicy: req.Capture,
@@ -184,23 +210,43 @@ func (s *Service) CreateSession(accountToken, idempotencyKey string, req CreateS
 		Enrollments: []PublicEnrollment{}, Transitions: []PublicTransition{},
 		PublicDataNoticeVersion: "1.0",
 	}
+	if placement != nil {
+		public.PlacementID = placement.PlacementID
+	}
 	appendTransition(&public, nil, string(SessionCreated), "match-broker", "session-created", now)
 	record := &sessionRecord{
 		PublicSession: public, joinVerifier: joinVerifier,
 		expiresAt: now.Add(15 * time.Minute), creatorID: accountID,
+		executionID: executionID, placementID: public.PlacementID,
 		placementIntent: req.Placement, enrollments: make(map[string]*enrollmentRecord),
 		createRequestHash: hash,
 	}
 	s.sessions[sessionID] = record
+	if placement != nil {
+		s.placements[placement.PlacementID] = *placement
+	}
+	s.executions[executionID] = PublicExecution{
+		SchemaVersion: SchemaVersion,
+		ExecutionID:   executionID,
+		SessionID:     sessionID,
+		PlacementID:   public.PlacementID,
+		Phase:         ExecutionPrepared,
+		CreatedAt:     now,
+	}
 	response := CreateSessionResponse{PublicSession: clonePublicSession(public), SessionJoinCredential: join, ExpiresAt: record.expiresAt}
 	s.sessionIdempotency[replayKey] = sessionCreateReplay{RequestHash: hash, Public: public, ExpiresAt: record.expiresAt}
+	if err := s.commitLocked(before); err != nil {
+		return CreateSessionResponse{}, err
+	}
 	return response, nil
 }
 
 func (s *Service) GetSession(sessionID string) (PublicSession, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.convergeLocked(s.now())
+	if err := s.convergeAndPersistLocked(s.now()); err != nil {
+		return PublicSession{}, err
+	}
 	session, ok := s.sessions[sessionID]
 	if !ok {
 		return PublicSession{}, domainError("SESSION_NOT_FOUND", "session was not found")
@@ -212,12 +258,102 @@ func (s *Service) GetSession(sessionID string) (PublicSession, error) {
 func (s *Service) GetEnrollment(clientID string) (PublicEnrollment, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.convergeLocked(s.now())
+	if err := s.convergeAndPersistLocked(s.now()); err != nil {
+		return PublicEnrollment{}, err
+	}
 	enrollment, ok := s.enrollments[clientID]
 	if !ok {
 		return PublicEnrollment{}, domainError("ENROLLMENT_NOT_FOUND", "enrollment was not found")
 	}
 	return enrollment.PublicEnrollment, nil
+}
+
+func (s *Service) GetPlacement(placementID string) (PublicPlacement, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	placement, ok := s.placements[placementID]
+	if !ok {
+		return PublicPlacement{}, domainError("PLACEMENT_NOT_FOUND", "placement was not found")
+	}
+	return placement, nil
+}
+
+func (s *Service) GetExecution(executionID string) (PublicExecution, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	execution, ok := s.executions[executionID]
+	if !ok {
+		return PublicExecution{}, domainError("EXECUTION_NOT_FOUND", "execution was not found")
+	}
+	return clonePublicExecution(execution), nil
+}
+
+func (s *Service) GetEvidenceSet(evidenceSetID string) (evidencev1.EvidenceSet, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	set, ok := s.evidenceSets[evidenceSetID]
+	if !ok {
+		return evidencev1.EvidenceSet{}, domainError("EVIDENCE_SET_NOT_FOUND", "evidence set was not found")
+	}
+	return cloneEvidenceSet(set), nil
+}
+
+func (s *Service) CreateEvidenceSet(accountToken, executionID, idempotencyKey string, req ReconcileEvidenceRequest) (evidencev1.EvidenceSet, error) {
+	if idempotencyKey == "" {
+		return evidencev1.EvidenceSet{}, domainError("IDEMPOTENCY_KEY_REQUIRED", "an idempotency key is required")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.convergeAndPersistLocked(s.now()); err != nil {
+		return evidencev1.EvidenceSet{}, err
+	}
+	accountID, err := s.authenticateAccountLocked(accountToken)
+	if err != nil {
+		return evidencev1.EvidenceSet{}, err
+	}
+	execution, ok := s.executions[executionID]
+	if !ok {
+		return evidencev1.EvidenceSet{}, domainError("EXECUTION_NOT_FOUND", "execution was not found")
+	}
+	session, ok := s.sessions[execution.SessionID]
+	if !ok {
+		return evidencev1.EvidenceSet{}, domainError("STATE_INTEGRITY_ERROR", "execution does not resolve to a session")
+	}
+	if session.creatorID != accountID {
+		return evidencev1.EvidenceSet{}, domainError("TOKEN_INVALID", "only the session creator may reconcile execution evidence")
+	}
+	hash := requestHash(req)
+	replayKey := accountID + ":" + executionID + ":" + idempotencyKey
+	if replay, exists := s.evidenceIdempotency[replayKey]; exists {
+		if replay.RequestHash != hash {
+			return evidencev1.EvidenceSet{}, domainError("IDEMPOTENCY_CONFLICT", "idempotency key was reused with a different request")
+		}
+		return cloneEvidenceSet(replay.Public), nil
+	}
+	for _, observation := range req.Observations {
+		enrollment, exists := session.enrollments[observation.ObserverID]
+		if !exists || enrollment.sessionID != session.SessionID {
+			return evidencev1.EvidenceSet{}, domainError("OBSERVER_NOT_ENROLLED", "every observer must be enrolled in the execution session")
+		}
+	}
+	set, err := evidencev1.Reconcile(evidencev1.ReconcileRequest{
+		ExecutionID:  executionID,
+		Method:       req.Method,
+		Observations: req.Observations,
+		CreatedAt:    s.now(),
+	})
+	if err != nil {
+		return evidencev1.EvidenceSet{}, domainError("RECONCILIATION_INVALID", err.Error())
+	}
+	before := s.snapshotLocked()
+	s.evidenceSets[set.EvidenceSetID] = cloneEvidenceSet(set)
+	execution.EvidenceSetIDs = appendUnique(execution.EvidenceSetIDs, set.EvidenceSetID)
+	s.executions[executionID] = execution
+	s.evidenceIdempotency[replayKey] = evidenceCreateReplay{RequestHash: hash, Public: cloneEvidenceSet(set)}
+	if err := s.commitLocked(before); err != nil {
+		return evidencev1.EvidenceSet{}, err
+	}
+	return set, nil
 }
 
 func (s *Service) Enroll(accountToken, sessionJoinCredential, sessionID, idempotencyKey string, req EnrollmentRequest) (EnrollmentCreateResponse, error) {
@@ -239,6 +375,9 @@ func (s *Service) Enroll(accountToken, sessionJoinCredential, sessionID, idempot
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := s.convergeAndPersistLocked(s.now()); err != nil {
+		return EnrollmentCreateResponse{}, err
+	}
 	accountID, err := s.authenticateAccountLocked(accountToken)
 	if err != nil {
 		return EnrollmentCreateResponse{}, err
@@ -247,7 +386,6 @@ func (s *Service) Enroll(accountToken, sessionJoinCredential, sessionID, idempot
 	if !ok {
 		return EnrollmentCreateResponse{}, domainError("SESSION_NOT_FOUND", "session was not found")
 	}
-	s.convergeLocked(s.now())
 	if session.Phase != SessionCreated && session.Phase != SessionAdmitting && session.Phase != SessionReady {
 		return EnrollmentCreateResponse{}, domainError("SESSION_NOT_ADMITTING", "session phase does not accept enrollments")
 	}
@@ -282,6 +420,7 @@ func (s *Service) Enroll(accountToken, sessionJoinCredential, sessionID, idempot
 		}
 		return EnrollmentCreateResponse{PublicEnrollment: replay.Public, ExpiresAt: replay.ExpiresAt}, nil
 	}
+	before := s.snapshotLocked()
 	now := s.now()
 	clientID, err := newUUIDv7(now)
 	if err != nil {
@@ -305,6 +444,9 @@ func (s *Service) Enroll(accountToken, sessionJoinCredential, sessionID, idempot
 	s.refreshPublicEnrollmentsLocked(session)
 	response := EnrollmentCreateResponse{PublicEnrollment: public, ClientLeaseToken: lease, TransportCredential: transport, ExpiresAt: enrollment.expiresAt}
 	s.enrollmentIdempotency[replayKey] = enrollmentCreateReplay{RequestHash: hash, Public: public, ExpiresAt: enrollment.expiresAt}
+	if err := s.commitLocked(before); err != nil {
+		return EnrollmentCreateResponse{}, err
+	}
 	return response, nil
 }
 
@@ -314,6 +456,9 @@ func (s *Service) Report(clientLease, clientID, idempotencyKey string, req Lifec
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := s.convergeAndPersistLocked(s.now()); err != nil {
+		return LifecycleReportResponse{}, err
+	}
 	enrollment, ok := s.enrollments[clientID]
 	if !ok {
 		return LifecycleReportResponse{}, domainError("ENROLLMENT_NOT_FOUND", "enrollment was not found")
@@ -331,21 +476,29 @@ func (s *Service) Report(clientLease, clientID, idempotencyKey string, req Lifec
 		return LifecycleReportResponse{PublicSession: clonePublicSession(session.PublicSession), PublicEnrollment: enrollment.PublicEnrollment}, nil
 	}
 	if enrollment.expiresAt.Before(s.now()) {
-		s.convergeLocked(s.now())
 		return LifecycleReportResponse{}, domainError("LEASE_EXPIRED", "client lease has expired")
 	}
 	session := s.sessions[enrollment.sessionID]
-	if err := applyReport(session, enrollment, req, s.now()); err != nil {
+	before := s.snapshotLocked()
+	now := s.now()
+	if err := applyReport(session, enrollment, req, now); err != nil {
 		return LifecycleReportResponse{}, err
 	}
+	s.syncExecutionLocked(session, now)
 	enrollment.reportIDs[idempotencyKey] = hash
 	s.refreshPublicEnrollmentsLocked(session)
+	if err := s.commitLocked(before); err != nil {
+		return LifecycleReportResponse{}, err
+	}
 	return LifecycleReportResponse{PublicSession: clonePublicSession(session.PublicSession), PublicEnrollment: enrollment.PublicEnrollment}, nil
 }
 
 func (s *Service) Heartbeat(clientLease, clientID string) (HeartbeatResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := s.convergeAndPersistLocked(s.now()); err != nil {
+		return HeartbeatResponse{}, err
+	}
 	enrollment, ok := s.enrollments[clientID]
 	if !ok {
 		return HeartbeatResponse{}, domainError("ENROLLMENT_NOT_FOUND", "enrollment was not found")
@@ -357,20 +510,34 @@ func (s *Service) Heartbeat(clientLease, clientID string) (HeartbeatResponse, er
 	if enrollment.expiresAt.Before(now) || enrollment.Phase == EnrollmentDeparted || enrollment.Phase == EnrollmentLost || enrollment.Phase == EnrollmentExpired {
 		return HeartbeatResponse{}, domainError("LEASE_EXPIRED", "client lease has expired")
 	}
+	before := s.snapshotLocked()
 	enrollment.expiresAt = now.Add(2 * time.Minute)
+	if err := s.commitLocked(before); err != nil {
+		return HeartbeatResponse{}, err
+	}
 	return HeartbeatResponse{ClientID: clientID, ExpiresAt: enrollment.expiresAt}, nil
 }
 
-func (s *Service) Converge(now time.Time) {
+func (s *Service) Converge(now time.Time) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.convergeLocked(now.UTC())
+	return s.convergeAndPersistLocked(now.UTC())
 }
 
-func (s *Service) convergeLocked(now time.Time) {
+func (s *Service) convergeAndPersistLocked(now time.Time) error {
+	before := s.snapshotLocked()
+	if !s.convergeLocked(now) {
+		return nil
+	}
+	return s.commitLocked(before)
+}
+
+func (s *Service) convergeLocked(now time.Time) bool {
+	changed := false
 	for _, session := range s.sessions {
 		if (session.Phase == SessionCreated || session.Phase == SessionAdmitting || session.Phase == SessionReady) && session.expiresAt.Before(now) {
 			transitionSession(session, SessionExpired, "lease-converger", "session-admission-expired", now)
+			changed = true
 		}
 		for _, enrollment := range session.enrollments {
 			if enrollment.expiresAt.After(now) || enrollment.Phase == EnrollmentDeparted || enrollment.Phase == EnrollmentLost || enrollment.Phase == EnrollmentExpired {
@@ -384,13 +551,47 @@ func (s *Service) convergeLocked(now time.Time) {
 			}
 			if from != enrollment.Phase {
 				transitionEnrollment(enrollment, from, enrollment.Phase, "lease-converger", "client-lease-expired", now)
+				changed = true
 			}
 			if enrollment.ClientClass == ClientPlayer && session.Phase == SessionRunning {
 				transitionSession(session, SessionFailed, "lease-converger", "required-player-lease-expired", now)
+				changed = true
 			}
 		}
 		s.refreshPublicEnrollmentsLocked(session)
+		s.syncExecutionLocked(session, now)
 	}
+	return changed
+}
+
+func (s *Service) syncExecutionLocked(session *sessionRecord, now time.Time) {
+	execution, ok := s.executions[session.executionID]
+	if !ok {
+		return
+	}
+	switch session.Phase {
+	case SessionRunning:
+		execution.Phase = ExecutionRunning
+		if execution.StartedAt == nil {
+			execution.StartedAt = timePtr(now)
+		}
+	case SessionEnded, SessionPublished:
+		execution.Phase = ExecutionEnded
+		if execution.EndedAt == nil {
+			execution.EndedAt = timePtr(now)
+		}
+	case SessionFailed:
+		execution.Phase = ExecutionFailed
+		if execution.EndedAt == nil {
+			execution.EndedAt = timePtr(now)
+		}
+	case SessionExpired:
+		execution.Phase = ExecutionExpired
+		if execution.EndedAt == nil {
+			execution.EndedAt = timePtr(now)
+		}
+	}
+	s.executions[session.executionID] = execution
 }
 
 func (s *Service) authenticateAccountLocked(token string) (string, error) {
@@ -485,6 +686,35 @@ func clonePublicSession(value PublicSession) PublicSession {
 		value.Placement = &placementCopy
 	}
 	return value
+}
+
+func clonePublicExecution(value PublicExecution) PublicExecution {
+	value.EvidenceSetIDs = append([]string(nil), value.EvidenceSetIDs...)
+	if value.StartedAt != nil {
+		started := *value.StartedAt
+		value.StartedAt = &started
+	}
+	if value.EndedAt != nil {
+		ended := *value.EndedAt
+		value.EndedAt = &ended
+	}
+	return value
+}
+
+func cloneEvidenceSet(value evidencev1.EvidenceSet) evidencev1.EvidenceSet {
+	value.Observations = append([]evidencev1.ObservationSummary(nil), value.Observations...)
+	value.Reconciliation.DistinctCounts = append([]uint64(nil), value.Reconciliation.DistinctCounts...)
+	value.Reconciliation.DistinctHashes = append([]string(nil), value.Reconciliation.DistinctHashes...)
+	return value
+}
+
+func appendUnique(values []string, value string) []string {
+	for _, existing := range values {
+		if existing == value {
+			return values
+		}
+	}
+	return append(values, value)
 }
 
 func appendTransition(session *PublicSession, from *SessionPhase, to, source, reason string, now time.Time) {

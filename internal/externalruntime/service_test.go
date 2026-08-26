@@ -96,6 +96,10 @@ func TestSessionEnrollmentLifecycleAndObserverDegradation(t *testing.T) {
 	if ended.PublicSession.Phase != SessionEnded {
 		t.Fatalf("phase after players exit = %s", ended.PublicSession.Phase)
 	}
+	execution, err := service.GetExecution(created.PublicSession.ExecutionID)
+	if err != nil || execution.Phase != ExecutionEnded || execution.StartedAt == nil || execution.EndedAt == nil {
+		t.Fatalf("execution lifecycle = %+v, error = %v", execution, err)
+	}
 
 	publicBytes, err := json.Marshal(ended.PublicSession)
 	if err != nil {
@@ -119,7 +123,9 @@ func TestLeaseConvergenceExpiresAdmission(t *testing.T) {
 		t.Fatal(err)
 	}
 	now = created.ExpiresAt.Add(time.Second)
-	service.Converge(now)
+	if err := service.Converge(now); err != nil {
+		t.Fatal(err)
+	}
 	public, err := service.GetSession(created.PublicSession.SessionID)
 	if err != nil {
 		t.Fatal(err)

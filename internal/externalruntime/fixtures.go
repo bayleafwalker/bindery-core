@@ -36,12 +36,27 @@ func fixtureIdentityRecord() identityRecord {
 }
 
 func fixtureRelayPlacement() *PublicPlacement {
+	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
 	return &PublicPlacement{
+		SchemaVersion:     SchemaVersion,
+		PlacementID:       "0198c2c3-4d5e-7f60-8123-456789abcdea",
+		SessionID:         "0198c2c3-4d5e-7f60-8123-456789abcdeb",
 		Region:            "eu-north",
 		RelayProviderID:   "bindery-native",
 		RelayAllocationID: "0198c2c3-4d5e-7f60-8123-456789abcdef",
 		RelayEndpoint:     "127.0.0.1:40000",
 		PolicyVersion:     "relay-placement/v1",
+		Allocator:         fixtureAllocatorIdentity(),
+		CreatedAt:         now,
+	}
+}
+
+func fixtureAllocatorIdentity() ImplementationIdentity {
+	return ImplementationIdentity{
+		Implementation: "bindery-native",
+		Repository:     "https://github.com/bayleafwalker/bindery-core",
+		Revision:       "738e9f752ad1d892bdad8852cd4bd4e29182c16a",
+		ConfigDigest:   "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
 	}
 }
 
@@ -81,6 +96,8 @@ func fixtureSessionWithEnrollments() PublicSession {
 	return PublicSession{
 		SchemaVersion:      SchemaVersion,
 		SessionID:          "session-fixture",
+		ExecutionID:        "execution-fixture",
+		PlacementID:        "0198c2c3-4d5e-7f60-8123-456789abcdea",
 		CreatedByAccountID: "acct-player-a",
 		CreatedAt:          now,
 		Phase:              SessionReady,
@@ -103,6 +120,7 @@ func fixtureExpiredSession() PublicSession {
 	return PublicSession{
 		SchemaVersion:           SchemaVersion,
 		SessionID:               "session-expired-fixture",
+		ExecutionID:             "execution-expired-fixture",
 		CreatedByAccountID:      "acct-player-a",
 		CreatedAt:               now,
 		Phase:                   SessionExpired,

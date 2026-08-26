@@ -1,6 +1,10 @@
 package externalruntime
 
-import "time"
+import (
+	"time"
+
+	"github.com/bayleafwalker/bindery-core/pkg/evidencev1"
+)
 
 const SchemaVersion = "1.0.0"
 
@@ -77,13 +81,52 @@ type CapturePolicy struct {
 	ObserverPreferred bool `json:"observer_preferred"`
 }
 
+// ImplementationIdentity makes a behaviorally significant component
+// resolvable after the process and checkout that executed it are gone.
+type ImplementationIdentity struct {
+	Implementation string `json:"implementation"`
+	Repository     string `json:"repository"`
+	Revision       string `json:"revision"`
+	ConfigDigest   string `json:"config_digest"`
+}
+
 type PublicPlacement struct {
+	SchemaVersion     string                 `json:"schema_version"`
+	PlacementID       string                 `json:"placement_id"`
+	SessionID         string                 `json:"session_id"`
 	Region            string `json:"region"`
 	RelayProviderID   string `json:"relay_provider_id"`
 	RelayAllocationID string `json:"relay_allocation_id"`
 	RelayEndpoint     string `json:"relay_endpoint"`
 	PolicyVersion     string `json:"policy_version"`
 	DecisionSummary   string `json:"decision_summary,omitempty"`
+	Allocator         ImplementationIdentity `json:"allocator"`
+	CreatedAt         time.Time              `json:"created_at"`
+}
+
+type ExecutionPhase string
+
+const (
+	ExecutionPrepared ExecutionPhase = "prepared"
+	ExecutionRunning  ExecutionPhase = "running"
+	ExecutionEnded    ExecutionPhase = "ended"
+	ExecutionFailed   ExecutionPhase = "failed"
+	ExecutionExpired  ExecutionPhase = "expired"
+)
+
+// PublicExecution is deliberately distinct from a session. A session carries
+// admission intent and participants; an execution is the externally run thing
+// to which observations and evidence sets refer.
+type PublicExecution struct {
+	SchemaVersion  string         `json:"schema_version"`
+	ExecutionID    string         `json:"execution_id"`
+	SessionID      string         `json:"session_id"`
+	PlacementID    string         `json:"placement_id,omitempty"`
+	Phase          ExecutionPhase `json:"phase"`
+	CreatedAt      time.Time      `json:"created_at"`
+	StartedAt      *time.Time     `json:"started_at,omitempty"`
+	EndedAt        *time.Time     `json:"ended_at,omitempty"`
+	EvidenceSetIDs []string       `json:"evidence_set_ids,omitempty"`
 }
 
 type PublicTransition struct {
@@ -121,6 +164,7 @@ type PublicEnrollment struct {
 type PublicCapture struct {
 	CaptureID        string    `json:"capture_id"`
 	SessionID        string    `json:"session_id"`
+	ExecutionID      string    `json:"execution_id"`
 	ProducerClientID string    `json:"producer_client_id"`
 	ProducerClass    string    `json:"producer_class"`
 	CaptureMethod    string    `json:"capture_method"`
@@ -133,6 +177,8 @@ type PublicCapture struct {
 type PublicSession struct {
 	SchemaVersion           string             `json:"schema_version"`
 	SessionID               string             `json:"session_id"`
+	ExecutionID             string             `json:"execution_id"`
+	PlacementID             string             `json:"placement_id,omitempty"`
 	CreatedByAccountID      string             `json:"created_by_account_id"`
 	CreatedAt               time.Time          `json:"created_at"`
 	UpdatedAt               time.Time          `json:"updated_at,omitempty"`
@@ -219,6 +265,11 @@ type HeartbeatResponse struct {
 	ExpiresAt time.Time `json:"expires_at"`
 }
 
+type ReconcileEvidenceRequest struct {
+	Method       evidencev1.Method               `json:"method"`
+	Observations []evidencev1.ObservationSummary `json:"observations"`
+}
+
 type ErrorResponse struct {
 	Code      string `json:"code"`
 	Message   string `json:"message"`
@@ -235,6 +286,8 @@ type sessionRecord struct {
 	joinVerifier      []byte
 	expiresAt         time.Time
 	creatorID         string
+	executionID       string
+	placementID       string
 	placementIntent   PlacementIntent
 	enrollments       map[string]*enrollmentRecord
 	createRequestHash string

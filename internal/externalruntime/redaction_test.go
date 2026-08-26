@@ -27,11 +27,15 @@ func TestRedactionOracleRejectsSecretFieldsAndFixtures(t *testing.T) {
 
 func TestRedactionOracleAllowsPublishedRelayPlacementEndpoint(t *testing.T) {
 	public, err := json.Marshal(PublicSession{Placement: &PublicPlacement{
+		SchemaVersion:     SchemaVersion,
+		PlacementID:       "0198c2c3-4d5e-7f60-8123-456789abcdea",
+		SessionID:         "0198c2c3-4d5e-7f60-8123-456789abcdeb",
 		Region:            "eu-north",
 		RelayProviderID:   "bindery-native",
 		RelayAllocationID: "0198c2c3-4d5e-7f60-8123-456789abcdef",
 		RelayEndpoint:     "127.0.0.1:40000",
 		PolicyVersion:     "relay-placement/v1",
+		Allocator:         fixtureAllocatorIdentity(),
 	}})
 	if err != nil {
 		t.Fatal(err)
