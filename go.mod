@@ -2,6 +2,14 @@ module github.com/bayleafwalker/bindery-core
 
 go 1.22.0
 
+// gofmt only agrees with this repository's formatting from 1.27 onward:
+// every earlier release re-indents the multi-value composite-literal return in
+// internal/externalruntime/capture_gate.go. That file embeds and hashes its own
+// source to identify the gate's decision procedure, so reformatting it to
+// satisfy an older gofmt would reissue a published implementation hash over
+// whitespace. The language floor above stays at 1.22, which still builds.
+toolchain go1.27.0
+
 require (
 	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/prometheus/client_golang v1.19.1
