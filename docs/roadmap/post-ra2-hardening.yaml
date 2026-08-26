@@ -70,7 +70,7 @@ work:
       when the tests that would let them pass.
   - id: ERH-007
     title: Run a non-RA2 external runtime
-    status: pending
+    status: implemented-with-findings
     depends_on: [ERH-006]
     constraints:
       - materially-different-integration-mechanism
@@ -80,6 +80,25 @@ work:
       - Session, placement, execution, observation, and evidence contracts survive unchanged.
       - A second adapter implementation is sufficient.
       - A restart drill and positive/negative gate controls are included.
+    enabler_note: >-
+      Run on 2026-08-26 against adapters/bindery-dedicated-runtime, a
+      Linux-native server-authoritative runtime that inverts ADR-001: the server
+      owns the simulation, so clients observe nothing independently and the
+      world is generated from a seed rather than shipped, leaving no mod and no
+      map. The acceptance run drives the real control plane as a separate
+      process, seats ten players and two observers, kills the broker outright
+      and restarts it on the same state file, and reconciles evidence with two
+      PASS and ten FAIL gate controls. Only the adapter differs; core changed
+      only by removing game-specific constraints.
+
+      All three acceptance criteria are met, and the item is not marked done,
+      because the findings are the deliverable and four of them are open. See
+      docs/assessments/2026-08-26-erh-007-second-runtime.md.
+
+      What it is not: a second commercial game. It cannot surface the
+      constraints of a codebase nobody here controls, and it was written by
+      someone who could read the contracts while writing it. Its findings are a
+      lower bound on what a real third-party runtime would hit.
 status_legend:
   implemented: >-
     Code exists and is exercised by CI on main. Since 2026-08-26 that means the
@@ -93,6 +112,12 @@ status_legend:
     consequential gate `bindery.capture.completeness` over every capture before
     it may contribute to an evidence set. The status is kept in the legend
     because it is a distinction worth being able to make again.
+  implemented-with-findings: >-
+    The item ran, met its acceptance criteria, and produced findings that are
+    still open. It is deliberately not `done`: for an item whose purpose is to
+    discover what breaks, the findings are the deliverable, and closing it would
+    file them as finished work. It closes when the findings are resolved or
+    formally accepted.
   pending: Not started.
 
 ordering_rule: >-
@@ -188,3 +213,36 @@ durability_ceiling_note: >-
   corruption rather than as a capacity limit. Making Save refuse the write is
   small, lowers no ceiling, and is not done here; the assessment lists it first
   among the things that would move the limit.
+
+erh007_findings_note: >-
+  Running a second runtime removed three constraints from core that were Red
+  Alert 2's rather than Bindery's, and each had refused a non-RA2 session
+  outright: mod and map were mandatory, sessions were capped at eight
+  participants, and at least two players were required. All three are removals,
+  not new fields, and TestNonRA2SessionShapesAreAccepted keeps them removed.
+
+  The significant finding is not about second runtimes. Ordered-hash
+  reconciliation cannot ever report agreement between two producers:
+  capture.OrderedHash composes digests of the canonical encoding, which binds
+  producer_client_id, capture_id and received_at into every event, so two
+  producers that observed exactly the same thing hash differently by
+  construction and reconcile as inconsistent. OrderedHash's own doc comment
+  states the opposite intent. RA2's two-client cross-check has the same defect;
+  a second runtime is what made anyone look. The fix is a contract decision --
+  what makes two observations the same observation across producers -- and is
+  deliberately not taken here.
+
+  Three further leaks are open and recorded: a single-authority execution can
+  publish no evidence at all, because reconciliation requires two observers and
+  "evidence set" conflates the record of what was observed with the cross-check
+  between observers; capture streams are minted per client with no per-client
+  opt-out, so clients that produce nothing by design each hold one; and a
+  producer cannot close a stream as legitimately empty, because final_sequence
+  is unsigned and zero already claims sequence 0 exists.
+
+  game_tick in the canonical encoding is accepted as a permanent leak. It bars
+  no runtime -- a game without ticks sends null -- but it cannot be removed
+  without reissuing every hash this repository has published. Each open and
+  permanent finding is pinned by a test in
+  internal/externalruntime/erh007_findings_test.go, so a fix retires it loudly
+  instead of leaving the assessment quietly wrong.

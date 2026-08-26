@@ -27,7 +27,7 @@
     "hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
     "compatibility": {
       "type": "object", "additionalProperties": false,
-      "required": ["game_family", "game_version", "game_hash", "adapter_id", "adapter_version", "mod_id", "mod_hash", "map_id", "map_hash"],
+      "required": ["game_family", "game_version", "game_hash", "adapter_id", "adapter_version"],
       "properties": {
         "game_family": {"type": "string", "minLength": 1, "maxLength": 64},
         "game_version": {"type": "string", "minLength": 1, "maxLength": 64},
@@ -44,9 +44,9 @@
       "type": "object", "additionalProperties": false,
       "required": ["required_players", "maximum_players", "maximum_observers"],
       "properties": {
-        "required_players": {"type": "integer", "minimum": 2, "maximum": 8},
-        "maximum_players": {"type": "integer", "minimum": 2, "maximum": 8},
-        "maximum_observers": {"type": "integer", "minimum": 0, "maximum": 8}
+        "required_players": {"type": "integer", "minimum": 1, "maximum": 64},
+        "maximum_players": {"type": "integer", "minimum": 1, "maximum": 64},
+        "maximum_observers": {"type": "integer", "minimum": 0, "maximum": 64}
       }
     },
     "capturePolicy": {

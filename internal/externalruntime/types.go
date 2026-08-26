@@ -47,16 +47,25 @@ const (
 	EnrollmentExpired    EnrollmentPhase = "expired"
 )
 
+// Compatibility identifies what the participants must agree on to play
+// together. Game and adapter identity are universal; mod and map are not.
+//
+// A runtime whose world is generated rather than shipped, or which has no mod
+// concept at all, supplies neither pair, and omitting them is not a degraded
+// session -- it is an accurate description of one. Requiring them forced such
+// a runtime to invent hashes to satisfy a validator, which is the opposite of
+// what a compatibility check is for. The pairs are all-or-nothing: an id
+// without its hash names content nobody can verify.
 type Compatibility struct {
 	GameFamily     string `json:"game_family"`
 	GameVersion    string `json:"game_version"`
 	GameHash       string `json:"game_hash"`
 	AdapterID      string `json:"adapter_id"`
 	AdapterVersion string `json:"adapter_version"`
-	ModID          string `json:"mod_id"`
-	ModHash        string `json:"mod_hash"`
-	MapID          string `json:"map_id"`
-	MapHash        string `json:"map_hash"`
+	ModID          string `json:"mod_id,omitempty"`
+	ModHash        string `json:"mod_hash,omitempty"`
+	MapID          string `json:"map_id,omitempty"`
+	MapHash        string `json:"map_hash,omitempty"`
 }
 
 type ParticipantPolicy struct {
@@ -304,10 +313,13 @@ type AdapterRef struct {
 	Version string `json:"version"`
 }
 
+// ClientHashes is a client's account of the content it loaded. It mirrors
+// Compatibility: a client of a runtime with no mod or map sends neither, and
+// the broker requires exactly the pairs its session declared.
 type ClientHashes struct {
 	GameHash string `json:"game_hash"`
-	ModHash  string `json:"mod_hash"`
-	MapHash  string `json:"map_hash"`
+	ModHash  string `json:"mod_hash,omitempty"`
+	MapHash  string `json:"map_hash,omitempty"`
 }
 
 type RegionProbe struct {

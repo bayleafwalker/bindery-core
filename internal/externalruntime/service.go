@@ -430,8 +430,14 @@ func (s *Service) Enroll(accountToken, sessionJoinCredential, sessionID, idempot
 	if req.Adapter.ID == "" || req.Adapter.Version == "" {
 		return EnrollmentCreateResponse{}, domainError("ADAPTER_INVALID", "adapter id and version are required")
 	}
-	if !hashPattern.MatchString(req.Compatibility.GameHash) || !hashPattern.MatchString(req.Compatibility.ModHash) || !hashPattern.MatchString(req.Compatibility.MapHash) {
-		return EnrollmentCreateResponse{}, domainError("COMPATIBILITY_MISMATCH", "client compatibility hashes must be sha256 values")
+	if !hashPattern.MatchString(req.Compatibility.GameHash) {
+		return EnrollmentCreateResponse{}, domainError("COMPATIBILITY_MISMATCH", "client game_hash must be a sha256 value")
+	}
+	if req.Compatibility.ModHash != "" && !hashPattern.MatchString(req.Compatibility.ModHash) {
+		return EnrollmentCreateResponse{}, domainError("COMPATIBILITY_MISMATCH", "client mod_hash must be a sha256 value")
+	}
+	if req.Compatibility.MapHash != "" && !hashPattern.MatchString(req.Compatibility.MapHash) {
+		return EnrollmentCreateResponse{}, domainError("COMPATIBILITY_MISMATCH", "client map_hash must be a sha256 value")
 	}
 
 	s.mu.Lock()
@@ -732,17 +738,42 @@ func (s *Service) refreshPublicEnrollmentsLocked(session *sessionRecord) {
 }
 
 func validateSessionRequest(req CreateSessionRequest) error {
-	if req.Compatibility.GameFamily == "" || req.Compatibility.GameVersion == "" || req.Compatibility.AdapterID == "" || req.Compatibility.AdapterVersion == "" || req.Compatibility.ModID == "" || req.Compatibility.MapID == "" {
-		return domainError("COMPATIBILITY_INVALID", "game, adapter, mod, and map identifiers are required")
+	if req.Compatibility.GameFamily == "" || req.Compatibility.GameVersion == "" || req.Compatibility.AdapterID == "" || req.Compatibility.AdapterVersion == "" {
+		return domainError("COMPATIBILITY_INVALID", "game and adapter identifiers are required")
 	}
-	if !hashPattern.MatchString(req.Compatibility.GameHash) || !hashPattern.MatchString(req.Compatibility.ModHash) || !hashPattern.MatchString(req.Compatibility.MapHash) {
-		return domainError("COMPATIBILITY_INVALID", "game_hash, mod_hash, and map_hash must be sha256 values")
+	if !hashPattern.MatchString(req.Compatibility.GameHash) {
+		return domainError("COMPATIBILITY_INVALID", "game_hash must be a sha256 value")
 	}
-	if req.ParticipantPolicy.RequiredPlayers < 2 || req.ParticipantPolicy.MaximumPlayers < req.ParticipantPolicy.RequiredPlayers || req.ParticipantPolicy.MaximumPlayers > 8 || req.ParticipantPolicy.MaximumObservers < 0 || req.ParticipantPolicy.MaximumObservers > 8 {
+	// Mod and map are optional but paired. An id without a hash names content
+	// no participant can verify, and a hash without an id names nothing.
+	if err := validateContentPair("mod", req.Compatibility.ModID, req.Compatibility.ModHash); err != nil {
+		return err
+	}
+	if err := validateContentPair("map", req.Compatibility.MapID, req.Compatibility.MapHash); err != nil {
+		return err
+	}
+	if req.ParticipantPolicy.RequiredPlayers < 1 || req.ParticipantPolicy.MaximumPlayers < req.ParticipantPolicy.RequiredPlayers || req.ParticipantPolicy.MaximumPlayers > MaximumParticipantsPerSession || req.ParticipantPolicy.MaximumObservers < 0 || req.ParticipantPolicy.MaximumObservers > MaximumParticipantsPerSession {
 		return domainError("PARTICIPANT_POLICY_INVALID", "participant limits are invalid")
 	}
 	if req.Placement.LatencyP95MS < 0 || len(req.Placement.AllowedRegions) == 0 {
 		return domainError("PLACEMENT_INVALID", "at least one allowed region and a non-negative latency target are required")
+	}
+	return nil
+}
+
+// MaximumParticipantsPerSession bounds what one session may admit. It is a
+// control-plane resource limit, not a game rule: the previous bound of 8 was
+// Red Alert 2's player cap, which silently refused any runtime that seats more.
+// A limit is still needed -- admission is unauthenticated until a client
+// enrolls -- but it must not be one game's number.
+const MaximumParticipantsPerSession = 64
+
+func validateContentPair(kind, id, hash string) error {
+	if id == "" && hash == "" {
+		return nil
+	}
+	if id == "" || !hashPattern.MatchString(hash) {
+		return domainError("COMPATIBILITY_INVALID", kind+"_id and "+kind+"_hash must be supplied together, with a sha256 hash")
 	}
 	return nil
 }
