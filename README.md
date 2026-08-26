@@ -49,6 +49,13 @@ one repository with one CI.
 -   Promoted contracts: [`contracts/externalruntime/v1`](contracts/externalruntime/v1)
 -   Chart: `charts/bindery-external-runtime`
 
+The repository has two chart roots on purpose. `helm/bindery-core` deploys the
+operator and ships the CRDs; `charts/bindery-external-runtime` deploys a
+standalone service that defines no CRDs and runs no controllers. They have
+different lifecycles and different install audiences, so they are versioned
+separately rather than folded into one chart directory. Only `helm/` is covered
+by `make verify-crds`, because only `helm/` carries CRDs.
+
 The control plane persists identity, session, placement, execution, enrollment,
 idempotency, and reconciled evidence through a crash-safe single-writer state
 store. That file-backed mode is deliberately **not** a multi-replica database:

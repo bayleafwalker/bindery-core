@@ -14,7 +14,7 @@ evidence:
 work:
   - id: ERH-001
     title: Persist the control-plane identity graph
-    status: implemented-pending-ci
+    status: implemented
     scope: [identity, session, placement, execution, enrollment, idempotency]
     acceptance:
       - Every evidence reference resolves after a broker restart.
@@ -22,7 +22,7 @@ work:
       - The file-backed mode has exactly one writer.
   - id: ERH-002
     title: Promote observation reconciliation into Bindery Core
-    status: implemented-pending-ci
+    status: implemented
     depends_on: [ERH-001]
     acceptance:
       - Two distinct observers with counts 6651 and 6651 reconcile as consistent.
@@ -30,13 +30,13 @@ work:
       - Unsupported methods fail explicitly.
   - id: ERH-003
     title: Make gate applicability a typed result
-    status: implemented-pending-ci
+    status: implemented-unconsumed
     acceptance:
       - Outcomes are PASS, FAIL, NOT_APPLICABLE, UNRESOLVED, or ERROR.
       - Missing context cannot silently become FAIL.
   - id: ERH-004
     title: Require verifier calibration evidence
-    status: implemented-pending-ci
+    status: implemented-unconsumed
     depends_on: [ERH-003]
     acceptance:
       - Consequential gates carry version and implementation hash.
@@ -44,7 +44,7 @@ work:
       - An always-failing verifier is ERROR, not a strict gate.
   - id: ERH-005
     title: Resolve allocator implementation identity
-    status: implemented-pending-ci
+    status: implemented
     depends_on: [ERH-001]
     acceptance:
       - Every placement records implementation, repository, revision, and config digest.
@@ -68,6 +68,19 @@ work:
       - Session, placement, execution, observation, and evidence contracts survive unchanged.
       - A second adapter implementation is sufficient.
       - A restart drill and positive/negative gate controls are included.
+status_legend:
+  implemented: >-
+    Code exists and is exercised by CI on main. Since 2026-08-26 that means the
+    unified workflow, which compiles the operator and the external runtime in
+    one module -- not the former external-runtime-only workflow, which could not
+    fail on operator breakage.
+  implemented-unconsumed: >-
+    Code exists and is unit-tested, but nothing in a production path imports it.
+    `git grep gatev1` matches only pkg/gatev1 itself. Unit tests prove the
+    package behaves as designed; they do not prove any gate in this repository
+    is actually evaluated through it. ERH-006 is what would give it a caller.
+  pending: Not started.
+
 ordering_rule: >-
   Do not spend the next slice on richer RA2 behavior. Close ERH-001 through
   ERH-006, then use ERH-007 to test abstraction.
