@@ -45,6 +45,29 @@ spec:
     *   `desiredShards = currentShards * (currentUtilization / targetUtilization)`
     *   The result is clamped between `minShards` and `maxShards`.
 4.  **Actuation**: If `desiredShards` differs from `currentShards`, the controller updates `WorldInstance.spec.shardCount`.
+
+> **The clamp is asymmetric, and it matters when there are no metrics.**
+>
+> ```go
+> if desired < minShards { desired = minShards }   // raises only
+> if desired > maxShards { desired = maxShards }   // lowers only
+> ```
+>
+> With no `spec.metrics` entry (or an unreachable metrics API) the calculated
+> count falls back to the *current* count. `minShards` is therefore a floor, not
+> a target: lowering it will not shrink a world that has already grown. Only
+> lowering `maxShards`, or genuine metric pressure, reclaims shards.
+>
+> This is what makes the autoscaler testable without a metrics-server, which a
+> plain Kind cluster does not have — see
+> `examples/booklet-bindery-sample/k8s/40-shardautoscaler.yaml` and the sharding
+> phase of `e2e/smoke_test.go`.
+
+> **Status lags by one pass.** `status.currentShards` is written from the shard
+> count observed at the *start* of a reconcile, and `WorldInstance` is updated
+> afterwards, so the pass that scales 1 → 2 records `1/2`. The following pass
+> (`RequeueAfter` is 30s) reports the settled `2/2`. Poll rather than asserting
+> immediately after a scale.
 5.  **Reconciliation**: The `WorldShardController` sees the updated count and creates/deletes `WorldShard` CRs. The `CapabilityResolver` and `RuntimeOrchestrator` then react to provision/deprovision infrastructure.
 
 ## Graceful Scale-Down
