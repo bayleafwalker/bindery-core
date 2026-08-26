@@ -47,9 +47,11 @@ recorded here rather than by editing it.
   removes the reason for a second private identifier. The bytes are therefore
   sent in the request body.
 - **`GET /v1/objects/{content_hash}` is not served.** The pack conditions it on
-  publication policy, and PUB-06 (retention and data licence) is undefined.
-  Serving arbitrary uploaded bytes publicly is a policy decision, not an
-  implementation one.
+  publication policy. PUB-06 (retention and data licence) was undefined when
+  this was written; it was resolved on 2026-08-26 as a CC0-like dedication with
+  indefinite retention, recorded in `docs/decisions/operator-gates.md`. The
+  policy blocker is therefore gone, and the endpoint stays unserved only because
+  nobody has implemented it -- a weaker reason than the one it replaces.
 - **Batches are uncompressed.** The pack says "one compressed batch". Server-side
   decompression behind a lease is a new attack surface for a bandwidth saving
   nobody has measured; there is a hard byte cap instead.
