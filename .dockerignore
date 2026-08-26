@@ -1,9 +1,15 @@
-# Shared by every image build in this repository. Excludes only what no build
-# needs: the Go toolchain pulls in exactly the packages a target imports, so
-# trimming here is about context size, not correctness.
+# Shared by every image build in this repository. Three Dockerfiles build with
+# the repo root as context -- Dockerfile (operator), Dockerfile.external-runtime,
+# and the sample-game module images under examples/ -- so anything a COPY in any
+# of them touches must stay in the context.
 #
-# The context grew substantially when the operator and the external runtime were
-# merged into one repository, and docs/ alone carries the research pack plus ~70
+# In particular examples/ is NOT excluded: the demo module images are built as
+# `docker build -f examples/.../Dockerfile .` and copy the sample game's own
+# go.mod. Excluding it breaks the e2e smoke test, which builds those images.
+#
+# What remains here is inert for every build: docs, deployment manifests, and
+# local tooling state. The context grew substantially when the operator and the
+# external runtime merged, and docs/ alone carries the research pack plus ~70
 # dispatch receipts.
 
 .git
@@ -14,19 +20,18 @@
 .auditctl
 .tools
 
-# Docs, research, dispatch records, deployment manifests.
+# Docs and dispatch records.
 docs
 verification
-charts
-helm
-k8s
-config
-samples
-examples
-e2e
 *.md
 project.toml
 bindery-core.dispatch.json
+
+# Deployment manifests: consumed by helm/kubectl, never copied into an image.
+helm
+charts
+k8s
+config
 
 # Local build and test artifacts.
 bin
