@@ -1,5 +1,11 @@
 # Production Readiness & Scalability Guide
 
+> **This title describes the topic, not the project.** Bindery is pre-alpha and
+> experimental. Its `v1alpha1` CRDs can change without a migration path, and
+> nothing here should be read as a claim that it is ready to run a production
+> game. The guidance below is about the limits Kubernetes imposes on a design of
+> this shape, and none of it has been validated at the scales it mentions.
+
 This guide outlines best practices for running Bindery in production environments, addressing scalability, performance, and operational limits.
 
 ## Kubernetes Limitations & Scalability

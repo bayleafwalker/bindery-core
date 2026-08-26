@@ -1,5 +1,24 @@
 # Evidence, reconciliation, and calibrated gates
 
+Scope: the **external runtime** (`internal/externalruntime`, `internal/relay`,
+`pkg/evidencev1`, `pkg/gatev1`, `cmd/bindery-external-runtime`,
+`charts/bindery-external-runtime`). It defines no CRDs and runs no controllers,
+and none of the operator's capability model applies to it. See
+[`../README.md`](../README.md) for how the two subsystems in this repository
+relate.
+
+Implementation status of the two package boundaries described below:
+
+- `pkg/evidencev1` **is wired**: `internal/externalruntime/service.go`,
+  `state_store.go`, and `types.go` import it.
+- `pkg/gatev1` **is not wired**: it compiles and is unit-tested, but
+  `grep -rn "pkg/gatev1" --include=*.go .` matches nothing outside the package
+  itself. Everything under "Gate evaluation order" below describes a designed
+  and tested package with no production caller. Roadmap item ERH-006 is what
+  would give it one, and it is pending — see
+  [`../roadmap/post-ra2-hardening.yaml`](../roadmap/post-ra2-hardening.yaml),
+  whose `implemented-unconsumed` status legend says the same thing.
+
 ## Durable graph
 
 The external-runtime evidence graph is:

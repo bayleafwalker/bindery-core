@@ -23,11 +23,15 @@ Bindery Core is an open-source platform designed to decouple game logic from inf
 
 The project is currently in active development.
 
--   **Core Controllers**:
+-   **Core Controllers** (all six registered in `main.go`):
     -   `CapabilityResolver`: Resolves abstract requirements to concrete providers.
     -   `RuntimeOrchestrator`: Manages the lifecycle of game server workloads (Deployments, Services).
     -   `StorageOrchestrator`: Provisions and binds persistent storage (PVCs) for stateful modules.
--   **APIs**: v1alpha1 CRDs are defined but subject to breaking changes.
+    -   `WorldShard`: Creates and removes `WorldShard` objects to match `WorldInstance.spec.shardCount`.
+    -   `Realm`: Binds realm-scoped global modules shared across worlds.
+    -   `ShardAutoscaler`: Adjusts `WorldInstance.spec.shardCount` within `minShards`/`maxShards`.
+-   **APIs**: v1alpha1 CRDs are defined but subject to breaking changes. Nine
+    CRDs ship in `k8s/crds/`, mirrored byte-for-byte in `helm/bindery-core/crds/`.
 -   **Deployment**: Supports local development via Kind and Helm.
 
 ## External Runtime
@@ -44,7 +48,10 @@ CRDs or controllers involved, and the two are wired together only by living in
 one repository with one CI.
 
 -   Service and relay: `internal/externalruntime`, `internal/relay`, `pkg/relayv1`
--   Reconciliation and gates: `pkg/evidencev1`, `pkg/gatev1`
+-   Evidence reconciliation: `pkg/evidencev1` (wired into `internal/externalruntime/service.go`)
+-   Calibrated gates: `pkg/gatev1` — compiles and is unit-tested, but has **no
+    caller**: `grep -rn "pkg/gatev1" --include=*.go .` matches nothing outside
+    the package itself. Giving it one is roadmap item ERH-006, which is pending.
 -   Binaries: `cmd/bindery-external-runtime`, `cmd/bindery-udp-relay`, `cmd/bindery-redaction-scan`
 -   Promoted contracts: [`contracts/externalruntime/v1`](contracts/externalruntime/v1)
 -   Chart: `charts/bindery-external-runtime`
@@ -91,12 +98,24 @@ is immutable input, not a committed roadmap.
 
 ## Documentation
 
+Start at the [documentation index](docs/README.md), which explains which of the
+two subsystems each document covers.
+
 ### Standards & Architecture
 -   [Standards Index](docs/standards/index.md)
 -   [Capability Model](docs/standards/capability-model.md)
 -   [Module Manifest](docs/standards/modulemanifest.md)
 -   [Platform Architecture](docs/platform-architecture.md)
+-   [Realm Architecture](docs/standards/realm-architecture.md)
+-   [Shard Autoscaling](docs/standards/shard-autoscaling.md)
 -   [Booklets & Game Repositories](docs/workflows/booklets.md)
+-   [Debugging Runtime Coordination](docs/debugging/runtime-coordination.md)
+
+### External Runtime
+-   [Evidence, reconciliation, and gates](docs/architecture/evidence-and-gates.md)
+-   [RA2 vertical slice assessment](docs/assessments/2026-08-25-ra2-vertical-slice.md)
+-   [Post-RA2 hardening roadmap](docs/roadmap/post-ra2-hardening.yaml)
+-   [Wire contract v1](contracts/externalruntime/v1/README.md)
 
 ### Kubernetes Resources
 -   [CRD Documentation](docs/standards/kubernetes/crds.md)
@@ -132,6 +151,19 @@ make kind-down
 ### Testing
 -   **Unit Tests**: `make test`
 -   **Integration Tests**: `make test-integration` (Requires envtest)
+-   **E2E Smoke Test**: `make test-e2e` (Requires Kind and Docker; creates and
+    destroys a cluster, and covers the sharding path end to end — scale out to
+    two shards, per-shard deployments, then scale back)
+-   **CRD Gate**: `make verify-crds` — asserts every scheme-registered kind has
+    a manifest in `k8s/crds/`, and that `k8s/crds/` and
+    `helm/bindery-core/crds/` are identical
+-   **Pre-push check**: `make verify` (operator) or
+    `make verify-external-runtime` (external runtime)
+
+All of the above run in CI (`.github/workflows/ci.yml`), which has four jobs:
+`go-test` (fmt, unit, `verify-crds`, envtest integration, tidy),
+`sample-game-test`, `e2e-smoke` (Kind), and `external-runtime` (race tests, vet,
+chart lint, secret scan).
 
 ### Running Locally
 Run the controller manager against your current kubecontext:
@@ -147,10 +179,31 @@ make run-controller-with-metrics
 ```
 
 ### Repository Layout
--   `api/`: Kubernetes API definitions (CRDs).
+
+Operator:
+-   `api/v1alpha1/`: Kubernetes API type definitions.
 -   `controllers/`: Kubernetes controllers (Reconcilers).
--   `contracts/`: Protobuf and Capability contracts.
--   `docs/`: Architecture and standard documentation.
--   `helm/`: Helm charts for deployment.
--   `internal/`: Core logic (Resolver, SemVer).
--   `modules/`: Example game modules.
+-   `main.go`: Controller manager entrypoint.
+-   `internal/resolver`, `internal/semver`: Resolution logic used by `CapabilityResolver`.
+-   `internal/graph`: Unused scaffolding. Its own package comment says "no logic
+    is implemented yet", and nothing outside the package imports it.
+-   `k8s/crds/`: CRD manifests (mirrored into `helm/bindery-core/crds/`).
+-   `k8s/dev/`: Kind demo scripts.
+-   `helm/bindery-core/`: Helm chart for the operator.
+-   `modules/`: Module template (`physics-engine-template`).
+-   `examples/booklet-bindery-sample/`: Runnable sample game (its own Go module).
+-   `e2e/`: Kind-based smoke test.
+
+External runtime:
+-   `internal/externalruntime`, `internal/relay`, `internal/harness`, `internal/capture`.
+-   `pkg/evidencev1`, `pkg/gatev1`, `pkg/relayv1`.
+-   `charts/bindery-external-runtime/`: Helm chart for the standalone service.
+-   `verification/`: Verification context fixtures.
+-   `adapters/`: External-runtime adapter source (`bindery-ra2-adapter`).
+
+Shared:
+-   `cmd/`: Binary entrypoints for both subsystems.
+-   `contracts/`: `proto/` (engine gRPC) and `externalruntime/v1` (HTTP + relay).
+-   `docs/`: Documentation — see [`docs/README.md`](docs/README.md).
+-   `config/`: RBAC and manager scaffolding.
+-   `hack/`: Verification scripts (`verify-crds.sh`).

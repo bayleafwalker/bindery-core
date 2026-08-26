@@ -45,7 +45,13 @@ Modules in a World often need to communicate with Global modules in the Realm.
 2.  **Resolution**: The `CapabilityResolver` looks up the `Realm` associated with the World (via `spec.realmRef`) and finds a matching module.
 3.  **Binding**: A `CapabilityBinding` is created linking the World module (Consumer) to the Realm module (Provider).
 4.  **Deployment**:
-    - The `RealmController` ensures the Global Module is running (via a "Root" binding).
+    - The `RealmController` ensures the Global Module is running (via a "Root"
+      binding: capability `system.root`, `scope: realm`).
+    - **Caveat:** `RealmReconciler` does not yet garbage-collect bindings for
+      modules removed from `Realm.spec.modules` — the code carries an explicit
+      `TODO` for it. Removing a module from a Realm leaves its binding, and
+      therefore its Deployment, behind. Delete the `CapabilityBinding` by hand
+      (`kubectl delete capabilitybinding realm-<realm>-<module>`).
     - The `RuntimeOrchestrator` ensures the World Module is running and injects the connection details (Service DNS) of the Global Module.
 
 ## Service Discovery

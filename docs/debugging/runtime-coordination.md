@@ -2,6 +2,9 @@
 
 This guide helps you troubleshoot issues where modules are not starting, connecting, or behaving as expected.
 
+Scope: the **Kubernetes operator** only. The external runtime in this repository
+has no CRDs and no controllers; nothing here applies to it.
+
 ## 1. Check the Bindings
 The `CapabilityBinding` is the source of truth for what should be running.
 
@@ -10,9 +13,20 @@ kubectl get capabilitybindings -l bindery.platform/world=<world-name>
 ```
 
 Look for:
-- **Root Bindings**: `root` capability. These ensure entry-point modules start.
+- **Root Bindings**: the synthetic `system.root` capability. These ensure
+  entry-point modules start.
 - **Global Bindings**: `Scope=realm`. These point to shared services.
-- **Status**: Should be `Bound` or `Ready`.
+- **Status**: the `CapabilityBinding` CRD prints a `Phase` column from
+  `.status.phase`, but **no controller writes that field** — it will be empty.
+  The signals that are actually written are the `RuntimeReady` condition in
+  `.status.conditions` and the resolved endpoint in
+  `.status.provider.endpoint`:
+
+  ```bash
+  kubectl get capabilitybinding <name> -o jsonpath='{.status.provider.endpoint}{"\n"}'
+  kubectl get capabilitybinding <name> \
+    -o jsonpath='{range .status.conditions[?(@.type=="RuntimeReady")]}{.status} {.reason}{"\n"}{end}'
+  ```
 
 ## 2. Trace the Flow
 
@@ -43,6 +57,22 @@ If a global service is missing:
 3.  Verify `CapabilityBinding` with `Scope=realm` exists.
 
 ## 4. Metrics
-Prometheus metrics available:
+Registered in `controllers/metrics.go`:
+- `bindery_controller_reconcile_total`, `bindery_controller_reconcile_error_total`
+- `bindery_capabilityresolver_unresolved_required`
+- `bindery_capabilityresolver_bindings_created_total`,
+  `bindery_capabilityresolver_bindings_updated_total`,
+  `bindery_capabilityresolver_bindings_deleted_total`
 - `bindery_capabilityresolver_resolution_duration_seconds`
 - `bindery_runtimeorchestrator_deployment_duration_seconds`
+
+`make run-controller` disables the metrics listener; use
+`make run-controller-with-metrics` to expose `:8080`.
+
+## 5. Sharding
+
+If a world will not scale, or will not scale back, read the clamp semantics in
+[`../standards/shard-autoscaling.md`](../standards/shard-autoscaling.md) first:
+`minShards` only raises and `maxShards` only lowers, and `status.currentShards`
+lags one reconcile pass. Lowering `minShards` alone will not shrink a world that
+has already grown.

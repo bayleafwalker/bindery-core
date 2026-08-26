@@ -263,15 +263,29 @@ Structured log fields (at minimum):
 
 ### Metrics
 
-Suggested Prometheus metrics:
-- `capabilityresolver_reconcile_total{result=success|error}`
-- `capabilityresolver_unresolved_required_total`
-- `capabilityresolver_bindings_desired`
-- `capabilityresolver_bindings_applied_total`
+The metrics actually registered in `controllers/metrics.go` are:
+
+- `bindery_controller_reconcile_total`
+- `bindery_controller_reconcile_error_total`
+- `bindery_capabilityresolver_unresolved_required`
+- `bindery_capabilityresolver_bindings_created_total`
+- `bindery_capabilityresolver_bindings_updated_total`
+- `bindery_capabilityresolver_bindings_deleted_total`
+- `bindery_capabilityresolver_resolution_duration_seconds`
+- `bindery_runtimeorchestrator_deployment_duration_seconds`
+
+There is no `bindings_desired` gauge. The names below were the original design
+sketch and do not match the implementation; do not scrape them.
+
+- ~~`capabilityresolver_reconcile_total{result=success|error}`~~
+- ~~`capabilityresolver_unresolved_required_total`~~
+- ~~`capabilityresolver_bindings_desired`~~
+- ~~`capabilityresolver_bindings_applied_total`~~
 
 ### Tracing
 
-If using OpenTelemetry:
+Not implemented. There is no OpenTelemetry dependency in `go.mod` and no `otel`
+import anywhere in the module. If tracing is added later:
 - span per reconcile with attributes: `world`, `game`, `desiredBindings`
 - child spans for provider selection per requirement
 

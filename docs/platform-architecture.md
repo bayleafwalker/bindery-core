@@ -1,6 +1,17 @@
 # Platform Architecture
 
-This document describes the high-level architecture of the Bindery platform: a Kubernetes-orchestrated, capability-driven system for composing distributed game engines out of modular components.
+This document describes the high-level architecture of the Bindery **Kubernetes
+operator**: a Kubernetes-orchestrated, capability-driven system for composing
+distributed game engines out of modular components.
+
+> **This is not the whole repository.** `main` also carries the **external
+> runtime**, a standalone HTTP + UDP control plane for matches whose simulation
+> runs in game clients Bindery does not own. It defines no CRDs, registers no
+> controllers, and shares no runtime code path with anything below — the two
+> subsystems share only a Go module and a CI workflow. Its architecture is
+> documented in
+> [`architecture/evidence-and-gates.md`](architecture/evidence-and-gates.md);
+> see [`README.md`](README.md) for the split.
 
 ## Overall system
 
@@ -73,11 +84,32 @@ In this repo, Kubernetes-native resources represent platform intent:
 - `ModuleManifest` declares provides/requires for a module.
 - `Booklet` declares the module set for a game.
 - `WorldInstance` declares a running world.
+- `WorldShard` is one shard of a world.
 - `CapabilityBinding` declares a resolved dependency from consumer → provider.
+- `Realm` groups worlds and hosts realm-scoped global modules.
+- `WorldStorageClaim` requests world- or shard-scoped storage.
+- `ShardAutoscaler` adjusts `WorldInstance.spec.shardCount`.
+- `CapabilityDefinition` (cluster-scoped) carries capability discovery metadata.
+  It has a manifest but no Go type and no controller.
 
-A controller (CapabilityResolver) reconciles these resources into stable `CapabilityBinding`s and (in later iterations) can drive the creation/update of runtime workloads.
+The full manifest list and its generation rules are in
+[`standards/kubernetes/crds.md`](standards/kubernetes/crds.md).
 
-In the current MVP direction, runtime workload creation is handled by a separate controller (RuntimeOrchestrator) that materializes `Deployment`/`Service` for **server-owned** provider modules and publishes the reachable endpoint back onto `CapabilityBinding.status.provider.endpoint`.
+`main.go` registers six reconcilers, all unconditionally:
+
+| Controller | Role |
+| --- | --- |
+| `CapabilityResolver` | Reconciles world inputs into stable `CapabilityBinding`s |
+| `RuntimeOrchestrator` | Materializes `Deployment`/`Service` for server-owned provider modules and publishes the endpoint onto `CapabilityBinding.status.provider.endpoint` |
+| `WorldShard` | Creates/removes `WorldShard` objects to match `WorldInstance.spec.shardCount` |
+| `StorageOrchestrator` | Reconciles `WorldStorageClaim` into a PVC (server tiers) or an external URI (client tiers) |
+| `Realm` | Ensures a `CapabilityBinding` exists for each module in `Realm.spec`, so `RuntimeOrchestrator` deploys realm-scoped global modules |
+| `ShardAutoscaler` | Adjusts `WorldInstance.spec.shardCount` from metrics, clamped by `minShards`/`maxShards` |
+
+Because registration is unconditional, every registered kind must have a CRD
+manifest installed or the manager exits on a cache-sync timeout. `make
+verify-crds` enforces that; see
+[`standards/kubernetes/crds.md`](standards/kubernetes/crds.md).
 
 Convention (MVP): a provider module is considered server-owned/orchestrated if its `ModuleManifest` includes runtime annotations (e.g. `bindery.dev/runtime-image`, optional `bindery.dev/runtime-port`).
 
@@ -188,8 +220,8 @@ flowchart LR
   %% Control plane
   subgraph Kubernetes Control Plane
     API[Kubernetes API Server]
-    CRDs[CRDs: ModuleManifest/Booklet/WorldInstance/CapabilityBinding]
-    R[CapabilityResolver Controller]
+    CRDs[CRDs: ModuleManifest/Booklet/WorldInstance/WorldShard/CapabilityBinding/Realm/WorldStorageClaim/ShardAutoscaler]
+    R[Controller manager: CapabilityResolver, RuntimeOrchestrator, WorldShard, StorageOrchestrator, Realm, ShardAutoscaler]
     API --- CRDs
     R --> API
   end

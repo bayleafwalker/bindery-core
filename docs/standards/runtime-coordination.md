@@ -17,11 +17,19 @@ A "Root Module" is a module listed in a `Booklet` that is not required by any ot
 The `CapabilityResolver` automatically detects these modules and creates a **Root CapabilityBinding** to ensure they are deployed.
 - **Consumer**: The World Instance itself (synthetic).
 - **Provider**: The Root Module.
-- **CapabilityID**: `root`.
+- **CapabilityID**: `system.root` (see `internal/resolver/default_resolver.go`).
+
+`RealmReconciler` emits the same synthetic capability for realm modules, at
+`scope: realm` rather than the world scope.
 
 ### Global Services
-Modules can be scoped to `Cluster` or `Region`.
-- **Binding**: The `CapabilityResolver` or `RealmController` creates bindings with `scope: cluster`.
+Scope values are lowercase and come from the `CapabilityScope` enum in
+`api/v1alpha1/common_types.go`: `cluster`, `region`, `realm`, `world`,
+`world-shard`, `session`.
+
+- **Binding**: The `CapabilityResolver` binds cluster- and region-scoped
+  requirements; `RealmReconciler` separately creates one `system.root` binding
+  at `scope: realm` per module listed in `Realm.spec.modules`.
 - **Orchestration**: The `RuntimeOrchestrator` deploys a single instance of the provider, shared across all consumers.
 - **Isolation**: Global services do not belong to a specific World Instance and are not subject to world-specific logic (like `WorldStorageClaim`).
 
@@ -32,9 +40,18 @@ To ensure smooth startup, the platform injects **Init Containers** into module d
 
 ## Observability
 
-### Metrics
+Registered in `controllers/metrics.go`:
+
+- `bindery_controller_reconcile_total`, `bindery_controller_reconcile_error_total`
+- `bindery_capabilityresolver_unresolved_required`
+- `bindery_capabilityresolver_bindings_created_total`,
+  `bindery_capabilityresolver_bindings_updated_total`,
+  `bindery_capabilityresolver_bindings_deleted_total`
 - `bindery_capabilityresolver_resolution_duration_seconds`: Histogram of resolution time.
 - `bindery_runtimeorchestrator_deployment_duration_seconds`: Histogram of deployment reconciliation time.
+
+`make run-controller` disables the metrics listener; use
+`make run-controller-with-metrics` to expose them on `:8080`.
 
 ### CLI
 `kubectl get capabilitybindings` now shows:

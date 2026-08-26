@@ -16,6 +16,10 @@ Scope: declarative inputs (`ModuleManifest`, `Booklet`, `WorldInstance`) and res
 - Validating runtime workload materialization / endpoint publication (owned by RuntimeOrchestrator).
 - Performance tuning of a production-scale control plane.
 - Game-specific physics/interaction correctness.
+- The external runtime, the other subsystem in this repository. It has no CRDs
+  and no controllers; its checks are `make verify-external-runtime` (race tests,
+  `go vet`, chart lint) and the `external-runtime` CI job. See
+  [`../README.md`](../README.md).
 
 ## System under test
 
@@ -25,8 +29,11 @@ Scope: declarative inputs (`ModuleManifest`, `Booklet`, `WorldInstance`) and res
   - Go implementation: `internal/resolver`
   - SemVer implementation: `internal/semver`
 
-- **Controller** (wiring only today): watches resources and will apply the resolver plan.
-  - Go implementation: `controllers/CapabilityResolverReconciler`
+- **Controller**: watches resources and applies the resolver plan. It creates,
+  updates, and garbage-collects `CapabilityBinding` objects today; it is no
+  longer wiring only.
+  - Go implementation: `controllers/capabilityresolver_controller.go`
+    (`CapabilityResolverReconciler`)
 
 - **Schemas/CRDs**:
   - CRDs: `k8s/crds/*.bindery.platform.yaml`
@@ -41,13 +48,23 @@ Scope: declarative inputs (`ModuleManifest`, `Booklet`, `WorldInstance`) and res
 
 ## Test environments
 
-- **Unit**: `go test ./...` (fast feedback)
-- **Integration**: Kind cluster (preferred; already used for CRD validation)
-- **Chaos**: Kind + failure injection (delete pods, drop network via tools if available)
-- **Load**: Kind on a developer workstation (bounded, representative)
-- **CI Verification**: GitHub Actions workflow (`ci.yml`).
+What exists today:
+
+- **Unit**: `make test` (`go test ./...`), fast feedback.
+- **Integration**: `make test-integration` — envtest (a real apiserver + etcd,
+  no Kind), gated on `BINDERY_INTEGRATION=1` and `-run Integration`.
+- **E2E**: `make test-e2e` — a Kind cluster, gated on `BINDERY_E2E=1`. Covers
+  the sample game through resolution, runtime workloads, and the sharding path
+  (`e2e/smoke_test.go`).
+- **CI Verification**: GitHub Actions workflow (`.github/workflows/ci.yml`),
+  jobs `go-test`, `sample-game-test`, `e2e-smoke`, `external-runtime`.
   - Check status: `gh run list --workflow ci.yml`
   - Watch progress: `gh run watch`
+
+Aspirational, not implemented:
+
+- **Chaos**: Kind + failure injection (delete pods, drop network via tools if available)
+- **Load**: `cmd/bindery-load-test` exists but is not run by CI.
 
 ## Unit tests
 
@@ -276,8 +293,8 @@ Validation workflow:
 
 ## Follow-ups
 
-As the controller grows beyond wiring:
-
-- Add a dedicated `e2e/` harness that provisions Kind, installs CRDs, deploys the controller, and runs assertions.
+- ~~Add a dedicated `e2e/` harness that provisions Kind, installs CRDs, deploys
+  the controller, and runs assertions.~~ Done: `e2e/smoke_test.go`, run via
+  `make test-e2e` and by the `e2e-smoke` CI job.
 - Add golden-file tests for resolver plan outputs (stable YAML/JSON snapshots).
 - Add property-based tests for semver/provider selection determinism.

@@ -35,9 +35,22 @@ The platform only needs the YAML applied into the cluster and the referenced ima
 
 `make kind-demo` creates a Kind cluster, installs CRDs, builds the demo module images locally, loads them into Kind, and applies the sample game manifests from `examples/booklet-bindery-sample/k8s/`.
 
+`make kind-demo` delegates to `examples/booklet-bindery-sample/dev/kind-demo.sh`;
+the rest of that `dev/` directory holds the individual steps (`build-images.sh`,
+`apply.sh`, `controller-start.sh`, `port-forward-web.sh`, `demo-reset.sh`, …) if
+you want to drive them separately. `make kind-down` tears the cluster down.
+
 The demo modules are intentionally small:
 - `bindery/demo-physics:0.1.0`: demo physics module (tick + queued commands)
 - `bindery/demo-interaction:0.1.0`: consumes `physics.engine` via injected env vars
+- `bindery/demo-web:0.1.0`: web client, reachable via
+  `examples/booklet-bindery-sample/dev/port-forward-web.sh`
+
+The sample also ships `40-shardautoscaler.yaml`. It carries no `spec.metrics`,
+so the shard count is decided purely by the `minShards`/`maxShards` clamp — that
+is what lets the e2e smoke test exercise sharding on a Kind cluster with no
+metrics-server. See
+[`../standards/shard-autoscaling.md`](../standards/shard-autoscaling.md).
 
 ## Practical guidance for game repos
 

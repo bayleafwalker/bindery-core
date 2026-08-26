@@ -45,6 +45,7 @@ spec:
     *   `desiredShards = currentShards * (currentUtilization / targetUtilization)`
     *   The result is clamped between `minShards` and `maxShards`.
 4.  **Actuation**: If `desiredShards` differs from `currentShards`, the controller updates `WorldInstance.spec.shardCount`.
+5.  **Reconciliation**: The `WorldShardController` sees the updated count and creates/deletes `WorldShard` CRs. The `CapabilityResolver` and `RuntimeOrchestrator` then react to provision/deprovision infrastructure.
 
 > **The clamp is asymmetric, and it matters when there are no metrics.**
 >
@@ -68,7 +69,18 @@ spec:
 > afterwards, so the pass that scales 1 → 2 records `1/2`. The following pass
 > (`RequeueAfter` is 30s) reports the settled `2/2`. Poll rather than asserting
 > immediately after a scale.
-5.  **Reconciliation**: The `WorldShardController` sees the updated count and creates/deletes `WorldShard` CRs. The `CapabilityResolver` and `RuntimeOrchestrator` then react to provision/deprovision infrastructure.
+
+### Test coverage
+
+Metric-driven scaling is covered by unit tests in
+`controllers/shardautoscaler_controller_test.go`, including scale up, scale
+down, both clamp directions, no-pod-metrics and no-resource-requests hold-steady
+cases, the one-pass status lag, and sustained growth.
+
+The clamp-driven path is covered end to end by the Kind smoke test
+(`e2e/smoke_test.go`, `make test-e2e`): raise `minShards` to 2, assert the
+`WorldInstance`, the `WorldShard` objects and the per-shard runtime Deployments
+all follow, then lower `maxShards` to 1 and assert shard 1 is reclaimed.
 
 ## Graceful Scale-Down
 

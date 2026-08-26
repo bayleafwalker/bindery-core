@@ -2,6 +2,10 @@
 
 This page contains copy/paste prompts (“entrypoints”) for working with the agent consistently across contributors.
 
+The binding rules for agents working in this repository are in
+[`../../AGENTS.md`](../../AGENTS.md) — read that first. The prompts below are
+conveniences, not a substitute for it.
+
 ## General Entrypoint
 
 Use this to start a new task with minimal ambiguity.
@@ -9,7 +13,12 @@ Use this to start a new task with minimal ambiguity.
 Prompt:
 
 ```text
-You are working in the /projects/dev/bindery repo.
+You are working in the bindery-core repo.
+
+Note which subsystem you are touching: the Kubernetes operator
+(api/, controllers/, main.go) or the external runtime
+(internal/externalruntime, internal/relay, pkg/, cmd/bindery-*).
+They share a Go module but no runtime code path. See docs/README.md.
 
 Goal:
 - [Describe the outcome you want in 1–3 bullets]
@@ -23,7 +32,8 @@ Deliverables:
 - [List exact files to create/update]
 
 Validation:
-- Run relevant checks (e.g. go test ./...) and report results.
+- Operator changes: run `make verify` and report results.
+- External-runtime changes: run `make verify-external-runtime` and report results.
 ```
 
 ## “Do Not Be Clever” Mode (Strict)
