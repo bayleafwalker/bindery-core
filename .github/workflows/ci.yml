@@ -19,15 +19,22 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      # gofmt is resolved from the active GOROOT, not from PATH. setup-go
+      # installs the SDK named by go.mod's `go` directive, while `go` itself
+      # honours the `toolchain` directive and dispatches to a newer one -- so
+      # the gofmt on PATH can be older than the toolchain actually in use, and
+      # older gofmt disagrees with this repository. See the note in go.mod.
       - name: Go fmt check
         run: |
           set -euo pipefail
+          go version
+          gofmt_bin="$(go env GOROOT)/bin/gofmt"
           unformatted=$(
             find . -name '*.go' \
               -not -path './vendor/*' \
               -not -path './.cache/*' \
               -not -path './.gocache/*' \
-              -print0 | xargs -0 gofmt -l
+              -print0 | xargs -0 "$gofmt_bin" -l
           )
           if [[ -n "$unformatted" ]]; then
             echo "gofmt needed on:"
