@@ -11,7 +11,7 @@ below describe exactly one of the two, so check which one you are reading.
 | | Kubernetes operator | External runtime |
 | --- | --- | --- |
 | What it is | Capability-driven game platform reconciled from CRDs | HTTP + UDP control plane for matches simulated in game clients Bindery does not own |
-| Code | `api/v1alpha1/`, `controllers/`, `main.go`, `internal/{resolver,semver,graph}`, `modules/` | `internal/{externalruntime,relay,harness,capture}`, `pkg/{evidencev1,gatev1,relayv1}`, `cmd/bindery-{external-runtime,udp-relay,redaction-scan}` |
+| Code | `api/v1alpha1/`, `controllers/`, `main.go`, `internal/{resolver,semver,graph}`, `modules/` | `internal/{externalruntime,relay,harness,capture}`, `pkg/{evidencev1,gatev1,relayv1}`, `cmd/bindery-{external-runtime,udp-relay,redaction-scan}`, `hack/redaction-corpus/` |
 | CRDs | `k8s/crds/`, mirrored in `helm/bindery-core/crds/` | none — it defines no CRDs and runs no controllers |
 | Chart | `helm/bindery-core/` | `charts/bindery-external-runtime/` |
 | Contracts | `contracts/proto/game/engine/v1/` | `contracts/externalruntime/v1/` |
@@ -48,7 +48,10 @@ Start here:
 The RA2 vertical slice was demonstrated **once**, in a lab. The assessment
 deliberately refuses to backfill durable identifiers onto that pre-hardening
 run; repeating it through the hardened control plane is roadmap item ERH-006 and
-is **pending**.
+is **pending**. The control plane can now host such a run — the capture plane is
+served and durable, and observation summaries are derived by the broker rather
+than reported by adapters — but the run itself has not happened, and test
+fixtures are not run results.
 
 ## Reference material (not maintained as current documentation)
 

@@ -49,9 +49,14 @@ one repository with one CI.
 
 -   Service and relay: `internal/externalruntime`, `internal/relay`, `pkg/relayv1`
 -   Evidence reconciliation: `pkg/evidencev1` (wired into `internal/externalruntime/service.go`)
--   Calibrated gates: `pkg/gatev1` — compiles and is unit-tested, but has **no
-    caller**: `grep -rn "pkg/gatev1" --include=*.go .` matches nothing outside
-    the package itself. Giving it one is roadmap item ERH-006, which is pending.
+-   Capture plane: `internal/capture` (canonical encoding, content-addressed
+    object store, normalizers) wired into `internal/externalruntime` — durable
+    batch ingest, a heavy-object lane, completeness manifests, cursor-paged
+    public reads, and versioned derivations
+-   Calibrated gates: `pkg/gatev1`, consumed by
+    `internal/externalruntime/capture_gate.go`, which evaluates the
+    consequential gate `bindery.capture.completeness` over every capture before
+    it may contribute to an evidence set
 -   Binaries: `cmd/bindery-external-runtime`, `cmd/bindery-udp-relay`, `cmd/bindery-redaction-scan`
 -   Promoted contracts: [`contracts/externalruntime/v1`](contracts/externalruntime/v1)
 -   Chart: `charts/bindery-external-runtime`
@@ -83,15 +88,26 @@ built the external-runtime binaries. Restoring the publish job unchanged would
 have meant `helm install bindery-core` deploying the external-runtime service
 instead of the operator.
 
+Observation summaries are **derived by the broker** from persisted events. For
+any execution with captured streams, client-supplied counts are refused with
+`OBSERVATION_ADJUDICATION_FORBIDDEN`. That is deliberate: the one demonstrated
+RA2 run was scored by an adapter gate that was confidently wrong in both
+directions across four iterations, and an evidence set built from figures the
+adapters reported about themselves cannot support a claim of independence.
+Repeating the run through this control plane is roadmap item ERH-006 and is
+still **pending** — the enabler landed, the run has not happened.
+
 The control plane persists identity, session, placement, execution, enrollment,
-idempotency, and reconciled evidence through a crash-safe single-writer state
-store. That file-backed mode is deliberately **not** a multi-replica database:
+capture, idempotency, and reconciled evidence through a crash-safe single-writer
+state store. Capture event bodies and heavy artifacts are content-addressed
+files beside the snapshot rather than inside it, so a snapshot write stays
+proportional to the number of batches rather than the number of events. That file-backed mode is deliberately **not** a multi-replica database:
 the chart refuses to render with more than one replica, and running wider would
 need a shared relational store.
 
 `GET /v1/sessions` is intentionally not implemented. Known session IDs are
 public; discovery is not. The same known-ID rule applies to placements,
-executions, enrollments, and evidence sets.
+executions, enrollments, captures, and evidence sets.
 
 ```sh
 make verify-external-runtime      # race tests, vet, chart lint

@@ -17,7 +17,7 @@ workflow, and no runtime code path. Know which one you are changing — see
   `internal/{resolver,semver,graph}`, `modules/`, `k8s/crds/`,
   `helm/bindery-core/`, `e2e/`, `examples/booklet-bindery-sample/`.
 - **External runtime** — `internal/{externalruntime,relay,harness,capture}`,
-  `pkg/{evidencev1,gatev1,relayv1}`,
+  `pkg/{evidencev1,gatev1,relayv1}`, `hack/redaction-corpus/`,
   `cmd/bindery-{external-runtime,udp-relay,redaction-scan}`,
   `contracts/externalruntime/`, `charts/bindery-external-runtime/`,
   `verification/`. It defines no CRDs and runs no controllers.
@@ -71,3 +71,16 @@ Both targets run over the whole module, so either one will compile the other.
 - The external runtime has been demonstrated end to end **once**, in a lab. Do
   not generalize that result, and do not backfill durable identifiers onto it —
   see `docs/assessments/2026-08-25-ra2-vertical-slice.md`.
+- The capture plane is served and durable, and `pkg/gatev1` has a real caller
+  in `internal/externalruntime/capture_gate.go`. Roadmap item ERH-006 is still
+  **pending** regardless: what exists is the ability to repeat the RA2 run
+  through durable identifiers, not a repetition of it. Do not describe ERH-006
+  as closed, and do not describe test fixtures as run results.
+- Raw observations are immutable and content-addressed. Never edit a persisted
+  batch, never change `internal/capture/canon.go`'s encoding without accepting
+  that every published hash moves, and never satisfy a completeness question by
+  relaxing the gate — `canon_test.go` and `capture_gate_test.go` freeze both.
+- No public DTO field may end in
+  `authorization|bearer|token|credential|secret|password|url|ip|port|endpoint`.
+  `internal/externalruntime/redaction.go` is the release-blocking oracle and
+  `make redaction` runs it over the real DTO shapes.

@@ -11,13 +11,63 @@ Implementation status of the two package boundaries described below:
 
 - `pkg/evidencev1` **is wired**: `internal/externalruntime/service.go`,
   `state_store.go`, and `types.go` import it.
-- `pkg/gatev1` **is not wired**: it compiles and is unit-tested, but
-  `grep -rn "pkg/gatev1" --include=*.go .` matches nothing outside the package
-  itself. Everything under "Gate evaluation order" below describes a designed
-  and tested package with no production caller. Roadmap item ERH-006 is what
-  would give it one, and it is pending — see
-  [`../roadmap/post-ra2-hardening.yaml`](../roadmap/post-ra2-hardening.yaml),
-  whose `implemented-unconsumed` status legend says the same thing.
+- `pkg/gatev1` **is wired**, as of the capture plane. Its caller is
+  `internal/externalruntime/capture_gate.go`, which defines the consequential
+  gate `bindery.capture.completeness` and evaluates it over every capture
+  before that capture is allowed to contribute an observation summary to an
+  evidence set. Its five outcomes, its applicability rules, and its
+  positive/negative calibration controls are exercised against the running
+  service in `capture_gate_test.go`, not only inside the package's own tests.
+
+## Who counted
+
+Every observation summary records a `source`:
+
+| source | meaning |
+| --- | --- |
+| `broker-derived` | The broker read the persisted observations, counted them, and hashed them itself. |
+| `client-reported` | The producer supplied the numbers. |
+
+Where an execution has captured streams, `client-reported` summaries are
+refused outright with `OBSERVATION_ADJUDICATION_FORBIDDEN`. This is the point
+of the capture plane rather than a side effect of it: an evidence set assembled
+from figures the adapters reported about themselves records agreement between
+two self-assessments, which is a weaker claim than it looks, and was mistaken
+for a stronger one once already — see
+[`../assessments/2026-08-25-ra2-vertical-slice.md`](../assessments/2026-08-25-ra2-vertical-slice.md).
+
+The `client-reported` path survives only for executions with no capture plane
+at all, where there is nothing for the broker to derive from.
+
+## Observations are durable, and separate from the snapshot
+
+Raw observations are content-addressed objects in the state directory; the
+control snapshot holds only each capture's metadata and its batch index. The
+snapshot is rewritten in full on every mutation, so a snapshot write stays
+proportional to the number of batches rather than the number of events. The
+reference run recorded 6,651 events per participant; that does not belong in a
+file that is rewritten on every request.
+
+The write order is: object first, then the in-memory index, then the snapshot
+commit. The invariant that falls out of it is stated once and holds everywhere:
+*the index never references bytes that are not fully durable; the disk may hold
+bytes nothing references.* Every crash point leaves unreferenced
+content-addressed files, which is the only residue that cannot corrupt
+anything. Orphaned objects are counted at startup and never swept, because
+deleting content-addressed evidence on a heuristic is how evidence gets lost.
+
+## Derivation is additive
+
+Raw observations are never edited or reinterpreted in place. A normalizer
+produces a *derived capture*: its own record, carrying `producer_class:
+normalizer`, a link back to the stream it came from, and a
+`derivation{normalizer_id, normalizer_version, source_event_ids}` on every
+event. Replaying the same version returns the existing derivation; a new
+version creates another dataset beside the old one.
+
+Derived captures are excluded from evidence comparison. Reconciling a stream
+against a function of itself would manufacture agreement, which is the opposite
+of what evidence is for.
 
 ## Durable graph
 

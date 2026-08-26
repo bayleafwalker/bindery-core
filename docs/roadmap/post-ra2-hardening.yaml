@@ -30,13 +30,13 @@ work:
       - Unsupported methods fail explicitly.
   - id: ERH-003
     title: Make gate applicability a typed result
-    status: implemented-unconsumed
+    status: implemented
     acceptance:
       - Outcomes are PASS, FAIL, NOT_APPLICABLE, UNRESOLVED, or ERROR.
       - Missing context cannot silently become FAIL.
   - id: ERH-004
     title: Require verifier calibration evidence
-    status: implemented-unconsumed
+    status: implemented
     depends_on: [ERH-003]
     acceptance:
       - Consequential gates carry version and implementation hash.
@@ -56,6 +56,18 @@ work:
     acceptance:
       - The evidence set resolves to execution, session, placement, and identities after restart.
       - Exact-count reconciliation records the two client streams without adapter-owned adjudication.
+    enabler_landed: 2026-08-26
+    enabler_note: >-
+      The control plane now serves the capture plane, derives observation
+      summaries from persisted events, and refuses client-supplied counts for
+      any execution that has captured streams. Both acceptance criteria are
+      demonstrated in-process against the reference 6,651-event fixture by
+      internal/externalruntime/state_store_test.go and erh006_test.go.
+
+      This item stays pending on purpose. What has been built is the ability to
+      run RA2 through durable identifiers; nobody has run it. The item closes
+      when two real clients complete a match through this control plane, not
+      when the tests that would let them pass.
   - id: ERH-007
     title: Run a non-RA2 external runtime
     status: pending
@@ -76,11 +88,16 @@ status_legend:
     fail on operator breakage.
   implemented-unconsumed: >-
     Code exists and is unit-tested, but nothing in a production path imports it.
-    `git grep gatev1` matches only pkg/gatev1 itself. Unit tests prove the
-    package behaves as designed; they do not prove any gate in this repository
-    is actually evaluated through it. ERH-006 is what would give it a caller.
+    No item currently carries this status: `pkg/gatev1` acquired its caller on
+    2026-08-26 in internal/externalruntime/capture_gate.go, which evaluates the
+    consequential gate `bindery.capture.completeness` over every capture before
+    it may contribute to an evidence set. The status is kept in the legend
+    because it is a distinction worth being able to make again.
   pending: Not started.
 
 ordering_rule: >-
   Do not spend the next slice on richer RA2 behavior. Close ERH-001 through
   ERH-006, then use ERH-007 to test abstraction.
+
+  As of 2026-08-26 every ERH-006 dependency is implemented and consumed. What
+  remains for ERH-006 is a run, not a build.
