@@ -52,14 +52,14 @@ type Service struct {
 
 	clock              func() time.Time
 	placementAllocator PlacementAllocator
-	stateStore          StateStore
+	stateStore         StateStore
 
-	identities  map[string]*identityRecord
-	handles     map[string]string
-	sessions    map[string]*sessionRecord
-	enrollments map[string]*enrollmentRecord
-	placements  map[string]PublicPlacement
-	executions  map[string]PublicExecution
+	identities   map[string]*identityRecord
+	handles      map[string]string
+	sessions     map[string]*sessionRecord
+	enrollments  map[string]*enrollmentRecord
+	placements   map[string]PublicPlacement
+	executions   map[string]PublicExecution
 	evidenceSets map[string]evidencev1.EvidenceSet
 
 	identityIdempotency   map[string]identityCreateReplay
@@ -202,7 +202,7 @@ func (s *Service) CreateSession(accountToken, idempotencyKey string, req CreateS
 	}
 	public := PublicSession{
 		SchemaVersion: SchemaVersion, SessionID: sessionID,
-		ExecutionID: executionID,
+		ExecutionID:        executionID,
 		CreatedByAccountID: accountID, CreatedAt: now, UpdatedAt: now,
 		Phase: SessionCreated, Compatibility: req.Compatibility,
 		ParticipantPolicy: req.ParticipantPolicy, CapturePolicy: req.Capture,

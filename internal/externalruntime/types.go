@@ -94,12 +94,12 @@ type PublicPlacement struct {
 	SchemaVersion     string                 `json:"schema_version"`
 	PlacementID       string                 `json:"placement_id"`
 	SessionID         string                 `json:"session_id"`
-	Region            string `json:"region"`
-	RelayProviderID   string `json:"relay_provider_id"`
-	RelayAllocationID string `json:"relay_allocation_id"`
-	RelayEndpoint     string `json:"relay_endpoint"`
-	PolicyVersion     string `json:"policy_version"`
-	DecisionSummary   string `json:"decision_summary,omitempty"`
+	Region            string                 `json:"region"`
+	RelayProviderID   string                 `json:"relay_provider_id"`
+	RelayAllocationID string                 `json:"relay_allocation_id"`
+	RelayEndpoint     string                 `json:"relay_endpoint"`
+	PolicyVersion     string                 `json:"policy_version"`
+	DecisionSummary   string                 `json:"decision_summary,omitempty"`
 	Allocator         ImplementationIdentity `json:"allocator"`
 	CreatedAt         time.Time              `json:"created_at"`
 }

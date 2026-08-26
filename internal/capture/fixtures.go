@@ -8,7 +8,7 @@ import (
 func fixtureCaptureBatch(captureID, producerID string, first, last uint64) Batch {
 	events := make([]RawEvent, 0, last-first+1)
 	for sequence := first; sequence <= last; sequence++ {
-			events = append(events, RawEvent{
+		events = append(events, RawEvent{
 			EventID:          fmt.Sprintf("%s-%s-event-%d", captureID, producerID, sequence),
 			SessionID:        "session-fixture",
 			ExecutionID:      "execution-fixture",

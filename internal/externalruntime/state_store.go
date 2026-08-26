@@ -29,26 +29,26 @@ type storedIdentity struct {
 }
 
 type storedSession struct {
-	Public            PublicSession  `json:"public"`
-	JoinVerifier      []byte         `json:"join_verifier"`
-	ExpiresAt         time.Time      `json:"expires_at"`
-	CreatorID         string         `json:"creator_id"`
-	ExecutionID       string         `json:"execution_id"`
-	PlacementID       string         `json:"placement_id,omitempty"`
+	Public            PublicSession   `json:"public"`
+	JoinVerifier      []byte          `json:"join_verifier"`
+	ExpiresAt         time.Time       `json:"expires_at"`
+	CreatorID         string          `json:"creator_id"`
+	ExecutionID       string          `json:"execution_id"`
+	PlacementID       string          `json:"placement_id,omitempty"`
 	PlacementIntent   PlacementIntent `json:"placement_intent"`
-	EnrollmentIDs     []string       `json:"enrollment_ids"`
-	CreateRequestHash string         `json:"create_request_hash"`
+	EnrollmentIDs     []string        `json:"enrollment_ids"`
+	CreateRequestHash string          `json:"create_request_hash"`
 }
 
 type storedEnrollment struct {
-	Public            PublicEnrollment `json:"public"`
-	SessionID         string           `json:"session_id"`
-	ClientInstanceID  string           `json:"client_instance_id"`
-	LeaseVerifier     []byte           `json:"lease_verifier"`
-	TransportVerifier []byte           `json:"transport_verifier"`
-	ExpiresAt         time.Time        `json:"expires_at"`
+	Public            PublicEnrollment  `json:"public"`
+	SessionID         string            `json:"session_id"`
+	ClientInstanceID  string            `json:"client_instance_id"`
+	LeaseVerifier     []byte            `json:"lease_verifier"`
+	TransportVerifier []byte            `json:"transport_verifier"`
+	ExpiresAt         time.Time         `json:"expires_at"`
 	ReportIDs         map[string]string `json:"report_ids"`
-	RequestHash       string           `json:"request_hash"`
+	RequestHash       string            `json:"request_hash"`
 }
 
 type storedIdentityReplay struct {
@@ -74,18 +74,18 @@ type storedEvidenceReplay struct {
 }
 
 type serviceSnapshot struct {
-	SchemaVersion         string                              `json:"schema_version"`
-	Identities            map[string]storedIdentity           `json:"identities"`
-	Handles               map[string]string                   `json:"handles"`
-	Sessions              map[string]storedSession            `json:"sessions"`
-	Enrollments           map[string]storedEnrollment         `json:"enrollments"`
-	Placements            map[string]PublicPlacement          `json:"placements"`
-	Executions            map[string]PublicExecution          `json:"executions"`
-	EvidenceSets          map[string]evidencev1.EvidenceSet   `json:"evidence_sets"`
-	IdentityIdempotency   map[string]storedIdentityReplay     `json:"identity_idempotency"`
-	SessionIdempotency    map[string]storedSessionReplay      `json:"session_idempotency"`
-	EnrollmentIdempotency map[string]storedEnrollmentReplay   `json:"enrollment_idempotency"`
-	EvidenceIdempotency   map[string]storedEvidenceReplay     `json:"evidence_idempotency"`
+	SchemaVersion         string                            `json:"schema_version"`
+	Identities            map[string]storedIdentity         `json:"identities"`
+	Handles               map[string]string                 `json:"handles"`
+	Sessions              map[string]storedSession          `json:"sessions"`
+	Enrollments           map[string]storedEnrollment       `json:"enrollments"`
+	Placements            map[string]PublicPlacement        `json:"placements"`
+	Executions            map[string]PublicExecution        `json:"executions"`
+	EvidenceSets          map[string]evidencev1.EvidenceSet `json:"evidence_sets"`
+	IdentityIdempotency   map[string]storedIdentityReplay   `json:"identity_idempotency"`
+	SessionIdempotency    map[string]storedSessionReplay    `json:"session_idempotency"`
+	EnrollmentIdempotency map[string]storedEnrollmentReplay `json:"enrollment_idempotency"`
+	EvidenceIdempotency   map[string]storedEvidenceReplay   `json:"evidence_idempotency"`
 }
 
 type FileStateStore struct {
@@ -340,7 +340,7 @@ func (s *Service) restoreSnapshotLocked(snapshot serviceSnapshot) error {
 		}
 		enrollments[id] = &enrollmentRecord{
 			PublicEnrollment: stored.Public,
-			sessionID: stored.SessionID, clientInstanceID: stored.ClientInstanceID,
+			sessionID:        stored.SessionID, clientInstanceID: stored.ClientInstanceID,
 			leaseVerifier: append([]byte(nil), stored.LeaseVerifier...), transportVerifier: append([]byte(nil), stored.TransportVerifier...),
 			expiresAt: stored.ExpiresAt, reportIDs: reportIDs, requestHash: stored.RequestHash,
 		}
@@ -365,10 +365,10 @@ func (s *Service) restoreSnapshotLocked(snapshot serviceSnapshot) error {
 		}
 		record := &sessionRecord{
 			PublicSession: clonePublicSession(stored.Public),
-			joinVerifier: append([]byte(nil), stored.JoinVerifier...), expiresAt: stored.ExpiresAt,
+			joinVerifier:  append([]byte(nil), stored.JoinVerifier...), expiresAt: stored.ExpiresAt,
 			creatorID: stored.CreatorID, executionID: stored.ExecutionID, placementID: stored.PlacementID,
 			placementIntent: PlacementIntent{AllowedRegions: append([]string(nil), stored.PlacementIntent.AllowedRegions...), LatencyP95MS: stored.PlacementIntent.LatencyP95MS},
-			enrollments: make(map[string]*enrollmentRecord), createRequestHash: stored.CreateRequestHash,
+			enrollments:     make(map[string]*enrollmentRecord), createRequestHash: stored.CreateRequestHash,
 		}
 		for _, enrollmentID := range stored.EnrollmentIDs {
 			enrollment, ok := enrollments[enrollmentID]
