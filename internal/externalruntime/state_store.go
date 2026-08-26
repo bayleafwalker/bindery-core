@@ -19,6 +19,15 @@ const stateSnapshotVersion = "bindery.externalruntime.state/v1"
 // StateStore is the single-writer durability boundary for the reference
 // control plane. The file implementation is intentionally not a multi-replica
 // coordination mechanism.
+// MaxStateSnapshotBytes is the hard durability ceiling of this control plane.
+//
+// Load reads at most this many bytes, so a snapshot that grows past it cannot
+// be restored: the service starts, finds a truncated JSON value and refuses.
+// Because nothing is ever deleted and every mutation rewrites the whole
+// snapshot, the ceiling is reached by accumulated history rather than by any
+// single record. durability_ceiling_test.go measures how much history fits.
+const MaxStateSnapshotBytes = 64 << 20
+
 type StateStore interface {
 	Load() (serviceSnapshot, error)
 	Save(serviceSnapshot) error
@@ -161,7 +170,7 @@ func (s *FileStateStore) Load() (serviceSnapshot, error) {
 		return serviceSnapshot{}, fmt.Errorf("open state file: %w", err)
 	}
 	defer file.Close()
-	decoder := json.NewDecoder(io.LimitReader(file, 64<<20))
+	decoder := json.NewDecoder(io.LimitReader(file, MaxStateSnapshotBytes))
 	decoder.DisallowUnknownFields()
 	var snapshot serviceSnapshot
 	if err := decoder.Decode(&snapshot); err != nil {

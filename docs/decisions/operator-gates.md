@@ -42,8 +42,15 @@ compaction, and reconciliation of evidence sets that reference removed captures.
 
 The obligation this creates is the measurement. "Indefinite" without a number is
 the failure mode `docs/standards/production-readiness.md` warns about in its own
-preamble; until the ceiling is measured, the honest statement is that retention
-is indefinite up to an unmeasured limit.
+preamble.
+
+That obligation is discharged: see
+`docs/assessments/2026-08-26-durability-ceiling.md`. Roughly 7,000 two-player
+sessions of accumulated history fit under `MaxStateSnapshotBytes`, and one
+mutation costs about 195 ms at half that. Retention is therefore indefinite up
+to a measured limit, and the assessment records a failure mode worth fixing
+independently of any retention policy: `Save` will write a snapshot `Load`
+refuses, so a service can persist itself into a state it cannot restart from.
 
 ## Gate 6 — Baseline protocol: Bindery-native, CnCNet as a black box
 

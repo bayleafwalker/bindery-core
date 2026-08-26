@@ -166,3 +166,25 @@ redaction_gate_note: >-
   endpoints out of public DTOs ran only on a workstation, so nothing would have
   failed a pull request that reintroduced one. It is now a step in the
   external-runtime job and part of the verify-external-runtime target.
+
+durability_ceiling_note: >-
+  As of 2026-08-26 the durability ceiling is measured rather than described.
+  See docs/assessments/2026-08-26-durability-ceiling.md; the measurements live
+  in internal/externalruntime/durability_ceiling_test.go and the limit is named
+  as externalruntime.MaxStateSnapshotBytes instead of an inline 64<<20.
+
+  Roughly 7,017 two-player sessions of accumulated history fit under the 64 MiB
+  limit, at about 9,563 snapshot bytes per session, with growth linear to
+  within 2% across the sampled range. One ordinary mutation costs about 195 ms
+  once 35 MiB has accumulated -- measured on a restored half-ceiling state
+  file, not extrapolated from small samples -- because commitLocked rewrites
+  the whole snapshot every time and nothing is ever deleted.
+
+  The measurement surfaced a defect that is independent of any retention
+  policy: Save has no size check while Load caps its reader at
+  MaxStateSnapshotBytes, so a service that crosses the limit persists
+  successfully, keeps serving from memory, and then cannot start again. It
+  presents as "decode state snapshot: unexpected EOF", which reads as file
+  corruption rather than as a capacity limit. Making Save refuse the write is
+  small, lowers no ceiling, and is not done here; the assessment lists it first
+  among the things that would move the limit.
