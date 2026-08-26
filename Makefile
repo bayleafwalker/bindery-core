@@ -66,8 +66,10 @@ manifests: controller-gen
 	rm -rf "$$tmp"; \
 	echo "CRD manifests regenerated into k8s/crds/ and helm/bindery-core/crds/"
 
+# Invoked through bash so the gate still runs if the executable bit is lost
+# (this repo sets core.fileMode=false, so chmod alone does not reach git).
 verify-crds: controller-gen
-	CONTROLLER_GEN="$(CONTROLLER_GEN)" ./hack/verify-crds.sh
+	CONTROLLER_GEN="$(CONTROLLER_GEN)" bash ./hack/verify-crds.sh
 
 test-integration: envtest
 	BINDERY_INTEGRATION=1 KUBEBUILDER_ASSETS="$$("$(SETUP_ENVTEST)" use -p path $(ENVTEST_K8S_VERSION))" go test ./... -run Integration
@@ -108,5 +110,8 @@ run-controller:
 run-controller-with-metrics:
 	go run .
 
+# -timeout must exceed the test's own 12m context budget. Go's default is 10m,
+# which fires first and replaces the test's diagnostic failure with a panic
+# stack, hiding why the run actually failed.
 test-e2e:
-	BINDERY_E2E=1 go test ./e2e -run TestE2ESmoke_BinderySample -count=1
+	BINDERY_E2E=1 go test -v ./e2e -run TestE2ESmoke_BinderySample -count=1 -timeout 20m

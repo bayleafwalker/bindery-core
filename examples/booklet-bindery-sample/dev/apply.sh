@@ -19,5 +19,6 @@ sed "s|bindery/demo-physics:0.1.0|bindery/demo-physics:${TAG}|g" examples/bookle
 sed "s|bindery/demo-web:0.1.0|bindery/demo-web:${TAG}|g" examples/booklet-bindery-sample/k8s/12-modulemanifest-web.yaml | kubectl apply -f -
 kubectl apply -f examples/booklet-bindery-sample/k8s/20-booklet.yaml
 kubectl apply -f examples/booklet-bindery-sample/k8s/30-worldinstance.yaml
+kubectl apply -f examples/booklet-bindery-sample/k8s/40-shardautoscaler.yaml
 
 echo "Applied bindery-sample game resources (tag=$TAG)."

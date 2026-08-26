@@ -1,0 +1,30 @@
+# Declares the shard-scaling policy for the sample world.
+#
+# minShards is deliberately 1, matching WorldInstance.spec.shardCount, so
+# applying this file changes nothing on its own. Raising minShards (or adding a
+# metrics entry) is what drives the world wider.
+#
+# spec.metrics is intentionally empty. With no metrics the controller leaves the
+# calculated shard count at its current value and only applies the min/max
+# clamp, so scaling is driven purely by these bounds and needs no metrics-server
+# -- which a plain Kind cluster does not have.
+#
+# Note the clamp is asymmetric:
+#
+#   if desired < minShards { desired = minShards }   # raises only
+#   if desired > maxShards { desired = maxShards }   # lowers only
+#
+# minShards is a floor, not a target: with no metrics, lowering it will not
+# shrink a world that has already grown. Reducing maxShards is what reclaims
+# shards. Metric-driven scale-down needs a metrics-server and a spec.metrics
+# entry.
+apiVersion: bindery.platform/v1alpha1
+kind: ShardAutoscaler
+metadata:
+  name: bindery-sample-world-autoscaler
+  namespace: bindery-demo
+spec:
+  worldRef:
+    name: bindery-sample-world
+  minShards: 1
+  maxShards: 4
