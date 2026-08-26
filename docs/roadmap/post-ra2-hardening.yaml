@@ -99,6 +99,18 @@ work:
       constraints of a codebase nobody here controls, and it was written by
       someone who could read the contracts while writing it. Its findings are a
       lower bound on what a real third-party runtime would hit.
+
+      That bound was tested the same day. adapters/bindery-openttd-runtime runs
+      the same contracts against OpenTTD 15.3 -- an unmodified third-party game
+      driven over its own admin network protocol, with real game clients
+      joining a real dedicated server as separate processes. Core again changed
+      not at all. The run confirms every open finding above against a codebase
+      nobody here controls, and adds two that only a third-party game could
+      surface: enrollment requires every participant to run a byte-identical
+      build of the game, and an evidence set cannot record what interval an
+      observer watched. See
+      docs/assessments/2026-08-26-erh-007-third-party-runtime.md, and
+      `make openttd-acceptance` to repeat it.
 status_legend:
   implemented: >-
     Code exists and is exercised by CI on main. Since 2026-08-26 that means the
@@ -239,6 +251,19 @@ erh007_findings_note: >-
   opt-out, so clients that produce nothing by design each hold one; and a
   producer cannot close a stream as legitimately empty, because final_sequence
   is unsigned and zero already claims sequence 0 exists.
+
+  Two further findings came from the third-party run against OpenTTD on
+  2026-08-26, and neither was reachable from Red Alert 2 or from a runtime
+  written here. Enrollment refuses any client whose game_hash differs from the
+  session's, so a game that ships a Windows, a macOS and a Linux build of one
+  release -- which play together over the network -- cannot enroll its second
+  platform at all; game_hash is carrying provenance and compatibility at once,
+  and only compatibility belongs in that check. And an evidence set records no
+  observation interval, so two honest observers who watched different intervals
+  of one execution are indistinguishable from two observers who disagree about
+  the same interval. Both are pinned in
+  internal/externalruntime/erh007_findings_test.go, which needs no game
+  installed.
 
   game_tick in the canonical encoding is accepted as a permanent leak. It bars
   no runtime -- a game without ticks sends null -- but it cannot be removed

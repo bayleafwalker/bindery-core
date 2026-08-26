@@ -235,11 +235,15 @@ External runtime:
 -   `pkg/evidencev1`, `pkg/gatev1`, `pkg/relayv1`.
 -   `charts/bindery-external-runtime/`: Helm chart for the standalone service.
 -   `verification/`: Verification context fixtures.
--   `adapters/`: External-runtime adapter source (`bindery-ra2-adapter`).
+-   `adapters/`: External-runtime adapter source. `bindery-ra2-adapter` is the
+    Red Alert 2 adapter; `bindery-dedicated-runtime` and
+    `bindery-openttd-runtime` are the two ERH-007 runtimes, the second of them
+    driving an unmodified OpenTTD over its own admin protocol
+    (`make openttd-acceptance`).
 
 Shared:
 -   `cmd/`: Binary entrypoints for both subsystems.
 -   `contracts/`: `proto/` (engine gRPC) and `externalruntime/v1` (HTTP + relay).
 -   `docs/`: Documentation — see [`docs/README.md`](docs/README.md).
 -   `config/`: RBAC and manager scaffolding.
--   `hack/`: Verification scripts (`verify-crds.sh`).
+-   `hack/`: Verification scripts (`verify-crds.sh`, `fetch-openttd.sh`).

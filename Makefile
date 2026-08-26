@@ -1,6 +1,6 @@
 SHELL := /usr/bin/env bash
 
-.PHONY: help test test-race docker-build test-sample-game test-integration test-e2e envtest controller-gen manifests verify-crds tidy tidy-sample-game fmt vet verify verify-external-runtime lint-charts redaction proto kind-demo kind-down run-controller run-controller-with-metrics
+.PHONY: help test test-race docker-build test-sample-game test-integration test-e2e envtest controller-gen manifests verify-crds tidy tidy-sample-game fmt vet verify verify-external-runtime lint-charts redaction openttd-acceptance proto kind-demo kind-down run-controller run-controller-with-metrics
 
 SAMPLE_GAME_DIR := examples/booklet-bindery-sample
 
@@ -16,6 +16,7 @@ help:
 	@echo "  make vet            Run go vet"
 	@echo "  make lint-charts    Helm lint the external-runtime chart"
 	@echo "  make redaction      Smoke the redaction scanner"
+	@echo "  make openttd-acceptance  Fetch OpenTTD and run the third-party runtime acceptance test"
 	@echo "  make docker-build   Build both container images locally"
 	@echo "  make verify-external-runtime  race tests + vet + chart lint"
 	@echo "  make tidy           Run go mod tidy"
@@ -59,6 +60,14 @@ redaction:
 # only thing standing between a public DTO and a leaked credential or endpoint.
 verify-external-runtime: test-race vet lint-charts redaction
 	@echo "External runtime verification passed!"
+
+# ERH-007's third-party run: a real OpenTTD server, real game clients, and the
+# control plane, all as separate processes. The game is fetched into a user
+# cache rather than installed; without it the test skips, here and in CI.
+openttd-acceptance:
+	@set -euo pipefail; \
+	eval "$$(./hack/fetch-openttd.sh | tail -1)"; \
+	go test -count=1 -v ./adapters/bindery-openttd-runtime/...
 
 test-sample-game:
 	cd "$(SAMPLE_GAME_DIR)" && go test ./...

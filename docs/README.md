@@ -41,6 +41,8 @@ Start here:
 - Evidence, reconciliation, and gates: [`architecture/evidence-and-gates.md`](architecture/evidence-and-gates.md)
 - The one demonstrated end-to-end result and its limits:
   [`assessments/2026-08-25-ra2-vertical-slice.md`](assessments/2026-08-25-ra2-vertical-slice.md)
+- What survived a runtime nobody here controls, and what leaked:
+  [`assessments/2026-08-26-erh-007-third-party-runtime.md`](assessments/2026-08-26-erh-007-third-party-runtime.md)
 - Remaining tracked work: [`roadmap/post-ra2-hardening.yaml`](roadmap/post-ra2-hardening.yaml)
 - Promoted wire contract: [`../contracts/externalruntime/v1/README.md`](../contracts/externalruntime/v1/README.md)
 - Adapter provenance notes: [`compatibility-findings.md`](compatibility-findings.md)

@@ -180,3 +180,101 @@ func TestNonRA2SessionShapesAreAccepted(t *testing.T) {
 		})
 	}
 }
+
+// The findings below came from the third-party run of 2026-08-26: OpenTTD,
+// driven through its admin network by adapters/bindery-openttd-runtime. They
+// are pinned here rather than there because they are properties of core, and
+// core is testable without a game installed. See
+// docs/assessments/2026-08-26-erh-007-third-party-runtime.md.
+
+// FINDING: every participant must run a byte-identical build of the game.
+//
+// Enrollment refuses any client whose game_hash differs from the session's.
+// For Red Alert 2 that is nearly free -- one platform, one executable -- but
+// most games ship a different binary per platform, and OpenTTD's Windows,
+// macOS and Linux builds of the same release play together. Under this rule a
+// cross-platform match cannot be enrolled at all: the second platform's client
+// is refused as incompatible with the first.
+//
+// The fix is a contract decision rather than a patch. game_hash currently
+// carries two meanings at once -- "which build am I running" and "are we
+// playing the same thing" -- and only the second belongs in a compatibility
+// check. Recorded rather than fixed, because deciding what makes two builds
+// the same game is not an adapter's call.
+func TestFindingEnrollmentRequiresByteIdenticalGameBuilds(t *testing.T) {
+	service := NewService()
+	owner := mustIdentity(t, service, "cross-build-owner")
+	created, err := service.CreateSession(owner.AccountToken, "cross-build-session", testSessionRequest())
+	if err != nil {
+		t.Fatal(err)
+	}
+	// testHashB stands in for the same game, same version, other platform.
+	_, err = service.Enroll(owner.AccountToken, created.SessionJoinCredential, created.PublicSession.SessionID,
+		"enroll-other-platform", EnrollmentRequest{
+			ClientInstanceID: "other-platform",
+			ClientClass:      ClientPlayer,
+			Adapter:          AdapterRef{ID: "bindery.ra2-adapter", Version: "0.1.0"},
+			Compatibility:    ClientHashes{GameHash: testHashB, ModHash: testHashA, MapHash: testHashB},
+		})
+	if err == nil {
+		t.Fatal("a client running another platform's build of the same game now enrolls: " +
+			"the finding is fixed and this test and the assessment must be retired")
+	}
+	if !hasCode(err, "COMPATIBILITY_MISMATCH") {
+		t.Fatalf("refusal code = %v, want COMPATIBILITY_MISMATCH", err)
+	}
+}
+
+// FINDING: an evidence set does not record what interval each observer watched.
+//
+// Two honest observers of one execution can watch different intervals of it --
+// the second connected later, the first was disconnected early -- and produce
+// different counts of the same execution. Reconciliation calls that
+// `inconsistent`, and the evidence set holds nothing that distinguishes it from
+// two observers of the same interval who genuinely disagree. Anyone reading the
+// set later cannot tell "they saw different things" from "they saw different
+// amounts of it".
+//
+// This surfaced against a real game: two admin connections to the same OpenTTD
+// server differ by exactly one event, because the earlier one observes the
+// later one arriving. The adapter works around it by bounding both recordings
+// between two facts in the game's own history, which is a thing an adapter can
+// do only because it controls both observers.
+func TestFindingEvidenceSetsRecordNoObservationInterval(t *testing.T) {
+	service := NewService()
+	fixture := newCaptureFixture(t, service, "interval")
+	// One observer files eight observations; the other, having started later,
+	// files six of the same execution. Neither is lying.
+	for _, watched := range []struct {
+		client testEnrollmentSecrets
+		events uint64
+	}{{fixture.playerA, 8}, {fixture.playerB, 6}} {
+		ingestRange(t, service, watched.client, 0, watched.events-1, 500)
+		if _, err := service.CloseCapture(watched.client.lease, watched.client.capture, CaptureCloseRequest{
+			FinalSequence: watched.events - 1, EndReason: "the observer stopped watching",
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	result, err := service.CreateEvidenceSet(fixture.identity.AccountToken,
+		fixture.session.PublicSession.ExecutionID, "interval-evidence",
+		ReconcileEvidenceRequest{Method: evidencev1.MethodExactCount})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Reconciliation.Outcome != evidencev1.OutcomeInconsistent {
+		t.Fatalf("outcome = %s, want inconsistent", result.Reconciliation.Outcome)
+	}
+	encoded, err := json.Marshal(result)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, field := range []string{"observed_from", "observed_until", "observation_interval", "interval"} {
+		if strings.Contains(string(encoded), field) {
+			t.Fatalf("evidence sets now record %q: the finding is fixed and must be retired", field)
+		}
+	}
+	t.Logf("two honest observers of different intervals are recorded as a disagreement: %v",
+		result.Reconciliation.DistinctCounts)
+}

@@ -113,6 +113,32 @@ jobs:
           set -euo pipefail
           go test -v ./e2e -run TestE2ESmoke_BinderySample -count=1 -timeout 20m
 
+  # ERH-007's third-party run. It fetches an unmodified OpenTTD, starts a
+  # dedicated server, joins real game clients over the network, and drives the
+  # control plane against what the game publishes over its admin protocol. It
+  # is a separate job because it depends on a third-party CDN: a fetch failure
+  # should read as a fetch failure, not as a broken control plane.
+  openttd-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Cache the game
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/bindery/openttd
+          key: openttd-15.3-opengfx-8.0
+
+      - name: Third-party runtime acceptance
+        run: make openttd-acceptance
+
   external-runtime:
     runs-on: ubuntu-latest
     steps:

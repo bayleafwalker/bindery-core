@@ -28,6 +28,13 @@ nobody here controls, and it was written by someone who could read the
 contracts while writing it. Its findings are therefore a lower bound on what a
 real third-party runtime would hit, not an upper one.
 
+That bound was tested the same day. See
+[`2026-08-26-erh-007-third-party-runtime.md`](2026-08-26-erh-007-third-party-runtime.md),
+which runs the same contracts against OpenTTD -- an unmodified third-party
+game, over its own admin protocol -- and finds two things this run could not:
+enrollment requires every participant to run a byte-identical build, and an
+evidence set cannot say what interval an observer watched.
+
 ## Abstractions that held
 
 Session, placement, execution, capture, and enrollment contracts carried a
