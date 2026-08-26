@@ -127,3 +127,42 @@ relay_seam_note: >-
   call. A separate relay process needs an authenticated, encrypted admin
   channel before the same seam can span it, and ERM-503's scale-out and drain
   work needs that channel first.
+
+conformance_producer_note: >-
+  As of 2026-08-26 one capture proof runs outside the broker's process.
+  cmd/bindery-capture-conformance is a producer that imports no Bindery
+  package: it re-declares the wire DTOs it uses and re-implements the frozen
+  canonical encoding from internal/capture/canon.go, then drives identity,
+  session, enrollment, batch ingest, heavy-object upload, close, normalization
+  and the unauthenticated cursor read over HTTP.
+  cmd/bindery-capture-conformance/conformance_test.go builds it and
+  bindery-external-runtime and runs them as two operating system processes
+  talking over TCP.
+
+  What this adds over the erm301..erm304 tests is specific. Those call the
+  service, or hand a synthetic request to http.Handler.ServeHTTP through
+  httptest.NewRequest and NewRecorder; no socket is involved and both sides
+  share the same Go types. The conformance run therefore tests two things they
+  cannot: that the published contract is implementable by a program compiled
+  without access to those types, and that the frozen canonical encoding is
+  reproducible from its specification. The broker recomputes producer_digest
+  and answers SEQUENCE_CONFLICT on a mismatch, so an accepted batch is two
+  independent encoders agreeing byte for byte. Reordering two fields in the
+  producer's encoder breaks the run, which is how that claim was checked.
+
+  The run includes a negative control. It sends a well-formed batch under a
+  deliberately wrong digest and requires a 4xx SEQUENCE_CONFLICT before any
+  real ingest, because without it a broker that ignored producer_digest
+  entirely would pass every positive step.
+
+  It is not an RA2 adapter and does not advance ERH-006. It is the shape the
+  producer half of ERM-301..304 has to take, exercised in a language CI can run
+  today, and it is the first evidence in this repository that the capture
+  contract survives a process boundary.
+
+redaction_gate_note: >-
+  `make redaction` was release-blocking and absent from CI until 2026-08-26.
+  The oracle that keeps bearer tokens, join credentials and operational
+  endpoints out of public DTOs ran only on a workstation, so nothing would have
+  failed a pull request that reintroduced one. It is now a step in the
+  external-runtime job and part of the verify-external-runtime target.

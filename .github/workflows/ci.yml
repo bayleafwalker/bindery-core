@@ -132,6 +132,12 @@ jobs:
       - name: Helm lint external-runtime chart
         run: helm lint charts/bindery-external-runtime
 
+      # Release-blocking, and absent from CI until 2026-08-26: the oracle is
+      # what keeps bearer tokens, join credentials and operational endpoints
+      # out of public DTOs, and it only ever ran on someone's workstation.
+      - name: Redaction scan
+        run: make redaction
+
       - name: Secret scan
         uses: gitleaks/gitleaks-action@v2
         env:

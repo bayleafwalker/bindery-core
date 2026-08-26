@@ -55,7 +55,9 @@ redaction:
 	go run ./hack/redaction-corpus | go run ./cmd/bindery-redaction-scan
 
 # The checks the external-runtime line ran in its own CI, kept as one target.
-verify-external-runtime: test-race vet lint-charts
+# redaction is in the list because it is release-blocking: the oracle is the
+# only thing standing between a public DTO and a leaked credential or endpoint.
+verify-external-runtime: test-race vet lint-charts redaction
 	@echo "External runtime verification passed!"
 
 test-sample-game:

@@ -31,6 +31,8 @@ engine-module-server
 
 # sprintctl/kctl local backend marker and state (see agentops .gitignore)
 .sprintctl/
+# auditctl local event database, written when sprintctl records notes
+.auditctl/
 .envrc.local
 
 # External runtime build/test artifacts
