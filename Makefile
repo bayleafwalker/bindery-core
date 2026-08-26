@@ -1,6 +1,6 @@
 SHELL := /usr/bin/env bash
 
-.PHONY: help test test-race test-sample-game test-integration test-e2e envtest controller-gen manifests verify-crds tidy tidy-sample-game fmt vet verify verify-external-runtime lint-charts redaction proto kind-demo kind-down run-controller run-controller-with-metrics
+.PHONY: help test test-race docker-build test-sample-game test-integration test-e2e envtest controller-gen manifests verify-crds tidy tidy-sample-game fmt vet verify verify-external-runtime lint-charts redaction proto kind-demo kind-down run-controller run-controller-with-metrics
 
 SAMPLE_GAME_DIR := examples/booklet-bindery-sample
 
@@ -16,6 +16,7 @@ help:
 	@echo "  make vet            Run go vet"
 	@echo "  make lint-charts    Helm lint the external-runtime chart"
 	@echo "  make redaction      Smoke the redaction scanner"
+	@echo "  make docker-build   Build both container images locally"
 	@echo "  make verify-external-runtime  race tests + vet + chart lint"
 	@echo "  make tidy           Run go mod tidy"
 	@echo "  make tidy-sample-game Run go mod tidy for sample game"
@@ -39,7 +40,14 @@ vet:
 	go vet ./...
 
 lint-charts:
+	helm lint helm/bindery-core
 	helm lint charts/bindery-external-runtime
+
+# The operator and the external runtime are separate artifacts built from
+# separate Dockerfiles; see the image table in README.md.
+docker-build:
+	docker build -f Dockerfile -t bindery-core:dev .
+	docker build -f Dockerfile.external-runtime -t bindery-external-runtime:dev .
 
 redaction:
 	printf '%s\n' '{"account_id":"public","handle":"safe"}' | go run ./cmd/bindery-redaction-scan

@@ -55,6 +55,8 @@ one repository with one CI.
 -   Binaries: `cmd/bindery-external-runtime`, `cmd/bindery-udp-relay`, `cmd/bindery-redaction-scan`
 -   Promoted contracts: [`contracts/externalruntime/v1`](contracts/externalruntime/v1)
 -   Chart: `charts/bindery-external-runtime`
+-   Image: `ghcr.io/bayleafwalker/bindery-external-runtime`, built from
+    `Dockerfile.external-runtime` and published from `main` and tags
 
 The repository has two chart roots on purpose. `helm/bindery-core` deploys the
 operator and ships the CRDs; `charts/bindery-external-runtime` deploys a
@@ -62,6 +64,24 @@ standalone service that defines no CRDs and runs no controllers. They have
 different lifecycles and different install audiences, so they are versioned
 separately rather than folded into one chart directory. Only `helm/` is covered
 by `make verify-crds`, because only `helm/` carries CRDs.
+
+They also deploy different images, which is worth stating plainly because they
+briefly did not:
+
+| Chart | Dockerfile | Image |
+| --- | --- | --- |
+| `helm/bindery-core` | `Dockerfile` | `ghcr.io/bayleafwalker/bindery-core` |
+| `charts/bindery-external-runtime` | `Dockerfile.external-runtime` | `ghcr.io/bayleafwalker/bindery-external-runtime` |
+
+Both are published by the `image` job in CI, from `main` and from tags only, with
+an SBOM and build provenance attestation each. Each chart's `image.tag` defaults
+to its own chart `appVersion`, so a chart cannot drift from the image it deploys.
+
+Keeping these apart matters: until 2026-08-26 both charts named
+`ghcr.io/bayleafwalker/bindery-core`, while the only Dockerfile in the repository
+built the external-runtime binaries. Restoring the publish job unchanged would
+have meant `helm install bindery-core` deploying the external-runtime service
+instead of the operator.
 
 The control plane persists identity, session, placement, execution, enrollment,
 idempotency, and reconciled evidence through a crash-safe single-writer state

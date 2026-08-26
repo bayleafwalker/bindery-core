@@ -136,3 +136,75 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Publishes both images. They share a repository and a Go module but are
+  # separate artifacts with separate Dockerfiles: conflating them would let a
+  # `helm install bindery-core` deploy the external-runtime service instead of
+  # the operator, which is what the charts briefly both pointed at.
+  #
+  # Gated on main and tags rather than every push. The former external-runtime
+  # workflow published on any branch, which is how a feature branch could
+  # overwrite the tag a chart installs.
+  image:
+    if: >-
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+    needs: [go-test, external-runtime]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: bindery-core
+            dockerfile: Dockerfile
+          - name: bindery-external-runtime
+            dockerfile: Dockerfile.external-runtime
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/bayleafwalker/${{ matrix.name }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - uses: docker/build-push-action@v6
+        id: build
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: SOURCE_COMMIT=${{ github.sha }}
+          platforms: linux/amd64
+
+      - uses: anchore/sbom-action@v0
+        with:
+          image: ghcr.io/bayleafwalker/${{ matrix.name }}@${{ steps.build.outputs.digest }}
+          artifact-name: ${{ matrix.name }}.spdx.json
+          output-file: ${{ matrix.name }}.spdx.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}-sbom
+          path: ${{ matrix.name }}.spdx.json
+
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ghcr.io/bayleafwalker/${{ matrix.name }}
+          subject-digest: ${{ steps.build.outputs.digest }}

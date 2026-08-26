@@ -7,8 +7,16 @@ replicaCount: 1
 buildRevision: ""
 
 image:
-  repository: ghcr.io/bayleafwalker/bindery-core
-  tag: "0.1.0"
+  # The external runtime has its own image. It shares a repository with the
+  # operator but not an artifact: this Dockerfile.external-runtime build
+  # contains only bindery-external-runtime and bindery-udp-relay, and the
+  # operator chart (helm/bindery-core) pulls ghcr.io/bayleafwalker/bindery-core.
+  # Pointing both charts at one name would let a bindery-core install deploy
+  # this service instead of the operator.
+  repository: ghcr.io/bayleafwalker/bindery-external-runtime
+  # Empty means the chart appVersion, so the chart and the image it deploys
+  # cannot drift apart. Pin only to override.
+  tag: ""
   digest: ""
   pullPolicy: IfNotPresent
 

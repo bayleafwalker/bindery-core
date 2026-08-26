@@ -1,0 +1,37 @@
+# Shared by every image build in this repository. Excludes only what no build
+# needs: the Go toolchain pulls in exactly the packages a target imports, so
+# trimming here is about context size, not correctness.
+#
+# The context grew substantially when the operator and the external runtime were
+# merged into one repository, and docs/ alone carries the research pack plus ~70
+# dispatch receipts.
+
+.git
+.github
+.claude
+.sprintctl
+.kctl
+.auditctl
+.tools
+
+# Docs, research, dispatch records, deployment manifests.
+docs
+verification
+charts
+helm
+k8s
+config
+samples
+examples
+e2e
+*.md
+project.toml
+bindery-core.dispatch.json
+
+# Local build and test artifacts.
+bin
+dist
+coverage*.out
+*.test
+.gocache
+.cache
