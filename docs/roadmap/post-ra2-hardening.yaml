@@ -101,3 +101,29 @@ ordering_rule: >-
 
   As of 2026-08-26 every ERH-006 dependency is implemented and consumed. What
   remains for ERH-006 is a run, not a build.
+
+relay_seam_note: >-
+  As of 2026-08-26 the allocator seam reaches a relay this project controls.
+  BINDERY_RELAY_PROVIDER=bindery-native runs internal/relay inside
+  bindery-external-runtime: sessions allocate on it, and each enrolling client
+  is admitted to that allocation through the new externalruntime.RelayAdmitter
+  seam. cmd/bindery-external-runtime/native_relay_test.go drives two clients
+  through session creation and enrollment and then forwards real datagrams
+  between them over a UDP socket, signed with the transport credentials the
+  control plane issued.
+
+  This closes a gap, not an item. Before it, cmd/bindery-external-runtime
+  refused every provider except cncnet-private, and internal/relay learned its
+  allocations only from BINDERY_RELAY_ALLOCATION_ID and BINDERY_RELAY_CLIENTS
+  at boot; the two programs never met. A session created through the control
+  plane therefore could not cause Bindery's own relay to accept anything, which
+  is why internal/harness had no production caller.
+
+  What it claims is a capability -- the control plane can allocate on a relay it
+  controls -- and nothing about behavior under load, over a real network, or
+  against a game. The in-process boundary is deliberate and load-bearing:
+  enrollment mints a client's transport key, returns it once and keeps only a
+  sha256 verifier, so the key can reach the relay only during the enrollment
+  call. A separate relay process needs an authenticated, encrypted admin
+  channel before the same seam can span it, and ERM-503's scale-out and drain
+  work needs that channel first.

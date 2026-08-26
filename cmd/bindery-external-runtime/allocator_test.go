@@ -39,7 +39,7 @@ func TestBothClientsReceiveTheSameEndpointWithDistinctAllocations(t *testing.T) 
 	if err != nil {
 		t.Fatalf("config: %v", err)
 	}
-	allocate := newCncNetPrivateAllocator(config)
+	allocate := newRelayAllocator(config)
 	intent := externalruntime.PlacementIntent{AllowedRegions: []string{"eu-north"}, LatencyP95MS: 100}
 
 	first, err := allocate(intent)
@@ -75,7 +75,7 @@ func TestIntentWithoutTheServedRegionIsRefused(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config: %v", err)
 	}
-	allocate := newCncNetPrivateAllocator(config)
+	allocate := newRelayAllocator(config)
 
 	if _, err := allocate(externalruntime.PlacementIntent{AllowedRegions: []string{"us-west"}, LatencyP95MS: 100}); err == nil {
 		t.Fatal("expected an unservable region to be refused rather than silently reassigned")

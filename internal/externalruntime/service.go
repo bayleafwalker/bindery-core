@@ -2,6 +2,7 @@ package externalruntime
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -54,6 +55,7 @@ type Service struct {
 
 	clock              func() time.Time
 	placementAllocator PlacementAllocator
+	relayAdmitter      RelayAdmitter
 	stateStore         StateStore
 
 	identities   map[string]*identityRecord
@@ -106,6 +108,16 @@ func NewServiceWithPlacementAllocator(allocator PlacementAllocator) *Service {
 		enrollmentIdempotency: make(map[string]enrollmentCreateReplay),
 		evidenceIdempotency:   make(map[string]evidenceCreateReplay),
 	}
+}
+
+// SetRelayAdmitter installs the enrollment-to-relay seam. It must be called
+// before the service starts serving: an enrollment that completes without an
+// admitter has already discarded the client's transport key, so the client can
+// never afterwards be admitted to the relay its placement names.
+func (s *Service) SetRelayAdmitter(admitter RelayAdmitter) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.relayAdmitter = admitter
 }
 
 func (s *Service) now() time.Time { return s.clock().UTC() }
@@ -483,6 +495,12 @@ func (s *Service) Enroll(accountToken, sessionJoinCredential, sessionID, idempot
 	if err != nil {
 		return EnrollmentCreateResponse{}, fmt.Errorf("create transport credential: %w", err)
 	}
+	// Admit before the enrollment is recorded. The transport key exists only
+	// on this path, so a failure here must fail the enrollment rather than
+	// hand back a lease for a relay that will drop the client's packets.
+	if err := s.admitToRelayLocked(session, clientID, req.ClientClass, transport, now); err != nil {
+		return EnrollmentCreateResponse{}, err
+	}
 	public := PublicEnrollment{ClientID: clientID, AccountID: accountID, ClientClass: req.ClientClass, Phase: EnrollmentRegistered, AdapterID: req.Adapter.ID, AdapterVersion: req.Adapter.Version, EnrolledAt: now}
 	enrollment := &enrollmentRecord{PublicEnrollment: public, sessionID: sessionID, clientInstanceID: req.ClientInstanceID, leaseVerifier: leaseVerifier, transportVerifier: transportVerifier, expiresAt: now.Add(2 * time.Minute), reportIDs: make(map[string]string), requestHash: hash}
 	session.enrollments[clientID] = enrollment
@@ -506,6 +524,36 @@ func (s *Service) Enroll(accountToken, sessionJoinCredential, sessionID, idempot
 		return EnrollmentCreateResponse{}, err
 	}
 	return response, nil
+}
+
+// admitToRelayLocked hands one enrolled client to the relay named by its
+// session's placement. A session with no placement has no relay to admit to,
+// and a service with no admitter is either a test or a deployment whose relay
+// is configured out of band; neither is an error here.
+func (s *Service) admitToRelayLocked(session *sessionRecord, clientID string, class ClientClass, transportCredential string, now time.Time) error {
+	if s.relayAdmitter == nil || session.Placement == nil {
+		return nil
+	}
+	// The credential presented on the wire is base64url text, but the relay
+	// codec signs with the 32 raw bytes behind it. Decode rather than hash:
+	// both sides must arrive at the same key.
+	key, err := base64.RawURLEncoding.DecodeString(transportCredential)
+	if err != nil {
+		return fmt.Errorf("decode transport credential: %w", err)
+	}
+	admission := RelayAdmission{
+		SessionID:         session.SessionID,
+		PlacementID:       session.Placement.PlacementID,
+		RelayAllocationID: session.Placement.RelayAllocationID,
+		ClientID:          clientID,
+		ClientClass:       class,
+		TransportKey:      key,
+		AdmittedAt:        now,
+	}
+	if err := s.relayAdmitter(admission); err != nil {
+		return domainError("RELAY_ADMISSION_FAILED", "the session relay would not admit this client")
+	}
+	return nil
 }
 
 func (s *Service) Report(clientLease, clientID, idempotencyKey string, req LifecycleReportRequest) (LifecycleReportResponse, error) {

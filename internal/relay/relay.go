@@ -187,16 +187,65 @@ func (r *Relay) RegisterAllocation(allocationID string, clients map[string][]byt
 	}
 	registered := make(map[string]*client, len(clients))
 	for id, key := range clients {
-		if _, err := relayv1.PeekMustUUID(id); err != nil {
-			return fmt.Errorf("client %s: %w", id, err)
+		admitted, err := r.newClientLocked(id, key)
+		if err != nil {
+			return err
 		}
-		if len(key) != relayv1.TransportKeyBytes {
-			return relayv1.ErrInvalidKey
-		}
-		registered[id] = &client{key: append([]byte(nil), key...), packetRate: newTokenBucket(r.config.PacketsPerSecond), byteRate: newTokenBucket(r.config.BytesPerSecond)}
+		registered[id] = admitted
 	}
 	r.allocations[allocationID] = &allocation{id: allocationID, leaseUntil: leaseUntil.UTC(), clients: registered}
 	return nil
+}
+
+// AdmitClient adds one client to an allocation, creating the allocation on
+// first admission. A control plane learns its clients one enrollment at a
+// time, so it cannot present the whole client set up front the way a
+// statically configured relay can; RegisterAllocation replaces the client set
+// and would evict everyone already admitted.
+//
+// Re-admitting an existing client replaces its key and resets its replay
+// window and rate buckets, which is what a client that re-enrolled needs.
+// leaseUntil only ever extends an existing lease: an allocation must not be
+// shortened by a later arrival.
+func (r *Relay) AdmitClient(allocationID, clientID string, key []byte, leaseUntil time.Time) error {
+	if allocationID == "" || clientID == "" {
+		return errors.New("allocation and client are required")
+	}
+	if _, err := relayv1.PeekMustUUID(allocationID); err != nil {
+		return err
+	}
+	if leaseUntil.IsZero() {
+		return errors.New("allocation lease is required")
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.state != Accepting {
+		return ErrNotAccepting
+	}
+	admitted, err := r.newClientLocked(clientID, key)
+	if err != nil {
+		return err
+	}
+	existing, ok := r.allocations[allocationID]
+	if !ok {
+		r.allocations[allocationID] = &allocation{id: allocationID, leaseUntil: leaseUntil.UTC(), clients: map[string]*client{clientID: admitted}}
+		return nil
+	}
+	existing.clients[clientID] = admitted
+	if leaseUntil.UTC().After(existing.leaseUntil) {
+		existing.leaseUntil = leaseUntil.UTC()
+	}
+	return nil
+}
+
+func (r *Relay) newClientLocked(id string, key []byte) (*client, error) {
+	if _, err := relayv1.PeekMustUUID(id); err != nil {
+		return nil, fmt.Errorf("client %s: %w", id, err)
+	}
+	if len(key) != relayv1.TransportKeyBytes {
+		return nil, relayv1.ErrInvalidKey
+	}
+	return &client{key: append([]byte(nil), key...), packetRate: newTokenBucket(r.config.PacketsPerSecond), byteRate: newTokenBucket(r.config.BytesPerSecond)}, nil
 }
 
 func (r *Relay) CloseAllocation(allocationID string, now time.Time) error {

@@ -16,10 +16,20 @@ import (
 	"github.com/bayleafwalker/bindery-core/internal/externalruntime"
 )
 
-// cncnetPrivateProviderID is the only transport an instrumented RA2/YR client
-// may be placed on. Public CnCNet is not an acceptance environment, so the
-// allocator refuses to serve anything else rather than falling back.
-const cncnetPrivateProviderID = "cncnet-private"
+// The providers this service will place on. cncnet-private is the private
+// tunnel an instrumented RA2/YR client meets on; public CnCNet is not an
+// acceptance environment, so it is not reachable from here. binderyNative is
+// Bindery's own relay, allocated and admitted to by this process.
+//
+// The allocator refuses an unknown provider rather than falling back: a
+// misconfigured deployment must fail to start, not quietly hand clients a
+// relay the acceptance packet does not describe.
+const (
+	cncnetPrivateProviderID = "cncnet-private"
+	binderyNativeProviderID = "bindery-native"
+)
+
+var servedProviderIDs = []string{cncnetPrivateProviderID, binderyNativeProviderID}
 
 const allocatorRepository = "https://github.com/bayleafwalker/bindery-core"
 
@@ -54,8 +64,8 @@ func allocatorConfigFromEnv() (allocatorConfig, error) {
 	if config.Revision == "" {
 		config.Revision = buildRevision
 	}
-	if config.Provider != cncnetPrivateProviderID {
-		return allocatorConfig{}, fmt.Errorf("this service serves only %q, not %q", cncnetPrivateProviderID, config.Provider)
+	if !slices.Contains(servedProviderIDs, config.Provider) {
+		return allocatorConfig{}, fmt.Errorf("this service serves only %v, not %q", servedProviderIDs, config.Provider)
 	}
 	if strings.TrimSpace(config.Endpoint) == "" {
 		return allocatorConfig{}, errors.New("BINDERY_RELAY_ENDPOINT must name the private tunnel as host:port")
@@ -84,10 +94,11 @@ func allocatorConfigFromEnv() (allocatorConfig, error) {
 	return config, nil
 }
 
-// newCncNetPrivateAllocator returns the placement seam implementation. Both
-// clients of a session receive the same endpoint, which is what makes them
-// meet on the private tunnel.
-func newCncNetPrivateAllocator(config allocatorConfig) externalruntime.PlacementAllocator {
+// newRelayAllocator returns the placement seam implementation. Both clients of
+// a session receive the same endpoint, which is what makes them meet on the
+// same tunnel. The provider is carried through rather than hard-coded so the
+// recorded allocator identity names the relay that was actually served.
+func newRelayAllocator(config allocatorConfig) externalruntime.PlacementAllocator {
 	return func(intent externalruntime.PlacementIntent) (externalruntime.PublicPlacement, error) {
 		// An intent that cannot include the served region is a configuration
 		// error, not something to satisfy with a different region.
@@ -104,9 +115,9 @@ func newCncNetPrivateAllocator(config allocatorConfig) externalruntime.Placement
 			RelayAllocationID: allocationID,
 			RelayEndpoint:     config.Endpoint,
 			PolicyVersion:     config.PolicyVersion,
-			DecisionSummary:   fmt.Sprintf("private CnCNet tunnel in %s; p95 intent %dms", config.Region, intent.LatencyP95MS),
+			DecisionSummary:   fmt.Sprintf("%s tunnel in %s; p95 intent %dms", config.Provider, config.Region, intent.LatencyP95MS),
 			Allocator: externalruntime.ImplementationIdentity{
-				Implementation: cncnetPrivateProviderID,
+				Implementation: config.Provider,
 				Repository:     allocatorRepository,
 				Revision:       config.Revision,
 				ConfigDigest:   config.ConfigDigest,

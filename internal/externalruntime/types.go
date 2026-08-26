@@ -75,6 +75,31 @@ type PlacementIntent struct {
 // allocation identity, endpoint, provider, and policy come from this seam.
 type PlacementAllocator func(PlacementIntent) (PublicPlacement, error)
 
+// RelayAdmission carries one enrolled client to the relay that the session's
+// placement already named. TransportKey is the raw key the client will sign
+// datagrams with, and it is passed here because this is the only moment it
+// exists: enrollment stores a sha256 verifier and discards the key bytes, so
+// an admission that is deferred can never be completed.
+//
+// The admitter owns lease policy. The control plane knows when a client
+// arrived, not how long the deployment intends to carry it.
+type RelayAdmission struct {
+	SessionID         string
+	PlacementID       string
+	RelayAllocationID string
+	ClientID          string
+	ClientClass       ClientClass
+	TransportKey      []byte
+	AdmittedAt        time.Time
+}
+
+// RelayAdmitter is the seam between enrollment and the relay's allocation
+// table. It is the counterpart to PlacementAllocator: the allocator decides
+// where a session will meet, and the admitter makes that relay willing to
+// carry the clients when they arrive. Without it a placement names a tunnel
+// that will reject every packet sent to it.
+type RelayAdmitter func(RelayAdmission) error
+
 type CapturePolicy struct {
 	SemanticEvents    bool `json:"semantic_events"`
 	PostMatchDump     bool `json:"post_match_dump"`
