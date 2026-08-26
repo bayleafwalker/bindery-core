@@ -1,6 +1,6 @@
 SHELL := /usr/bin/env bash
 
-.PHONY: help test test-sample-game test-integration test-e2e envtest tidy tidy-sample-game fmt verify proto kind-demo kind-down run-controller run-controller-with-metrics
+.PHONY: help test test-sample-game test-integration test-e2e envtest controller-gen manifests verify-crds tidy tidy-sample-game fmt verify proto kind-demo kind-down run-controller run-controller-with-metrics
 
 SAMPLE_GAME_DIR := examples/booklet-bindery-sample
 
@@ -10,6 +10,8 @@ help:
 	@echo "  make test-sample-game Run sample game unit tests"
 	@echo "  make test-integration Run envtest integration tests"
 	@echo "  make test-e2e        Run Kind-based e2e smoke test"
+	@echo "  make manifests      Regenerate CRD manifests from api/ markers"
+	@echo "  make verify-crds    Check CRD manifests match the Go API types"
 	@echo "  make tidy           Run go mod tidy"
 	@echo "  make tidy-sample-game Run go mod tidy for sample game"
 	@echo "  make fmt            Run gofmt on the repo"
@@ -35,6 +37,38 @@ SETUP_ENVTEST := $(GO_BIN_DIR)/setup-envtest
 envtest:
 	go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
+# Pinned to the version recorded in the existing generated manifests
+# (controller-gen.kubebuilder.io/version in k8s/crds/realms.bindery.platform.yaml).
+CONTROLLER_TOOLS_VERSION ?= v0.20.0
+CONTROLLER_GEN := $(GO_BIN_DIR)/controller-gen
+
+controller-gen:
+	go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
+
+# Regenerates CRDs from the api/ markers into k8s/crds/, using the repo's
+# <plural>.<group>.yaml naming rather than controller-gen's <group>_<plural>.yaml.
+#
+# NOTE: the checked-in manifests for kinds other than Realm and ShardAutoscaler
+# are hand-written and currently carry MORE validation than the Go markers
+# produce (enums, minLength, semver patterns, richer status schemas). Running
+# this target will drop those constraints. Review the diff before committing;
+# see docs/standards/kubernetes/crds.md.
+manifests: controller-gen
+	@tmp=$$(mktemp -d); \
+	"$(CONTROLLER_GEN)" crd paths=./api/... output:crd:artifacts:config=$$tmp; \
+	for f in $$tmp/*.yaml; do \
+		base=$$(basename "$$f" .yaml); \
+		group=$${base%%_*}; \
+		plural=$${base#*_}; \
+		cp "$$f" "k8s/crds/$$plural.$$group.yaml"; \
+		cp "$$f" "helm/bindery-core/crds/$$plural.$$group.yaml"; \
+	done; \
+	rm -rf "$$tmp"; \
+	echo "CRD manifests regenerated into k8s/crds/ and helm/bindery-core/crds/"
+
+verify-crds: controller-gen
+	CONTROLLER_GEN="$(CONTROLLER_GEN)" ./hack/verify-crds.sh
+
 test-integration: envtest
 	BINDERY_INTEGRATION=1 KUBEBUILDER_ASSETS="$$("$(SETUP_ENVTEST)" use -p path $(ENVTEST_K8S_VERSION))" go test ./... -run Integration
 
@@ -51,7 +85,7 @@ fmt:
 		-not -path './.gocache/*' \
 		-print0 | xargs -0 gofmt -w
 
-verify: fmt tidy tidy-sample-game test test-sample-game
+verify: fmt tidy tidy-sample-game test test-sample-game verify-crds
 	@git diff --exit-code go.mod go.sum || (echo "Error: go.mod/go.sum are not tidy"; exit 1)
 	@git diff --exit-code "$(SAMPLE_GAME_DIR)/go.mod" "$(SAMPLE_GAME_DIR)/go.sum" || (echo "Error: sample game go.mod/go.sum are not tidy"; exit 1)
 	@echo "Verification passed!"

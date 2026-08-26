@@ -38,6 +38,9 @@ jobs:
       - name: Go test
         run: go test -v ./...
 
+      - name: Verify CRD manifests match API types
+        run: make verify-crds
+
       - name: Install setup-envtest
         run: go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 

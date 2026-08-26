@@ -18,3 +18,15 @@ resources:
   - group: bindery
     version: v1alpha1
     kind: CapabilityBinding
+  - group: bindery
+    version: v1alpha1
+    kind: WorldShard
+  - group: bindery
+    version: v1alpha1
+    kind: WorldStorageClaim
+  - group: bindery
+    version: v1alpha1
+    kind: Realm
+  - group: bindery
+    version: v1alpha1
+    kind: ShardAutoscaler
