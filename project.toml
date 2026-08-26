@@ -1,0 +1,35 @@
+# Canonical location: bindery-core/project.toml (in-place: lives in the repo itself, no
+# project folder, no worktrees).
+# See docs/project/project-binding-spec.md in the agentops repo, section 3
+# (single-repo degenerate case).
+#
+# The home repository owns the project backlog. The adapter and appservice are
+# sibling implementation members with baseline rendering; their source remains
+# independently licensed and independently versioned.
+
+schema_version = 1
+project_id = "799e7931-4384-4dcb-b1d7-a6eececabea8"
+display_name = "bindery-core"
+home_repo = "bindery-core"
+
+[[members]]
+repo_id = "bindery-core"
+backlog = true
+render = "none"
+
+[[members]]
+repo_id = "bindery-ra2-adapter"
+backlog = true
+render = "baseline"
+path_notes = [
+  "Independent GPL-3.0-or-later adapter boundary; no proprietary game assets.",
+  "Published at https://github.com/bayleafwalker/bindery-ra2-adapter.",
+]
+
+[[members]]
+repo_id = "appservice"
+backlog = false
+render = "baseline"
+path_notes = [
+  "Deployment authority only; changes remain separately owned by appservice.",
+]
