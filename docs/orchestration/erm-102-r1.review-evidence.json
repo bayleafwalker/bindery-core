@@ -1,0 +1,44 @@
+{
+  "schema_version": "bindery-external-runtime-independent-review/v1",
+  "task_id": "ERM-102-bounded-relay-r1",
+  "context": "independent",
+  "reviewer": "luna-coordinator",
+  "starting_commit": "ab137b7dde20b8198b17463f58bfd93e6422a491",
+  "packet_hash": "sha256:59455b5535d2e6b72b1f89f568ddb434ad64d3c6ca119b8cb8de8ac7be42a2dd",
+  "candidate_worktree": "/tmp/agentworker/worktrees/bindery-core/ERM-102-bounded-relay-r1",
+  "candidate_paths": [
+    "internal/relay/fixtures.go"
+  ],
+  "candidate_sha256": {
+    "internal/relay/fixtures.go": "471092c604816206b4e8e875d5504b72bfd0949bd7e6041829f15f8c819fb561"
+  },
+  "candidate_diff_check": "pass",
+  "protected_paths_untouched": true,
+  "coordinator_tree_untouched": true,
+  "reference_patch_match": "semantic",
+  "decision_basis": "The candidate adds only the declared bounded-relay fixture builder. It is semantically identical to the coordinator-authored reference patch; gofmt expanded the reference's compact composite literal without changing values, types, or behavior. No relay implementation, protocol contract, placement policy, or protected test was modified.",
+  "worker_session": {
+    "id": null,
+    "model": "local3090/worker-fast",
+    "opencode_version": "1.18.21",
+    "route": "bindery_external_runtime_w0",
+    "terminal_errors": 0,
+    "event_stream": ["step_start", "text", "step_finish", "stable_session_id"],
+    "session_provenance_note": "The worker process completed and left the declared candidate, but the large streamed driver output was truncated before the stable session identifier could be recovered. No identifier is inferred or fabricated."
+  },
+  "worker_gate_evidence": {
+    "bindery.unit.race": "coordinator-post-gate",
+    "bindery.unit.vet": "coordinator-post-gate",
+    "bindery.redaction": "coordinator-post-gate",
+    "bindery.verification.artifacts": "coordinator-post-gate",
+    "worker_artifact_validator": "worker-permission-denied-coordinator-path"
+  },
+  "worker_spend": {
+    "reported_final_cumulative_tokens": null,
+    "reported_cost_usd": null,
+    "soft_token_ceiling": 16000,
+    "hard_token_ceiling": 32000,
+    "within_hard_token_ceiling": true,
+    "accounting": "Driver completed without a budget-exceeded disposition; exact token snapshot was not recoverable from truncated output."
+  }
+}

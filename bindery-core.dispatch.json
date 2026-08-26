@@ -7,11 +7,28 @@
     "default_harness": "caller",
     "default_model_alias": "fast-build",
     "action_classes": {
-      "plan": { "enabled": true, "model_alias": "frontier-plan" },
-      "build": { "enabled": true, "model_alias": "fast-build", "review_required": true },
-      "review": { "enabled": true, "model_alias": "review-synthesis" },
-      "verify": { "enabled": true, "model_alias": "review-synthesis", "review_required": true },
-      "reconcile": { "enabled": true, "model_alias": "review-synthesis" }
+      "plan": {
+        "enabled": true,
+        "model_alias": "frontier-plan"
+      },
+      "build": {
+        "enabled": true,
+        "model_alias": "fast-build",
+        "review_required": true
+      },
+      "review": {
+        "enabled": true,
+        "model_alias": "review-synthesis"
+      },
+      "verify": {
+        "enabled": true,
+        "model_alias": "review-synthesis",
+        "review_required": true
+      },
+      "reconcile": {
+        "enabled": true,
+        "model_alias": "review-synthesis"
+      }
     }
   },
   "skills": {
@@ -45,46 +62,120 @@
       "docs/",
       "e2e/",
       "helm/",
-      "k8s/"
+      "k8s/",
+      "pkg/",
+      "charts/",
+      "verification/",
+      ".agents/",
+      ".github/",
+      "go.mod",
+      "README.md"
     ],
     "out_of_scope": [
       "applying Helm manifests or mutating a shared Kubernetes cluster",
       "treating sample game assets as a supported production deployment",
-      "describing the project as production-ready"
+      "describing the project as production-ready",
+      "credentials and plaintext secrets",
+      "schemas, migrations, and deployment manifests",
+      "security policy, release metadata, and rollout mutation"
     ]
   },
   "risk_surfaces": [
     {
       "id": "capability-contract-alignment",
-      "paths": ["api/**", "controllers/**", "contracts/**", "helm/**", "k8s/**"],
-      "skills": ["verify-state-protocols", "reconcile-project-contracts"],
+      "paths": [
+        "api/**",
+        "controllers/**",
+        "contracts/**",
+        "helm/**",
+        "k8s/**"
+      ],
+      "skills": [
+        "verify-state-protocols",
+        "reconcile-project-contracts"
+      ],
       "default_depth": 1,
       "required_on_change": true
     },
     {
       "id": "cluster-mutation-boundary",
-      "paths": ["helm/**", "k8s/**", "Makefile"],
-      "skills": ["verify-state-protocols"],
+      "paths": [
+        "helm/**",
+        "k8s/**",
+        "Makefile"
+      ],
+      "skills": [
+        "verify-state-protocols"
+      ],
       "default_depth": 1,
+      "required_on_change": true
+    },
+    {
+      "id": "external-runtime-state",
+      "paths": [
+        "internal/externalruntime/**",
+        "contracts/externalruntime/**",
+        "verification/contexts/**"
+      ],
+      "skills": [
+        "verify-state-protocols"
+      ],
+      "context_ids": [
+        "bindery.external-runtime.w0.contract-redaction"
+      ],
+      "default_depth": 2,
+      "required_on_change": true
+    },
+    {
+      "id": "relay-authentication-and-placement",
+      "paths": [
+        "internal/relay/**",
+        "pkg/relayv1/**",
+        "contracts/externalruntime/v1/relay.md"
+      ],
+      "skills": [
+        "verify-state-protocols"
+      ],
+      "context_ids": [
+        "bindery.external-runtime.w1.relay-placement"
+      ],
+      "default_depth": 2,
       "required_on_change": true
     }
   ],
   "verification": {
-    "command_families": ["unit", "docs"],
+    "command_families": [
+      "unit",
+      "docs",
+      "integration",
+      "lint",
+      "full-suite"
+    ],
     "targeted_first": true,
     "commands": [
       "make verify",
-      "python /projects/dev/agentops/templates/dispatch/scripts/validate_verification_artifacts.py --root ."
+      "python /projects/dev/agentops/templates/dispatch/scripts/validate_verification_artifacts.py --root .",
+      "go test -race ./...",
+      "go vet ./...",
+      "helm lint charts/bindery-external-runtime",
+      "go run ./cmd/bindery-redaction-scan"
     ]
   },
   "hybrid": {
     "enabled": true,
-    "worker_routes": ["bindery_external_runtime_w0"],
+    "worker_routes": [
+      "bindery_external_runtime_w0"
+    ],
     "commands": {
       "bindery.go.test": "go test ./...",
       "bindery.go.vet": "go vet ./...",
       "bindery.sample.test": "make test-sample-game",
-      "bindery.helm.lint": "helm lint helm/bindery-core"
+      "bindery.helm.lint": "helm lint helm/bindery-core",
+      "bindery.unit.race": "go test -race ./...",
+      "bindery.unit.vet": "go vet ./...",
+      "bindery.chart.lint": "helm lint charts/bindery-external-runtime",
+      "bindery.redaction": "go run ./cmd/bindery-redaction-scan",
+      "bindery.verification.artifacts": "python /projects/dev/agentops/templates/dispatch/scripts/validate_verification_artifacts.py --root ."
     },
     "protected_paths": [
       "AGENTS.md",
@@ -111,6 +202,17 @@
   },
   "hooks": {
     "level": "verification",
-    "publishers": ["git", "dispatcher-gate"]
-  }
+    "publishers": [
+      "git",
+      "dispatcher-gate"
+    ]
+  },
+  "gates": [
+    "bindery.contracts",
+    "bindery.unit",
+    "bindery.relay",
+    "bindery.integration",
+    "bindery.redaction",
+    "bindery.helm"
+  ]
 }

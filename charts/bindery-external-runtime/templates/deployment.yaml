@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "bindery-external-runtime.fullname" . }}
+  labels:
+    {{- include "bindery-external-runtime.labels" . | nindent 4 }}
+spec:
+  {{- if ne (int .Values.replicaCount) 1 }}
+  {{- fail "file-backed control state supports exactly one replica; configure a shared relational store before scaling" }}
+  {{- end }}
+  {{- if not .Values.persistence.enabled }}
+  {{- fail "durable control state is mandatory for the external-runtime service" }}
+  {{- end }}
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "bindery-external-runtime.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- include "bindery-external-runtime.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "bindery-external-runtime.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: bindery-external-runtime
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}{{ if .Values.image.digest }}@{{ .Values.image.digest }}{{ end }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: BINDERY_BUILD_REVISION
+              value: {{ .Values.buildRevision | quote }}
+            - name: BINDERY_STATE_PATH
+              value: {{ printf "%s/control-state.json" .Values.persistence.mountPath | quote }}
+            {{- range $key, $value := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- range .Values.secretEnv }}
+            - name: {{ .name }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .secretKeyRef.name }}
+                  key: {{ .secretKeyRef.key }}
+            {{- end }}
+          readinessProbe:
+            httpGet: {path: /healthz, port: http}
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- if .Values.persistence.enabled }}
+          volumeMounts:
+            - name: control-state
+              mountPath: {{ .Values.persistence.mountPath | quote }}
+          {{- end }}
+      {{- if .Values.persistence.enabled }}
+      volumes:
+        - name: control-state
+          persistentVolumeClaim:
+            claimName: {{ default (printf "%s-state" (include "bindery-external-runtime.fullname" .)) .Values.persistence.existingClaim }}
+      {{- end }}

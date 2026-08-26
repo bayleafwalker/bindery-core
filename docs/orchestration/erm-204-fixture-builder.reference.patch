@@ -1,0 +1,32 @@
+diff --git a/internal/externalruntime/fixtures.go b/internal/externalruntime/fixtures.go
+--- a/internal/externalruntime/fixtures.go
++++ b/internal/externalruntime/fixtures.go
+@@ -34,5 +34,15 @@ func fixtureIdentityRecord() identityRecord {
+ 		tokenVerifier: bytes.Repeat([]byte{0x42}, 32),
+ 	}
+ }
+ 
++func fixtureRelayPlacement() *PublicPlacement {
++	return &PublicPlacement{
++		Region:            "eu-north",
++		RelayProviderID:   "bindery-native",
++		RelayAllocationID: "0198c2c3-4d5e-7f60-8123-456789abcdef",
++		RelayEndpoint:     "127.0.0.1:40000",
++		PolicyVersion:     "relay-placement/v1",
++	}
++}
++
+ type redactionFixture struct {
+@@ -82,11 +92,5 @@ func fixtureSessionWithEnrollments() PublicSession {
+ 			{ClientID: "client-player-b", AccountID: "acct-player-b", ClientClass: ClientPlayer, Phase: EnrollmentReady, AdapterID: "bindery.ra2-adapter", AdapterVersion: "0.1.0", EnrolledAt: now},
+ 			{ClientID: "client-observer", AccountID: "acct-observer", ClientClass: ClientObserver, Phase: EnrollmentReady, AdapterID: "bindery.ra2-adapter", AdapterVersion: "0.1.0", EnrolledAt: now},
+ 		},
+-		Placement: &PublicPlacement{
+-			Region:            "eu-north",
+-			RelayProviderID:   "bindery-native",
+-			RelayAllocationID: "0198c2c3-4d5e-7f60-8123-456789abcdef",
+-			RelayEndpoint:     "127.0.0.1:40000",
+-			PolicyVersion:     "relay-placement/v1",
+-		},
++		Placement:               fixtureRelayPlacement(),
+ 		Transitions:             []PublicTransition{},

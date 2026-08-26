@@ -1,0 +1,85 @@
+{
+  "schema_version": "agentops-hybrid-receipt/v1",
+  "recorded_at": "2026-08-24T16:22:29Z",
+  "execution_id": "ERM-204-fixture-placement-r2:18a5980ef629116a:attempt-1",
+  "task_id": "ERM-204-fixture-placement-r2",
+  "repo_id": "bindery-core",
+  "sprint_item": {
+    "ref": "bindery-core#2293",
+    "claim_id": 18,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "bindery_external_runtime_w0",
+  "attempt": 1,
+  "inputs": {
+    "packet_hash": "sha256:18a5980ef629116a96769154bf564ed5e084bca45dff2c75498223d9965a495d",
+    "repository_commit": "002261317c47cb3a40f3bdc964eba45c98da5104",
+    "packet_schema_version": "agentops-task/v2",
+    "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+    "gate_set_hash": "sha256:8a051ff2849f5ba5a931d6cab2959004b539cd89f554943607a02e60d2453224"
+  },
+  "harness": {
+    "name": "OpenCode",
+    "version": "1.18.21",
+    "model": "local3090/worker-fast",
+    "provider": "local3090",
+    "agent": "ao-bindery-external-runtime-w0",
+    "session_id": "ses_fcb6dd814ffeMG4BDIDNPCM4tc",
+    "terminal_errors": 0,
+    "event_stream": ["step_start", "tool_use", "text", "step_finish", "stable_session_id"]
+  },
+  "worker": {
+    "identity": "agentworker",
+    "worktree": "/tmp/agentworker/worktrees/bindery-core/ERM-204-fixture-placement-r2",
+    "touched_paths": ["internal/externalruntime/fixtures.go"],
+    "candidate_sha256": "31d80922361f0915243a288373f0ca8577a589dd4461c65b8bba88ba30170fbc",
+    "candidate_blob": "48de438eddfdf9268832c2e64311d51edff54e33",
+    "coordinator_tree_untouched": true,
+    "protected_paths_untouched": true,
+    "worker_exit_code": 0
+  },
+  "spend": {
+    "reported_cost_usd": 0.0,
+    "reported_final_cumulative_tokens": 207039,
+    "soft_token_ceiling": 16000,
+    "hard_token_ceiling": 32000,
+    "soft_token_ceiling_exceeded": true,
+    "within_hard_token_ceiling": false,
+    "accounting_reconciled": true,
+    "accounting_rule": "maximum cumulative step-finish token snapshot",
+    "driver_disposition": "budget_exceeded"
+  },
+  "containment": {
+    "worker_user": "agentworker",
+    "containment_override": false,
+    "coordinator_tree_untouched": true,
+    "coordinator_tree_changes": []
+  },
+  "qualification": {
+    "state": "unqualified",
+    "qualification_eligible": false,
+    "unattended_eligible": false,
+    "raw_run_field": true,
+    "reconciliation": "The raw run-stage field represented containment and route-model facts; the canonical receipt preserves the globally unqualified route and excludes this attempt from qualification evidence."
+  },
+  "gates": {
+    "bindery.unit.race": "pass",
+    "bindery.unit.vet": "pass",
+    "bindery.redaction": "pass",
+    "bindery.verification.artifacts": "pass",
+    "diff_scope": "pass",
+    "protected_paths": "pass",
+    "reference_contract": "pass",
+    "coordinator_cold_exact_commit": "pass"
+  },
+  "review": {
+    "reviewer": "luna-coordinator",
+    "context": "independent",
+    "decision": "candidate",
+    "evidence": "docs/orchestration/erm-204-fixture-placement-r2.review-evidence.json",
+    "human_acceptance_required": true
+  },
+  "disposition": "candidate",
+  "qualification_eligible": false,
+  "workflow_finding": "Semantically correct contained candidate, but the driver stopped non-zero because cumulative cached tokens exceeded the packet hard ceiling; this is a workflow-budget failure, not a code-scope failure."
+}

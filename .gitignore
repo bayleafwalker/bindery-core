@@ -32,3 +32,9 @@ engine-module-server
 # sprintctl/kctl local backend marker and state (see agentops .gitignore)
 .sprintctl/
 .envrc.local
+
+# External runtime build/test artifacts
+/dist/
+.env
+.env.*
+coverage.out

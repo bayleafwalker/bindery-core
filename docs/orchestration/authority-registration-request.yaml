@@ -1,0 +1,62 @@
+schema: bindery.external-runtime-orchestration/v1
+status: coordinator-verified-superseding-record
+note: >-
+  This record supersedes the earlier handoff draft. It intentionally contains
+  no fabricated session IDs, pull-request numbers, or claims that are not
+  supported by the current checkouts and shared authority responses.
+project:
+  name: bindery-core
+  binding_file: /projects/dev/bindery-core/project.toml
+  project_id: 799e7931-4384-4dcb-b1d7-a6eececabea8
+  authority: vuoro-served-sprintctl
+  authority_endpoint: https://vuoro-shared.apps.kotona.app
+  bindery_core_authority_repo_uuid: 2f6f7f1c-0f0c-4dcb-90e7-0f1a4b7f89f2
+bindings:
+  repositories:
+    - name: bindery-core
+      implementation_path: /home/bayleaf/dev/bindery-core
+      project_workspace: /projects/dev/bindery-core
+      remote: https://github.com/bayleafwalker/bindery-core.git
+    - name: bindery-ra2-adapter
+      implementation_path: /projects/dev/bindery-ra2-adapter
+      remote: https://github.com/bayleafwalker/bindery-ra2-adapter.git
+      license: GPL-3.0-or-later
+    - name: appservice
+      implementation_path: /projects/dev/appservice
+      remote: https://github.com/bayleafwalker/appservice.git
+  ownership:
+    sprintctl: items-and-advisory-reservations
+    git: authored-work
+    auditctl: raw-findings
+    kctl: reusable-conclusions
+    _artifacts: host-local-evidence-only
+backlog:
+  source: docs/research/external-runtime-multiplayer/backlog.yaml
+  items: ERM-001..ERM-504
+  wave_gate: complete-and-review-one-wave-before-authorizing-next
+model_exception:
+  local_inference_globally_qualified: false
+  project_candidates_allowed: true
+  receipts_qualification_eligible: false
+verified:
+  bindery_core_branch: feat/external-runtime-w0-w1
+  bindery_core_head: 435d5dd
+  adapter_boundary_commit: ff6724ccf596acf4988efcead6e86c8719aa9569
+  adapter_published_head: 84981a9
+  adapter_ci:
+    asset_boundary_and_main_build: https://github.com/bayleafwalker/bindery-ra2-adapter/actions/runs/32741333121
+    feature_branch_build: https://github.com/bayleafwalker/bindery-ra2-adapter/actions/runs/32741330193
+  project_binding_commit: 1ac4129
+  agentops_route:
+    name: bindery_external_runtime_w0
+    model: local3090/worker-fast
+    registration: active
+    qualification_eligible: false
+  worker_containment: proven
+unverified_or_operator_owned:
+  - >-
+    The served Sprintctl repo-list catalog is unavailable; this record does not
+    assert a separate adapter repo UUID or adapter worker-route registration.
+  - >-
+    No OpenCode probe/session is inferred here from the old handoff draft;
+    actual worker sessions are recorded only in their per-task receipts.

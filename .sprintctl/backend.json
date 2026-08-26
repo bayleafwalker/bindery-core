@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "backend": "served",
+  "repo_id": "2f6f7f1c-0f0c-4dcb-90e7-0f1a4b7f89f2",
+  "mode": "served",
+  "authority": "vuoro-served-sprintctl",
+  "project": "bindery-core",
+  "items_source": "authority",
+  "reservations_source": "authority",
+  "audit_destination": "auditctl",
+  "knowledge_destination": "kctl",
+  "local_artifacts_directory": "_artifacts",
+  "credentials": "environment-only",
+  "registration_status": "active"
+}

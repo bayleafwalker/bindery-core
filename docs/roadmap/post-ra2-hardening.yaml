@@ -1,0 +1,73 @@
+schema: bindery.external-runtime-roadmap/v1
+recorded_at: 2026-08-25
+trigger: ra2-two-client-vertical-slice
+claim: empirically-demonstrated-once
+evidence:
+  external_runtime: ra2-yr-cncnet-v0.2
+  participants: 2
+  matching_event_count_per_participant: 6651
+  adapter_tests_reported: 39
+  historical_limit: >-
+    The run predates durable execution, placement, and evidence-set IDs. Do not
+    fabricate those identifiers retroactively; repeat through the hardened
+    control plane.
+work:
+  - id: ERH-001
+    title: Persist the control-plane identity graph
+    status: implemented-pending-ci
+    scope: [identity, session, placement, execution, enrollment, idempotency]
+    acceptance:
+      - Every evidence reference resolves after a broker restart.
+      - A failed durable write rolls back the in-memory mutation.
+      - The file-backed mode has exactly one writer.
+  - id: ERH-002
+    title: Promote observation reconciliation into Bindery Core
+    status: implemented-pending-ci
+    depends_on: [ERH-001]
+    acceptance:
+      - Two distinct observers with counts 6651 and 6651 reconcile as consistent.
+      - Unequal counts remain attributable and reconcile as inconsistent.
+      - Unsupported methods fail explicitly.
+  - id: ERH-003
+    title: Make gate applicability a typed result
+    status: implemented-pending-ci
+    acceptance:
+      - Outcomes are PASS, FAIL, NOT_APPLICABLE, UNRESOLVED, or ERROR.
+      - Missing context cannot silently become FAIL.
+  - id: ERH-004
+    title: Require verifier calibration evidence
+    status: implemented-pending-ci
+    depends_on: [ERH-003]
+    acceptance:
+      - Consequential gates carry version and implementation hash.
+      - Known-pass and known-fail controls both match expectation.
+      - An always-failing verifier is ERROR, not a strict gate.
+  - id: ERH-005
+    title: Resolve allocator implementation identity
+    status: implemented-pending-ci
+    depends_on: [ERH-001]
+    acceptance:
+      - Every placement records implementation, repository, revision, and config digest.
+      - The reference service refuses an unresolved build revision.
+  - id: ERH-006
+    title: Repeat the RA2 run through durable IDs
+    status: pending
+    depends_on: [ERH-001, ERH-002, ERH-003, ERH-004, ERH-005]
+    acceptance:
+      - The evidence set resolves to execution, session, placement, and identities after restart.
+      - Exact-count reconciliation records the two client streams without adapter-owned adjudication.
+  - id: ERH-007
+    title: Run a non-RA2 external runtime
+    status: pending
+    depends_on: [ERH-006]
+    constraints:
+      - materially-different-integration-mechanism
+      - adapter-swap-only
+      - no-new-core-game-specific-fields
+    acceptance:
+      - Session, placement, execution, observation, and evidence contracts survive unchanged.
+      - A second adapter implementation is sufficient.
+      - A restart drill and positive/negative gate controls are included.
+ordering_rule: >-
+  Do not spend the next slice on richer RA2 behavior. Close ERH-001 through
+  ERH-006, then use ERH-007 to test abstraction.

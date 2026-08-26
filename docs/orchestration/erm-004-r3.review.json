@@ -1,0 +1,7 @@
+{
+  "task_id": "ERM-004-public-enrollment-read-r3",
+  "reviewer": "luna-coordinator",
+  "context": "independent",
+  "decision": "candidate",
+  "evidence_path": "/home/bayleaf/dev/bindery-core/docs/orchestration/erm-004-r3.review-evidence.json"
+}

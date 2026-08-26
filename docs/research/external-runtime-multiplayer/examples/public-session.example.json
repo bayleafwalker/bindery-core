@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "session_id": "01K2RA2MATCH00000000000001",
+  "created_by_account_id": "01K2ACCOUNT000000000000001",
+  "created_at": "2026-08-23T10:00:00Z",
+  "updated_at": "2026-08-23T10:05:00Z",
+  "phase": "running",
+  "compatibility": {
+    "game_family": "ra2-yr",
+    "game_version": "1.001",
+    "adapter_id": "bindery.ra2-adapter",
+    "adapter_version": "0.1.0",
+    "mod_id": "vanilla-yr",
+    "mod_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "map_id": "official:sample-map",
+    "map_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+  },
+  "participant_policy": {
+    "required_players": 2,
+    "maximum_players": 2,
+    "maximum_observers": 1
+  },
+  "capture_policy": {
+    "semantic_events": true,
+    "post_match_dump": true,
+    "observer_preferred": true
+  },
+  "placement": {
+    "region": "eu-north",
+    "relay_provider_id": "bindery.native-udp-relay",
+    "relay_allocation_id": "01K2RELAYALLOC000000000001",
+    "policy_version": "latency-capacity-v1",
+    "decision_summary": "Selected the accepting relay with the lowest maximum participant RTT under egress headroom constraints."
+  },
+  "enrollments": [
+    {
+      "client_id": "01K2CLIENTPLAYERA000000001",
+      "account_id": "01K2ACCOUNT000000000000001",
+      "client_class": "player",
+      "phase": "active",
+      "adapter_id": "bindery.ra2-adapter",
+      "adapter_version": "0.1.0",
+      "enrolled_at": "2026-08-23T10:01:00Z",
+      "departed_at": null
+    },
+    {
+      "client_id": "01K2CLIENTPLAYERB000000001",
+      "account_id": "01K2ACCOUNT000000000000002",
+      "client_class": "player",
+      "phase": "active",
+      "adapter_id": "bindery.ra2-adapter",
+      "adapter_version": "0.1.0",
+      "enrolled_at": "2026-08-23T10:02:00Z",
+      "departed_at": null
+    }
+  ],
+  "capture_ids": [
+    "01K2CAPTUREPLAYERA000000001",
+    "01K2CAPTUREPLAYERB000000001",
+    "01K2CAPTURERELAY0000000001"
+  ],
+  "transitions": [
+    {
+      "transition_id": "01K2TRANSITION000000000001",
+      "from": null,
+      "to": "created",
+      "occurred_at": "2026-08-23T10:00:00Z",
+      "source": "match-broker",
+      "reason": "session-created"
+    },
+    {
+      "transition_id": "01K2TRANSITION000000000002",
+      "from": "ready",
+      "to": "running",
+      "occurred_at": "2026-08-23T10:05:00Z",
+      "source": "client-consensus",
+      "reason": "both-required-players-reported-game-start"
+    }
+  ],
+  "public_data_notice_version": "1.0"
+}
+

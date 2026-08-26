@@ -105,3 +105,34 @@ jobs:
         run: |
           set -euo pipefail
           go test -v ./e2e -run TestE2ESmoke_BinderySample -count=1 -timeout 20m
+
+  external-runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Gitleaks compares the full pushed/PR commit range. A depth-1
+          # checkout cannot resolve the parent once the branch has >1 commit.
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Go test (race)
+        run: go test -race ./...
+
+      - name: Go vet
+        run: go vet ./...
+
+      - uses: azure/setup-helm@v4
+
+      - name: Helm lint external-runtime chart
+        run: helm lint charts/bindery-external-runtime
+
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,31 @@
+diff --git a/internal/externalruntime/fixtures.go b/internal/externalruntime/fixtures.go
+--- a/internal/externalruntime/fixtures.go
++++ b/internal/externalruntime/fixtures.go
+@@ -1,5 +1,8 @@
+ package externalruntime
+ 
+-import "time"
++import (
++	"bytes"
++	"time"
++)
+ 
+ func fixtureCreateIdentityResponse() CreateIdentityResponse {
+@@ -17,3 +20,17 @@ func fixtureCreateIdentityResponse() CreateIdentityResponse {
+ 		Recovery:     "none",
+ 	}
+ }
++
++func fixtureIdentityRecord() identityRecord {
++	return identityRecord{
++		PublicIdentity: PublicIdentity{
++			SchemaVersion:           SchemaVersion,
++			AccountID:               "acct-token-fixture",
++			Handle:                  "token-fixture",
++			ClaimedAt:               time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC),
++			Status:                  IdentityActive,
++			PublicDataNoticeVersion: "1.0",
++		},
++		tokenVerifier: bytes.Repeat([]byte{0x42}, 32),
++	}
++}

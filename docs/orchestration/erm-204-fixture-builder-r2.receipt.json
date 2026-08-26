@@ -1,0 +1,85 @@
+{
+  "schema_version": "agentops-hybrid-receipt/v1",
+  "recorded_at": "2026-08-24T17:09:31Z",
+  "execution_id": "ERM-204-fixture-builder-r2:00bf9d87b8ec62ae:attempt-1",
+  "task_id": "ERM-204-fixture-builder-r2",
+  "repo_id": "bindery-core",
+  "sprint_item": {
+    "ref": "bindery-core#2293",
+    "claim_id": 20,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "bindery_external_runtime_w0",
+  "attempt": 1,
+  "inputs": {
+    "packet_hash": "sha256:00bf9d87b8ec62aeb8b51cce56ab161c7135a650f85b337a4216253128085bc5",
+    "repository_commit": "badda4ba30c2219507a073f42b34a7597d33fa82",
+    "packet_schema_version": "agentops-task/v2",
+    "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+    "gate_set_hash": "sha256:9559145c6f3d01482610c9513521d28b3a0d00f6a596c46adbf6b955a89945d6"
+  },
+  "harness": {
+    "name": "OpenCode",
+    "version": "1.18.21",
+    "model": "local3090/worker-fast",
+    "provider": "local3090",
+    "agent": "ao-bindery-external-runtime-w0",
+    "session_id": "ses_fcb41a524ffeWzXy4xLkHXS02i",
+    "terminal_errors": 0,
+    "event_stream": ["step_start", "tool_use", "text", "step_finish", "stable_session_id"]
+  },
+  "worker": {
+    "identity": "agentworker",
+    "worktree": "/tmp/agentworker/worktrees/bindery-core/ERM-204-fixture-builder-r2",
+    "touched_paths": ["internal/externalruntime/fixtures.go"],
+    "candidate_sha256": "3308cbf743ba1390727ed517e468f3b73caa66c78c64be21566e5fe2f2b78ee3",
+    "candidate_blob": "be1ebb12cf5f51e72fd1a85bfd8c64b0c7bcfb0d",
+    "coordinator_tree_untouched": true,
+    "protected_paths_untouched": true,
+    "worker_exit_code": 0
+  },
+  "spend": {
+    "reported_cost_usd": 0.0,
+    "cost_reported": true,
+    "reported_final_cumulative_tokens": 163470,
+    "soft_token_ceiling": 1000000,
+    "hard_token_ceiling": 2000000,
+    "soft_token_ceiling_exceeded": false,
+    "within_hard_token_ceiling": true,
+    "accounting_reconciled": true,
+    "accounting_rule": "maximum cumulative step-finish token snapshot",
+    "budget_mode": "telemetry_first"
+  },
+  "containment": {
+    "worker_user": "agentworker",
+    "containment_override": false,
+    "coordinator_tree_untouched": true,
+    "coordinator_tree_changes": []
+  },
+  "qualification": {
+    "state": "unqualified",
+    "qualification_eligible": false,
+    "unattended_eligible": false,
+    "raw_run_field": true,
+    "reconciliation": "The raw run-stage field represented containment and route-model facts; the canonical receipt preserves the globally unqualified route."
+  },
+  "gates": {
+    "bindery.unit.race": "pass",
+    "bindery.unit.vet": "pass",
+    "bindery.redaction": "pass",
+    "bindery.verification.artifacts": "pass",
+    "diff_scope": "pass",
+    "protected_paths": "pass",
+    "reference_contract": "pass",
+    "coordinator_cold_exact_commit": "pass"
+  },
+  "review": {
+    "reviewer": "luna-coordinator",
+    "context": "independent",
+    "decision": "candidate",
+    "evidence": "docs/orchestration/erm-204-fixture-builder-r2.review-evidence.json",
+    "human_acceptance_required": true
+  },
+  "disposition": "candidate",
+  "qualification_eligible": false
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bindery.dev/contracts/externalruntime/v1/public-identity.schema.json",
+  "title": "Bindery external-runtime public identity",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "account_id", "handle", "claimed_at", "status", "public_data_notice_version"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "account_id": {"type": "string", "minLength": 36, "maxLength": 36},
+    "handle": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,31}$"},
+    "display_name": {"type": "string", "minLength": 1, "maxLength": 80},
+    "claimed_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "status": {"type": "string", "enum": ["active", "suspended"]},
+    "metadata": {"type": "object", "maxProperties": 32},
+    "public_data_notice_version": {"type": "string", "minLength": 1, "maxLength": 32}
+  }
+}
+

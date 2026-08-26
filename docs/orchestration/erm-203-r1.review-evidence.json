@@ -1,0 +1,29 @@
+{
+  "schema_version": "bindery-external-runtime-coordinator-review/v1",
+  "task_id": "ERM-203-adapter-lifecycle-r1",
+  "context": "coordinator",
+  "reviewer": "luna-coordinator",
+  "decision": "coordinator-complete",
+  "acceptance": "Adapter renders launch inputs, starts the game, and reports exit/failure.",
+  "adapter_commit": "84981a9",
+  "adapter_repository": "https://github.com/bayleafwalker/bindery-ra2-adapter.git",
+  "implementation_review": {
+    "launch_rendering": "src/Bindery.Ra2.Adapter/SpawnIniRenderer.cs validates executable/map/player values, rejects control-character injection, and renders deterministic multiplayer INI input.",
+    "process_boundary": "src/Bindery.Ra2.Adapter/SpawnerBoundary.cs exposes ISpawnerBoundary and keeps real process integration Windows-only.",
+    "lifecycle": "src/Bindery.Ra2.Adapter/ProcessLifecycle.cs reports Ready, Started, Exited, and Failed transitions and returns the process exit code.",
+    "failure_handling": "Start failures report Failed with a non-secret exception type before rethrowing; non-zero process exits report Failed with the exit code."
+  },
+  "verification": {
+    "windows_release_build": "pass",
+    "windows_release_build_ci_run": "https://github.com/bayleafwalker/bindery-ra2-adapter/actions/runs/32741333121",
+    "proprietary_asset_boundary": "pass",
+    "local_dotnet_build": "not-run: dotnet shim has no configured local SDK"
+  },
+  "boundary": {
+    "worker_route": "bindery_external_runtime_w0",
+    "worker_authority_used": false,
+    "qualification_eligible": false,
+    "reason": "Process lifecycle and Windows spawner semantics are coordinator-owned cross-platform behavior; no worker packet was used."
+  },
+  "coordinator_tree_untouched": true
+}

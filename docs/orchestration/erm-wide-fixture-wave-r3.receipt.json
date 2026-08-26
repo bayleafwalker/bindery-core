@@ -1,0 +1,92 @@
+{
+  "schema_version": "agentops-hybrid-receipt/v1",
+  "recorded_at": "2026-08-24T17:46:11Z",
+  "execution_id": "ERM-WIDE-fixture-wave-r3:feb4a4db7b989fc3:attempt-1",
+  "task_id": "ERM-WIDE-fixture-wave-r3",
+  "repo_id": "bindery-core",
+  "sprint_item": {
+    "ref": "bindery-core#2293",
+    "claim_id": 23,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "bindery_external_runtime_w0",
+  "attempt": 1,
+  "inputs": {
+    "packet_hash": "sha256:feb4a4db7b989fc3167bd6e5a843ab4e06d02f4bef1171214423eac3da94a083",
+    "repository_commit": "8945b62d9fb8586c059239544b13f2cca399e378",
+    "packet_schema_version": "agentops-task/v2",
+    "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+    "gate_set_hash": "sha256:8fe26a00b3d3c79c943df1417626c203381afb4688bdef14cac88de006065bf4"
+  },
+  "harness": {
+    "name": "OpenCode",
+    "version": "1.18.21",
+    "model": "local3090/worker-fast",
+    "provider": "local3090",
+    "agent": "ao-bindery-external-runtime-w0",
+    "session_id": "ses_fcb211947ffe487efqVG33v3vS",
+    "terminal_errors": 0,
+    "event_stream": ["step_start", "tool_use", "text", "step_finish", "stable_session_id"]
+  },
+  "worker": {
+    "identity": "agentworker",
+    "worktree": "/tmp/agentworker/worktrees/bindery-core/ERM-WIDE-fixture-wave-r3",
+    "touched_paths": [
+      "internal/capture/fixtures.go",
+      "internal/harness/fixtures.go",
+      "internal/relay/placement_fixtures.go"
+    ],
+    "candidate_sha256": {
+      "internal/capture/fixtures.go": "47de73eac4aa183edbd120b3534f8e4bccb6e8cced1352e7a40eddcb24cb42ea",
+      "internal/harness/fixtures.go": "eaf4d9e080e51e8b888e98c3e7aaed73fc98bf23394e22565d0439adacc998a3",
+      "internal/relay/placement_fixtures.go": "4900d113a21ffb0abb8ef40440e71f74108b4a09ad6592d03f3d60fd662f08ec"
+    },
+    "protected_paths_untouched": true,
+    "coordinator_tree_untouched": true,
+    "worker_exit_code": 0
+  },
+  "spend": {
+    "reported_cost_usd": 0.0,
+    "cost_reported": true,
+    "reported_final_cumulative_tokens": 280190,
+    "soft_token_ceiling": 1000000000,
+    "hard_token_ceiling": 2000000000,
+    "soft_token_ceiling_exceeded": false,
+    "within_hard_token_ceiling": true,
+    "accounting_reconciled": true,
+    "accounting_rule": "maximum cumulative step-finish token snapshot",
+    "budget_mode": "telemetry_only_excessive"
+  },
+  "containment": {
+    "worker_user": "agentworker",
+    "containment_override": false,
+    "coordinator_tree_untouched": true,
+    "coordinator_tree_changes": []
+  },
+  "qualification": {
+    "state": "unqualified",
+    "qualification_eligible": false,
+    "unattended_eligible": false,
+    "raw_run_field": true,
+    "reconciliation": "The raw run-stage field represented containment and route-model facts; the route remains globally unqualified, so this receipt is excluded from qualification evidence."
+  },
+  "gates": {
+    "bindery.unit.race": "pass",
+    "bindery.unit.vet": "pass",
+    "bindery.redaction": "pass",
+    "bindery.verification.artifacts": "pass",
+    "diff_scope": "pass",
+    "protected_paths": "pass",
+    "reference_contract": "pass",
+    "coordinator_cold_exact_commit": "pass"
+  },
+  "review": {
+    "reviewer": "luna-coordinator",
+    "context": "independent",
+    "decision": "candidate",
+    "evidence": "docs/orchestration/erm-wide-fixture-wave-r3.review-evidence.json",
+    "human_acceptance_required": true
+  },
+  "disposition": "candidate",
+  "qualification_eligible": false
+}

@@ -1,0 +1,7 @@
+{
+  "context": "independent",
+  "decision": "candidate",
+  "evidence_path": "docs/orchestration/erm-105-r2.review-evidence.json",
+  "reviewer": "luna-coordinator",
+  "task_id": "ERM-105-synthetic-harness-r2"
+}

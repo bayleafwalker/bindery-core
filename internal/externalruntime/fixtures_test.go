@@ -1,0 +1,118 @@
+package externalruntime
+
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+)
+
+func TestDTOFixtureSeparatesPublicAndAuthenticatedFields(t *testing.T) {
+	fixture := fixtureCreateIdentityResponse()
+	if fixture.AccountToken == "" {
+		t.Fatal("fixture must carry authenticated account-token material")
+	}
+	public, err := json.Marshal(fixture.PublicIdentity)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded := string(public)
+	if strings.Contains(encoded, fixture.AccountToken) {
+		t.Fatal("public DTO fixture contains authenticated account-token material")
+	}
+	if fixture.PublicIdentity.AccountID != "acct-fixture" {
+		t.Fatalf("account id = %q, want acct-fixture", fixture.PublicIdentity.AccountID)
+	}
+	if fixture.PublicIdentity.Handle != "player-fixture" {
+		t.Fatalf("handle = %q, want player-fixture", fixture.PublicIdentity.Handle)
+	}
+}
+
+func TestIdentityFixtureStoresVerifierWithoutBearerToken(t *testing.T) {
+	fixture := fixtureIdentityRecord()
+	if len(fixture.tokenVerifier) != 32 {
+		t.Fatalf("token verifier length = %d, want 32", len(fixture.tokenVerifier))
+	}
+	public, err := json.Marshal(fixture.PublicIdentity)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(public), "account-token-fixture") {
+		t.Fatal("identity fixture public DTO contains bearer token material")
+	}
+	if string(fixture.tokenVerifier) == "account-token-fixture" {
+		t.Fatal("identity fixture stored bearer token instead of a verifier")
+	}
+}
+
+func TestSessionFixtureRepresentsPlayersAndObserver(t *testing.T) {
+	fixture := fixtureSessionWithEnrollments()
+	players, observers := 0, 0
+	for _, enrollment := range fixture.Enrollments {
+		switch enrollment.ClientClass {
+		case ClientPlayer:
+			players++
+		case ClientObserver:
+			observers++
+		default:
+			t.Fatalf("unsupported fixture client class %q", enrollment.ClientClass)
+		}
+	}
+	if players != 2 || observers != 1 {
+		t.Fatalf("fixture cohort = %d players, %d observers; want 2 players, 1 observer", players, observers)
+	}
+	if fixture.Phase != SessionReady {
+		t.Fatalf("fixture phase = %s, want ready", fixture.Phase)
+	}
+}
+
+func TestERM204SessionFixtureCarriesRelayPlacement(t *testing.T) {
+	fixture := fixtureSessionWithEnrollments()
+	if fixture.Placement == nil {
+		t.Fatal("session fixture has no relay placement")
+	}
+	if fixture.Placement.Region != "eu-north" ||
+		fixture.Placement.RelayProviderID != "bindery-native" ||
+		fixture.Placement.RelayAllocationID != "0198c2c3-4d5e-7f60-8123-456789abcdef" ||
+		fixture.Placement.RelayEndpoint != "127.0.0.1:40000" ||
+		fixture.Placement.PolicyVersion != "relay-placement/v1" {
+		t.Fatalf("fixture placement = %+v", fixture.Placement)
+	}
+	public, err := json.Marshal(fixture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ScanPublicOutput(public); err != nil {
+		t.Fatalf("fixture placement failed public redaction oracle: %v", err)
+	}
+}
+
+func TestERM204RelayPlacementFixtureBuilder(t *testing.T) {
+	placement := fixtureRelayPlacement()
+	if placement == nil {
+		t.Fatal("relay placement fixture is nil")
+	}
+	if placement.Region != "eu-north" ||
+		placement.RelayProviderID != "bindery-native" ||
+		placement.RelayAllocationID != "0198c2c3-4d5e-7f60-8123-456789abcdef" ||
+		placement.RelayEndpoint != "127.0.0.1:40000" ||
+		placement.PolicyVersion != "relay-placement/v1" {
+		t.Fatalf("relay placement fixture = %+v", placement)
+	}
+	public, err := json.Marshal(placement)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ScanPublicOutput(public); err != nil {
+		t.Fatalf("relay placement fixture failed public redaction oracle: %v", err)
+	}
+}
+
+func TestExpiredSessionFixtureIsTerminal(t *testing.T) {
+	fixture := fixtureExpiredSession()
+	if fixture.Phase != SessionExpired {
+		t.Fatalf("expired fixture phase = %s, want expired", fixture.Phase)
+	}
+	if len(fixture.Enrollments) != 0 {
+		t.Fatalf("expired fixture enrollments = %d, want no active enrollments", len(fixture.Enrollments))
+	}
+}

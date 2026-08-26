@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bindery.dev/contracts/externalruntime/v1/public-enrollment.schema.json",
+  "title": "Bindery public client enrollment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["client_id", "account_id", "client_class", "phase", "adapter_id", "adapter_version", "enrolled_at"],
+  "properties": {
+    "client_id": {"type": "string", "format": "uuid"},
+    "account_id": {"type": "string", "format": "uuid"},
+    "client_class": {"type": "string", "enum": ["player", "observer"]},
+    "phase": {"type": "string", "enum": ["issued", "registered", "ready", "active", "departed", "lost", "expired"]},
+    "adapter_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "adapter_version": {"type": "string", "minLength": 1, "maxLength": 64},
+    "enrolled_at": {"type": "string", "format": "date-time"},
+    "departed_at": {"type": ["string", "null"], "format": "date-time"}
+  }
+}
+

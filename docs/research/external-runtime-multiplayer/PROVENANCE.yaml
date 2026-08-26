@@ -1,0 +1,15 @@
+schema: bindery.research-provenance/v1
+source_archive: bindery-external-runtime-multiplayer-research-pack.zip
+source_archive_sha256: 5dddea4fc507ed786de36fecf3eec12e8bd1ad82174958f44ae79f9ba1294728
+manifest: package-manifest.yaml
+manifest_sha256: 748b70f4d90cd81aaa26d178e7260147b926b45a7d9ec3127314b55c07e5196e
+checksums: SHA256SUMS
+checksums_sha256: fe08c643545cfc89d2bf436a203669210ff953ae9a64d268c981b78f76fe1f2c
+verification:
+  method: sha256sum -c SHA256SUMS
+  result: passed
+  verified_at: 2026-08-23T16:30:00+03:00
+immutability:
+  runtime_imports: false
+  edit_policy: research-input-is-immutable
+

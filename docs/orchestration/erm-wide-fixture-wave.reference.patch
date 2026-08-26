@@ -1,0 +1,81 @@
+diff --git a/internal/capture/fixtures.go b/internal/capture/fixtures.go
+index bfedd99..4d13e26 100644
+--- a/internal/capture/fixtures.go
++++ b/internal/capture/fixtures.go
+@@ -1,5 +1,32 @@
+ package capture
+ 
+-func fixtureCaptureBatch(string, string, uint64, uint64) Batch { return Batch{} }
++import (
++	"fmt"
++	"time"
++)
++
++func fixtureCaptureBatch(captureID, producerID string, first, last uint64) Batch {
++	events := make([]RawEvent, 0, last-first+1)
++	for sequence := first; sequence <= last; sequence++ {
++		events = append(events, RawEvent{
++			EventID:          fmt.Sprintf("%s-%s-event-%d", captureID, producerID, sequence),
++			SessionID:        "session-fixture",
++			CaptureID:        captureID,
++			ProducerClientID: producerID,
++			ProducerClass:    "player",
++			CaptureMethod:    "fixture",
++			AdapterID:        "bindery.ra2-adapter",
++			AdapterVersion:   "0.1.0",
++			Sequence:         sequence,
++			ReceivedAt:       time.Date(2026, 8, 24, 12, 0, int(sequence), 0, time.UTC),
++			EventType:        "game.event",
++			PayloadVersion:   "1.0",
++			Payload:          []byte(fmt.Sprintf(`{"sequence":%d}`, sequence)),
++		})
++	}
++	return Batch{CaptureID: captureID, ProducerClientID: producerID, FirstSequence: first, LastSequence: last, Events: events}
++}
+ 
+-func fixtureCaptureClose(uint64) StreamClose { return StreamClose{} }
++func fixtureCaptureClose(finalSequence uint64) StreamClose {
++	return StreamClose{FinalSequence: finalSequence, ObservedGaps: [][2]uint64{{2, 2}}, LocalDrops: 1, EndReason: "client-exit", ClosedAt: time.Date(2026, 8, 24, 12, 1, 0, 0, time.UTC)}
++}
+diff --git a/internal/harness/fixtures.go b/internal/harness/fixtures.go
+index ea04488..bb26ace 100644
+--- a/internal/harness/fixtures.go
++++ b/internal/harness/fixtures.go
+@@ -21,7 +21,13 @@ type twoClientHarnessFixture struct {
+ 	recipientKey            []byte
+ }
+ 
+-func fixtureScenarioResults(string) map[Scenario]Result { return map[Scenario]Result{} }
++func fixtureScenarioResults(observed string) map[Scenario]Result {
++	results := make(map[Scenario]Result, len(Scenarios))
++	for _, scenario := range Scenarios {
++		results[scenario] = Result{Passed: true, Observed: observed}
++	}
++	return results
++}
+ 
+ func fixtureTwoClientHarness() twoClientHarnessFixture {
+ 	return twoClientHarnessFixture{
+diff --git a/internal/relay/placement_fixtures.go b/internal/relay/placement_fixtures.go
+index 9b31dc4..2f1219f 100644
+--- a/internal/relay/placement_fixtures.go
++++ b/internal/relay/placement_fixtures.go
+@@ -7,9 +7,16 @@ import (
+ 	"github.com/bayleafwalker/bindery-core/pkg/relayv1"
+ )
+ 
+-func fixturePlacementRequest() PlacementRequest { return PlacementRequest{} }
++func fixturePlacementRequest() PlacementRequest {
++	return PlacementRequest{AllowedRegions: []string{"eu-north"}, ParticipantIDs: []string{"player-a", "player-b"}, LatencyP95MS: 100}
++}
+ 
+-func fixturePlacementCandidates() []Candidate { return nil }
++func fixturePlacementCandidates() []Candidate {
++	return []Candidate{
++		{ProviderID: "native", RelayID: "relay-b", Region: "eu-north", State: Accepting, RemainingPacketRate: 900, RemainingEgressBytesPS: 10_000, ParticipantRTTMS: map[string]int{"player-a": 30, "player-b": 50}},
++		{ProviderID: "native", RelayID: "relay-a", Region: "eu-north", State: Accepting, RemainingPacketRate: 900, RemainingEgressBytesPS: 10_000, ParticipantRTTMS: map[string]int{"player-a": 30, "player-b": 50}},
++	}
++}
+ 
+ type allocationLeaseFixture struct {
+ 	now                time.Time

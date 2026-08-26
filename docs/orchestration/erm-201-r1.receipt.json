@@ -1,0 +1,27 @@
+{
+  "schema_version": "bindery-external-runtime-coordinator-receipt/v1",
+  "recorded_at": "2026-08-24T14:55:42Z",
+  "task_id": "ERM-201-adapter-boundary-r1",
+  "repo_id": "bindery-core",
+  "sprint_item": "bindery-core#2290",
+  "disposition": "coordinator-complete",
+  "adapter_repository": "https://github.com/bayleafwalker/bindery-ra2-adapter.git",
+  "adapter_commit": "84981a9",
+  "project_binding_commit": "1ac4129",
+  "gates": {
+    "license_boundary": "pass",
+    "proprietary_asset_scan": "pass",
+    "windows_release_build": "pass",
+    "remote_publication": "pass",
+    "project_member_binding": "pass"
+  },
+  "review": {
+    "reviewer": "luna-coordinator",
+    "context": "coordinator",
+    "decision": "coordinator-complete",
+    "evidence": "docs/orchestration/erm-201-r1.review-evidence.json",
+    "human_acceptance_required": false,
+    "acceptance_basis": "Standing user approval treats human acceptance as a perpendicular workstream, not a merge gate."
+  },
+  "qualification_eligible": false
+}

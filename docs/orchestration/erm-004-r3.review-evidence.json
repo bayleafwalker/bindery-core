@@ -1,0 +1,65 @@
+{
+  "schema_version": "bindery-external-runtime-independent-review/v1",
+  "task_id": "ERM-004-public-enrollment-read-r3",
+  "packet_hash": "sha256:9c2597a84edd6d87b98aebb77c71dcf794f39a1820d60b75a98e7af182170bb3",
+  "starting_commit": "33c39127d398850f85a6362dfc13293f92f74939",
+  "reviewer": "luna-coordinator",
+  "context": "independent",
+  "candidate_worktree": "/tmp/agentworker/worktrees/bindery-core/ERM-004-public-enrollment-read-r3",
+  "candidate_paths": [
+    "internal/externalruntime/http.go",
+    "internal/externalruntime/service.go"
+  ],
+  "reference_patch_match": true,
+  "candidate_diff_check": "pass",
+  "protected_paths_untouched": true,
+  "coordinator_tree_untouched": true,
+  "worker_session": {
+    "id": "ses_fcbf59644ffeX1wlWlmw5tU63w",
+    "opencode_version": "1.18.21",
+    "model": "local3090/worker-fast",
+    "route": "bindery_external_runtime_w0",
+    "terminal_errors": 0,
+    "event_stream": [
+      "step_start",
+      "text",
+      "step_finish",
+      "stable_session_id"
+    ]
+  },
+  "worker_gate_evidence": {
+    "bindery.unit.race": "pass",
+    "bindery.unit.vet": "pass"
+  },
+  "worker_spend": {
+    "reported_cost_usd": 0.0,
+    "reported_final_cumulative_tokens": 25895,
+    "soft_token_ceiling": 16000,
+    "hard_token_ceiling": 32000,
+    "soft_token_ceiling_exceeded": true,
+    "within_hard_token_ceiling": true,
+    "accounting": "AgentOps uses the maximum cumulative step-finish token snapshot."
+  },
+  "agentops_driver": {
+    "commit": "196e7da",
+    "changes": [
+      "pin OpenCode to the exact task worktree with --dir",
+      "keep project-scoped runs globally unqualified",
+      "require relative packet paths and prioritize the frozen reference patch"
+    ],
+    "regression_suite": "templates.dispatch.tests.test_hybrid_dispatch: 122 tests passed"
+  },
+  "retry_history": [
+    {
+      "task_id": "ERM-004-public-enrollment-read",
+      "disposition": "rejected",
+      "reason": "absolute context-path churn; no mutation"
+    },
+    {
+      "task_id": "ERM-004-public-enrollment-read-r2",
+      "disposition": "rejected",
+      "reason": "mutation-free context churn; no mutation"
+    }
+  ],
+  "decision_basis": "The r3 candidate exactly matches the coordinator-authored reference patch: it adds an unauthenticated known-ID enrollment read backed by the existing public DTO and leaves the collection route absent. It changes only the two declared implementation files and makes no contract, credential, lifecycle, schema, migration, deployment, security-policy, release, or test changes."
+}

@@ -1,0 +1,19 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "bindery-external-runtime.fullname" . }}
+  labels:
+    {{- include "bindery-external-runtime.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "bindery-external-runtime.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - ports: [{port: http, protocol: TCP}]
+  egress:
+    - {}
+{{- end }}
+

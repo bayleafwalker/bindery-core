@@ -1,6 +1,6 @@
 SHELL := /usr/bin/env bash
 
-.PHONY: help test test-sample-game test-integration test-e2e envtest controller-gen manifests verify-crds tidy tidy-sample-game fmt verify proto kind-demo kind-down run-controller run-controller-with-metrics
+.PHONY: help test test-race test-sample-game test-integration test-e2e envtest controller-gen manifests verify-crds tidy tidy-sample-game fmt vet verify verify-external-runtime lint-charts redaction proto kind-demo kind-down run-controller run-controller-with-metrics
 
 SAMPLE_GAME_DIR := examples/booklet-bindery-sample
 
@@ -12,6 +12,11 @@ help:
 	@echo "  make test-e2e        Run Kind-based e2e smoke test"
 	@echo "  make manifests      Regenerate CRD manifests from api/ markers"
 	@echo "  make verify-crds    Check CRD manifests match the Go API types"
+	@echo "  make test-race      Run Go tests with the race detector"
+	@echo "  make vet            Run go vet"
+	@echo "  make lint-charts    Helm lint the external-runtime chart"
+	@echo "  make redaction      Smoke the redaction scanner"
+	@echo "  make verify-external-runtime  race tests + vet + chart lint"
 	@echo "  make tidy           Run go mod tidy"
 	@echo "  make tidy-sample-game Run go mod tidy for sample game"
 	@echo "  make fmt            Run gofmt on the repo"
@@ -24,6 +29,24 @@ help:
 
 test:
 	go test ./...
+
+# The external-runtime packages were developed under `go test -race`; keep that
+# guarantee available now that they share a module with the operator.
+test-race:
+	go test -race ./...
+
+vet:
+	go vet ./...
+
+lint-charts:
+	helm lint charts/bindery-external-runtime
+
+redaction:
+	printf '%s\n' '{"account_id":"public","handle":"safe"}' | go run ./cmd/bindery-redaction-scan
+
+# The checks the external-runtime line ran in its own CI, kept as one target.
+verify-external-runtime: test-race vet lint-charts
+	@echo "External runtime verification passed!"
 
 test-sample-game:
 	cd "$(SAMPLE_GAME_DIR)" && go test ./...

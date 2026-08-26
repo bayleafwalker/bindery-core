@@ -1,0 +1,48 @@
+{
+  "schema_version": "bindery-external-runtime-independent-review/v1",
+  "task_id": "ERM-002-token-verifier-fixture",
+  "packet_hash": "sha256:43195ab993dc565949185e623b42fd388291fad84b91d631b1461054de1eebd8",
+  "starting_commit": "7becf8a25334eb537f6fd55f9301529ff42cd9e6",
+  "reviewer": "luna-coordinator",
+  "context": "independent",
+  "candidate_worktree": "/tmp/agentworker/worktrees/bindery-core/ERM-002-token-verifier-fixture",
+  "candidate_paths": [
+    "internal/externalruntime/fixtures.go"
+  ],
+  "reference_patch_match": true,
+  "candidate_diff_check": "pass",
+  "protected_paths_untouched": true,
+  "coordinator_tree_untouched": true,
+  "worker_session": {
+    "id": "ses_fcc9c2de4ffeQ3q189Sb2hkWrs",
+    "opencode_version": "1.18.21",
+    "model": "local3090/worker-fast",
+    "route": "bindery_external_runtime_w0",
+    "terminal_errors": 0
+  },
+  "worker_gate_evidence": {
+    "bindery.unit.race": "pass",
+    "bindery.unit.vet": "pass"
+  },
+  "token_accounting_reconciliation": {
+    "original_driver_disposition": "budget_exceeded",
+    "step_finish_cumulative_totals": [
+      8243,
+      13311,
+      14987,
+      15253,
+      15332,
+      15931,
+      16273,
+      16577,
+      16804
+    ],
+    "corrected_final_total": 16804,
+    "hard_token_ceiling": 24000,
+    "within_hard_token_ceiling": true,
+    "reported_cost_usd": 0.0,
+    "agentops_fix_commit": "ae0b03f",
+    "finding": "OpenCode reports cumulative step-finish token totals; summing snapshots produced the false overspend verdict. AgentOps now takes the maximum cumulative total and has a passing regression test."
+  },
+  "decision_basis": "The candidate is the exact coordinator reference solution, changes only the declared writable fixture path, preserves the frozen verifier/public DTO boundary, and has no contract, credential, lifecycle, schema, migration, deployment, security-policy, or release changes."
+}

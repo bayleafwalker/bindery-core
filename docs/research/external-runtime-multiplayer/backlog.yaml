@@ -1,0 +1,192 @@
+schema: bindery.research-backlog/v1
+project: external-runtime-multiplayer
+status: proposed
+charter: 00-charter.md
+requirements: 01-requirements.md
+execution_rule: Complete and review one wave before authorizing the next.
+permanent_exclusions:
+  - authoritative-game-simulation
+  - anti-cheat
+  - gameplay-ranking-or-adjudication
+  - identity-recovery
+  - public-lobby-or-matchmaking
+  - live-relay-migration
+waves:
+  - id: W0
+    name: Contract proof
+    objective: Prove identity, session, enrollment and public-data semantics without RA2 or live UDP.
+    tasks:
+      - id: ERM-001
+        title: Formalize public and authenticated DTOs
+        requirements: [ID-01, ID-02, ID-04, PUB-01, PUB-03, NFR-04]
+        acceptance:
+          - Public schemas reject credential fields.
+          - Authenticated create responses return secret material only once.
+      - id: ERM-002
+        title: Implement token-backed identity claims
+        depends_on: [ERM-001]
+        requirements: [ID-01, ID-02, ID-03, ID-05, ID-07]
+        acceptance:
+          - Only token verifiers are stored.
+          - Lost-token path creates a separate identity and preserves old history.
+      - id: ERM-003
+        title: Implement in-memory match and enrollment lifecycle
+        depends_on: [ERM-001, ERM-002]
+        requirements: [SES-01, SES-02, SES-03, SES-04, SES-06, SES-08]
+        acceptance:
+          - Two players and one observer class can be represented.
+          - Expiry converges without manual repair.
+      - id: ERM-004
+        title: Add public read API without discovery endpoint
+        depends_on: [ERM-003]
+        requirements: [SES-05, SES-09, PUB-01, PUB-02]
+        acceptance:
+          - Known records are unauthenticated reads.
+          - No session collection/list endpoint is exposed.
+      - id: ERM-005
+        title: Add secret-redaction and idempotency gates
+        depends_on: [ERM-002, ERM-003, ERM-004]
+        requirements: [NFR-03, NFR-05, NFR-09, PUB-03]
+        acceptance:
+          - Fixture tokens and endpoints never occur in serialized public responses or logs.
+          - Duplicate create/report calls return the original result.
+  - id: W1
+    name: Synthetic relay
+    depends_on: [W0]
+    objective: Prove authenticated opaque UDP forwarding, allocation and drain behavior.
+    tasks:
+      - id: ERM-101
+        title: Specify relay registration and datagram envelope
+        requirements: [NET-01, NET-02, NET-04]
+        acceptance:
+          - Protocol identifies session, sender and recipient without semantic decoding.
+      - id: ERM-102
+        title: Implement bounded UDP relay
+        depends_on: [ERM-101]
+        requirements: [NET-02, NET-03, NET-04]
+        acceptance:
+          - Authenticated endpoints exchange opaque packets.
+          - Size/rate/source limits are enforced and measured.
+      - id: ERM-103
+        title: Implement relay allocation and lease expiry
+        depends_on: [ERM-102]
+        requirements: [NET-01, NET-06, NET-07, NFR-06]
+        acceptance:
+          - A session is pinned to one explicit endpoint.
+          - Decision inputs and policy version are retained.
+      - id: ERM-104
+        title: Implement drain lifecycle and capacity metrics
+        depends_on: [ERM-102, ERM-103]
+        requirements: [NET-05, NET-07, NFR-07]
+        acceptance:
+          - Draining relay rejects new allocations and completes existing leases.
+      - id: ERM-105
+        title: Build two-client synthetic harness
+        depends_on: [ERM-103, ERM-104]
+        acceptance:
+          - Bidirectional packet, unauthorized endpoint, drain and forced-loss tests are reproducible.
+  - id: W2
+    name: RA2 two-player slice
+    depends_on: [W1]
+    objective: Complete one client-owned RA2 match through the Bindery control and relay planes.
+    tasks:
+      - id: ERM-201
+        title: Set adapter repository and license boundary
+        acceptance:
+          - RA2-specific code has a declared home outside generic core packages.
+          - Baseline reuse versus clean implementation is recorded.
+      - id: ERM-202
+        title: Implement adapter enrollment and compatibility probe
+        depends_on: [ERM-201]
+        requirements: [SES-03, SES-07]
+        acceptance:
+          - Game, mod, map and adapter mismatches fail before launch.
+      - id: ERM-203
+        title: Implement launch configuration and process lifecycle
+        depends_on: [ERM-202]
+        requirements: [SES-06, NFR-08]
+        acceptance:
+          - Adapter renders launch inputs, starts the game and reports exit/failure.
+      - id: ERM-204
+        title: Adapt game transport to allocated relay
+        depends_on: [ERM-202, ERM-203]
+        requirements: [NET-01, NET-02, NET-04]
+        acceptance:
+          - Two separate clients complete a match through one allocation.
+  - id: W3
+    name: Public telemetry capture
+    depends_on: [W2]
+    objective: Publish provenance-preserving transport and semantic capture without affecting gameplay.
+    tasks:
+      - id: ERM-301
+        title: Implement client batch buffer and acknowledgement
+        requirements: [OBS-01, OBS-02, OBS-07, NFR-01, NFR-05]
+        acceptance:
+          - Ingest outage does not block the game and retry is idempotent.
+      - id: ERM-302
+        title: Persist immutable raw batches and heavy objects
+        depends_on: [ERM-301]
+        requirements: [OBS-03, OBS-06, PUB-04, NFR-10]
+        acceptance:
+          - Raw events and post-match dump are content-addressed and publicly manifested.
+      - id: ERM-303
+        title: Normalize events with derivation provenance
+        depends_on: [ERM-302]
+        requirements: [OBS-04, OBS-05, PUB-05]
+        acceptance:
+          - Contradictions coexist and normalizer replay creates a versioned derivation.
+      - id: ERM-304
+        title: Publish capture completeness manifests
+        depends_on: [ERM-301, ERM-302]
+        requirements: [OBS-02, NFR-10]
+        acceptance:
+          - Sequence gaps, drops, source coverage and object hashes are explicit.
+  - id: W4
+    name: Observer client
+    depends_on: [W3]
+    objective: Add a separately enrolled observer without changing player behavior.
+    tasks:
+      - id: ERM-401
+        title: Prove RA2 observer realization
+        requirements: [OBS-08]
+        acceptance:
+          - Game-protocol cost and visibility of the observer are measured and documented.
+      - id: ERM-402
+        title: Add observer admission and degraded-capture semantics
+        depends_on: [ERM-401]
+        requirements: [SES-04, OBS-08]
+        acceptance:
+          - Observer failure degrades capture but does not fail the match.
+      - id: ERM-403
+        title: Compare observer and player capture streams
+        depends_on: [ERM-402]
+        requirements: [OBS-04, OBS-05]
+        acceptance:
+          - Agreement, disagreement and missing coverage remain attributable.
+  - id: W5
+    name: Bindery research evaluation
+    depends_on: [W4]
+    objective: Test provider substitution, NFR placement, fleet scaling and abstraction leakage.
+    tasks:
+      - id: ERM-501
+        title: Compare baseline and native relay providers
+        acceptance:
+          - Same session/client contract works against both providers or the incompatibility is evidenced.
+      - id: ERM-502
+        title: Test latency/capacity placement across regions
+        depends_on: [ERM-501]
+        requirements: [NET-06, NFR-06, NFR-07]
+        acceptance:
+          - Selection is reproducible from recorded inputs.
+      - id: ERM-503
+        title: Test scale-out, drain and forced failure
+        depends_on: [ERM-501]
+        requirements: [NET-07, NFR-07, NFR-08]
+        acceptance:
+          - New admissions move to new capacity; active matches do not migrate.
+      - id: ERM-504
+        title: Publish final abstraction assessment
+        depends_on: [ERM-502, ERM-503]
+        acceptance:
+          - Findings state which Bindery abstractions held, leaked or require change.
+

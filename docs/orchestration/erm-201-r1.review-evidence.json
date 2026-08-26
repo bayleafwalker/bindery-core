@@ -1,0 +1,58 @@
+{
+  "schema_version": "bindery-external-runtime-coordinator-review/v1",
+  "task_id": "ERM-201-adapter-boundary-r1",
+  "context": "coordinator",
+  "reviewer": "luna-coordinator",
+  "decision": "coordinator-complete",
+  "acceptance": "RA2-specific code has a declared home outside generic Bindery core packages; baseline reuse versus clean implementation is recorded.",
+  "adapter_repository": {
+    "local_path": "/projects/dev/bindery-ra2-adapter",
+    "source_checkout": "/home/bayleaf/dev/bindery-ra2-adapter",
+    "remote": "https://github.com/bayleafwalker/bindery-ra2-adapter.git",
+    "branch": "feat/ra2-adapter-boundary",
+    "boundary_commit": "ff6724ccf596acf4988efcead6e86c8719aa9569",
+    "published_commit": "84981a9",
+    "default_branch": "main"
+  },
+  "license_boundary": {
+    "license": "GPL-3.0-or-later",
+    "proprietary_assets_distributed": false,
+    "asset_boundary_check": "pass",
+    "asset_boundary_ci_run": "https://github.com/bayleafwalker/bindery-ra2-adapter/actions/runs/32741333121",
+    "declared_boundary_files": [
+      "LICENSE",
+      "NOTICE",
+      "UPSTREAM-REVISIONS.yaml",
+      "ci/verify-no-assets.ps1",
+      "src/Bindery.Ra2.Adapter/SpawnerBoundary.cs"
+    ]
+  },
+  "implementation_boundary": {
+    "namespace": "Bindery.Ra2.Adapter",
+    "project_file": "src/Bindery.Ra2.Adapter/Bindery.Ra2.Adapter.csproj",
+    "transport_providers": [
+      "bindery-native",
+      "cncnet-baseline"
+    ],
+    "spawner_boundary": "ISpawnerBoundary",
+    "upstream_source_copied": false,
+    "provenance_ledger": "UPSTREAM-REVISIONS.yaml",
+    "baseline_reuse": "The adapter reuses the frozen Bindery relay/control contracts and keeps the CnCNet provider as an explicit comparison baseline; it does not copy proprietary game code or assets."
+  },
+  "verification": {
+    "windows_release_build": "pass",
+    "windows_release_build_ci_run": "https://github.com/bayleafwalker/bindery-ra2-adapter/actions/runs/32741333121",
+    "feature_branch_ci_run": "https://github.com/bayleafwalker/bindery-ra2-adapter/actions/runs/32741330193",
+    "local_dotnet_build": "not-run: dotnet shim has no configured local SDK",
+    "project_binding_commit": "1ac4129",
+    "project_binding_branch": "feat/minimal-game",
+    "project_binding_path": "/projects/dev/bindery-core/project.toml"
+  },
+  "dispatch_boundary": {
+    "worker_route": "bindery_external_runtime_w0",
+    "worker_authority_used": false,
+    "qualification_eligible": false,
+    "reason": "Repository/license boundary is architecture and provenance work owned by Luna; no worker packet was used."
+  },
+  "coordinator_tree_untouched": true
+}

@@ -1,0 +1,66 @@
+{
+  "schema_version": "bindery-external-runtime-independent-review/v1",
+  "task_id": "ERM-204-fixture-builder-r2",
+  "context": "independent",
+  "reviewer": "luna-coordinator",
+  "starting_commit": "badda4ba30c2219507a073f42b34a7597d33fa82",
+  "packet_hash": "sha256:00bf9d87b8ec62aeb8b51cce56ab161c7135a650f85b337a4216253128085bc5",
+  "candidate_worktree": "/tmp/agentworker/worktrees/bindery-core/ERM-204-fixture-builder-r2",
+  "candidate_paths": [
+    "internal/externalruntime/fixtures.go"
+  ],
+  "candidate_sha256": {
+    "internal/externalruntime/fixtures.go": "3308cbf743ba1390727ed517e468f3b73caa66c78c64be21566e5fe2f2b78ee3"
+  },
+  "candidate_blob": "be1ebb12cf5f51e72fd1a85bfd8c64b0c7bcfb0d",
+  "candidate_diff_check": "pass",
+  "protected_paths_untouched": true,
+  "coordinator_tree_untouched": true,
+  "reference_patch_match": true,
+  "worker_session": {
+    "id": "ses_fcb41a524ffeWzXy4xLkHXS02i",
+    "opencode_version": "1.18.21",
+    "model": "local3090/worker-fast",
+    "route": "bindery_external_runtime_w0",
+    "terminal_errors": 0,
+    "event_stream": [
+      "step_start",
+      "tool_use",
+      "text",
+      "step_finish",
+      "stable_session_id"
+    ]
+  },
+  "worker_gate_evidence": {
+    "bindery.unit.race": "pass",
+    "bindery.unit.vet": "pass",
+    "bindery.redaction": "pass",
+    "bindery.verification.artifacts": "pass",
+    "diff_scope": "pass",
+    "protected_paths": "pass",
+    "worktree_state": "pass"
+  },
+  "worker_spend": {
+    "reported_cost_usd": 0.0,
+    "cost_reported": true,
+    "reported_final_cumulative_tokens": 163470,
+    "soft_token_ceiling": 1000000,
+    "hard_token_ceiling": 2000000,
+    "soft_token_ceiling_exceeded": false,
+    "within_hard_token_ceiling": true,
+    "accounting": "AgentOps worker_spend used the maximum cumulative step-finish snapshot reported by the JSON event stream."
+  },
+  "containment": {
+    "worker_identity": "agentworker",
+    "containment_override": false,
+    "coordinator_tree_untouched": true,
+    "coordinator_tree_changes": []
+  },
+  "qualification_reporting_reconciliation": {
+    "route_qualification_state": "unqualified",
+    "raw_run_field_before_canonical_receipt": true,
+    "canonical_receipt_qualification_eligible": false,
+    "finding": "The run was contained and on the route model, but the route remains globally unqualified. This attempt is excluded from qualification evidence."
+  },
+  "decision_basis": "The worker candidate exactly matches the coordinator-authored reusable-placement reference patch, changes only the declared fixture implementation path, stays within the protected boundary, and remains within the temporary telemetry-first spend bounds. It is a reviewed candidate for coordinator merge, not qualification evidence."
+}

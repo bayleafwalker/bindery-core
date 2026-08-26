@@ -1,0 +1,88 @@
+{
+  "schema_version": "agentops-hybrid-receipt/v1",
+  "recorded_at": "2026-08-24T14:23:09Z",
+  "execution_id": "ERM-102-bounded-relay-r1:59455b5535d2e6b7:attempt-1",
+  "task_id": "ERM-102-bounded-relay-r1",
+  "repo_id": "bindery-core",
+  "sprint_item": {
+    "ref": "bindery-core#2286",
+    "claim_id": 11,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "bindery_external_runtime_w0",
+  "attempt": 1,
+  "inputs": {
+    "packet_hash": "sha256:59455b5535d2e6b72b1f89f568ddb434ad64d3c6ca119b8cb8de8ac7be42a2dd",
+    "repository_commit": "ab137b7dde20b8198b17463f58bfd93e6422a491",
+    "packet_schema_version": "agentops-task/v2",
+    "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+    "gate_set_hash": "sha256:e90a08721dbb89e75b74f4845f94486eaed8c7dca6a9e2ad273bfb822d231213"
+  },
+  "harness": {
+    "name": "OpenCode",
+    "version": "1.18.21",
+    "model": "local3090/worker-fast",
+    "provider": "local3090",
+    "agent": "ao-bindery-external-runtime-w0",
+    "session_id": null,
+    "terminal_errors": null,
+    "event_stream": ["step_start", "text", "step_finish", "stable_session_id"],
+    "session_provenance_note": "The contained worker completed and left the declared candidate. The streamed driver output was truncated before the stable session identifier could be recovered; no identifier is inferred or fabricated."
+  },
+  "worker": {
+    "identity": "agentworker",
+    "worktree": "/tmp/agentworker/worktrees/bindery-core/ERM-102-bounded-relay-r1",
+    "touched_paths": ["internal/relay/fixtures.go"],
+    "candidate_sha256": {
+      "internal/relay/fixtures.go": "471092c604816206b4e8e875d5504b72bfd0949bd7e6041829f15f8c819fb561"
+    },
+    "coordinator_tree_untouched": true,
+    "protected_paths_untouched": true,
+    "worker_exit_code": 0
+  },
+  "spend": {
+    "reported_cost_usd": null,
+    "reported_final_cumulative_tokens": null,
+    "soft_token_ceiling": 16000,
+    "hard_token_ceiling": 32000,
+    "soft_token_ceiling_exceeded": false,
+    "within_hard_token_ceiling": true,
+    "accounting_reconciled": false,
+    "accounting_rule": "maximum cumulative step-finish token snapshot",
+    "provenance_note": "The run completed without a budget-exceeded disposition, but the exact token snapshot was not recoverable from the truncated streamed output."
+  },
+  "containment": {
+    "worker_user": "agentworker",
+    "containment_override": false,
+    "coordinator_tree_untouched": true,
+    "coordinator_tree_changes": []
+  },
+  "qualification": {
+    "state": "unqualified",
+    "qualification_eligible": false,
+    "unattended_eligible": false,
+    "reporting_fix_commit": "02bb2e156a1ab7d1a3761c289aa2c082030d0b59"
+  },
+  "gates": {
+    "bindery.unit.race": "pass",
+    "bindery.unit.vet": "pass",
+    "bindery.redaction": "pass",
+    "bindery.verification.artifacts": "pass",
+    "diff_scope": "pass",
+    "protected_paths": "pass",
+    "worktree_state": "pass",
+    "registered_commands": "pass"
+  },
+  "worker_gate_note": "The worker identity could not read /projects/dev/agentops/templates/dispatch/scripts/validate_verification_artifacts.py; the coordinator post-gate ran the validator successfully.",
+  "review": {
+    "reviewer": "luna-coordinator",
+    "context": "independent",
+    "decision": "candidate",
+    "evidence": "docs/orchestration/erm-102-r1.review-evidence.json",
+    "reference_patch_match": "semantic",
+    "human_acceptance_required": false,
+    "acceptance_basis": "Standing user approval treats human acceptance as a perpendicular workstream, not a merge gate."
+  },
+  "disposition": "candidate",
+  "qualification_eligible": false
+}

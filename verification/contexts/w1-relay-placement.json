@@ -1,0 +1,55 @@
+{
+  "schema_version": "test-context/v1",
+  "id": "bindery.external-runtime.w1.relay-placement",
+  "owner_repo": "bindery-core",
+  "subject": "opaque-authenticated-forwarding-and-deterministic-placement",
+  "contract_ref": {
+    "doc_id": "contracts/externalruntime/v1/relay.md",
+    "revision": "git:dec3f2a62204a1df39ea713c0147ba533feee6f6"
+  },
+  "source_of_truth": "contracts/externalruntime/v1/relay.md",
+  "depth": 2,
+  "backends": ["in-memory-relay", "synthetic-datagram"],
+  "actors": ["relay-a", "player-a", "player-b", "telemetry-sink"],
+  "initial_state": [
+    "the relay has no active allocations and accepts no packets before registration",
+    "the placement input contains only non-secret session and capacity facts"
+  ],
+  "operations": [
+    {"name": "register-allocation", "actors": ["relay-a", "player-a", "player-b"], "synchronization": "allocation lease creation"},
+    {"name": "bidirectional-forward", "actors": ["player-a", "player-b"], "synchronization": "paired datagram sequence"},
+    {"name": "replay", "actors": ["player-a"], "synchronization": "duplicate sequence"},
+    {"name": "unauthorized-source", "actors": ["player-a"], "synchronization": "invalid sender MAC"},
+    {"name": "oversize", "actors": ["player-a"], "synchronization": "single datagram"},
+    {"name": "rate-limit", "actors": ["player-a"], "synchronization": "bounded packet burst"},
+    {"name": "expiry", "actors": ["player-a", "relay-a"], "synchronization": "controlled clock advance"},
+    {"name": "drain", "actors": ["relay-a", "player-a", "player-b"], "synchronization": "new and existing allocation split"},
+    {"name": "forced-failure", "actors": ["relay-a", "telemetry-sink"], "synchronization": "delivery callback failure"},
+    {"name": "placement-replay", "actors": ["relay-a"], "synchronization": "same decision inputs"}
+  ],
+  "consistency": {
+    "target": "application-invariant",
+    "object": "opaque packet authentication, allocation lease, drain, and placement decision state"
+  },
+  "invariants": [
+    "network-byte-order-fixed-header",
+    "payload-remains-opaque",
+    "sender-mac-is-verified-and-recipient-mac-is-re-signed",
+    "active-allocation-does-not-migrate-during-drain",
+    "draining-relay-rejects-new-allocation",
+    "placement-retains-only-non-secret-inputs",
+    "telemetry-sink-cannot-block-forwarding"
+  ],
+  "oracles": ["go-test-race", "codec-round-trip", "metrics-snapshot", "decision-trace-equality"],
+  "faults": ["wrong-key", "duplicate-sequence", "oversize-datagram", "rate-exceeded", "expired-lease", "delivery-error"],
+  "implementation_anchors": [
+    "pkg/relayv1/codec.go:Encode",
+    "pkg/relayv1/codec.go:Decode",
+    "internal/relay/relay.go:Relay.Forward",
+    "internal/relay/placement.go:ChoosePlacement",
+    "internal/relay/relay_test.go:TestRelayAuthenticatesResignsAndDrains",
+    "internal/relay/placement_test.go:TestChoosePlacementUsesHardRegionLatencyAndStableCapacityTieBreaks",
+    "internal/harness/harness.go:Scenario"
+  ],
+  "expansions": ["semantic-doc", "stateful-test", "fault-scenario"]
+}

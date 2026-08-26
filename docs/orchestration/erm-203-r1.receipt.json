@@ -1,0 +1,25 @@
+{
+  "schema_version": "bindery-external-runtime-coordinator-receipt/v1",
+  "recorded_at": "2026-08-24T14:59:08Z",
+  "task_id": "ERM-203-adapter-lifecycle-r1",
+  "repo_id": "bindery-core",
+  "sprint_item": "bindery-core#2292",
+  "disposition": "coordinator-complete",
+  "adapter_commit": "84981a9",
+  "gates": {
+    "launch_input_rendering_review": "pass",
+    "windows_process_boundary_review": "pass",
+    "lifecycle_transition_review": "pass",
+    "windows_release_build": "pass",
+    "proprietary_asset_scan": "pass"
+  },
+  "review": {
+    "reviewer": "luna-coordinator",
+    "context": "coordinator",
+    "decision": "coordinator-complete",
+    "evidence": "docs/orchestration/erm-203-r1.review-evidence.json",
+    "human_acceptance_required": false,
+    "acceptance_basis": "Standing user approval treats human acceptance as a perpendicular workstream, not a merge gate."
+  },
+  "qualification_eligible": false
+}

@@ -1,0 +1,11 @@
+{
+  "schema_version": "bindery-external-runtime-independent-review/v1",
+  "task_id": "ERM-204-placement-r1-worker-home-fix",
+  "context": "independent",
+  "decision": "candidate",
+  "reviewer": "luna-coordinator",
+  "starting_commit": "a489634d7ec6cb1d81297692d9a98a64b9e52f02",
+  "packet_hash": "sha256:d37d5efdc229d25d7e3ac4b6469eff3555acaac362623cd22dcb58711adc6a15",
+  "evidence_path": "docs/orchestration/erm-204-placement-r1.review-evidence.json",
+  "basis": "Worker diff was independently reviewed, corrected to the frozen coordinator reference, and the corrected implementation passed cold exact-commit gates."
+}

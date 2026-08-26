@@ -30,6 +30,58 @@ The project is currently in active development.
 -   **APIs**: v1alpha1 CRDs are defined but subject to breaking changes.
 -   **Deployment**: Supports local development via Kind and Helm.
 
+## External Runtime
+
+Alongside the Kubernetes operator, this repository contains the **external
+runtime** reference service: a control plane for matches whose simulation runs
+in game clients Bindery does not own. Bindery hosts the match envelope and the
+transport; it is not an authoritative game server, and game-specific code stays
+out of core.
+
+It was developed on a separate line of history and merged into `main` on
+2026-08-26. It shares the module but not the operator's runtime: there are no
+CRDs or controllers involved, and the two are wired together only by living in
+one repository with one CI.
+
+-   Service and relay: `internal/externalruntime`, `internal/relay`, `pkg/relayv1`
+-   Reconciliation and gates: `pkg/evidencev1`, `pkg/gatev1`
+-   Binaries: `cmd/bindery-external-runtime`, `cmd/bindery-udp-relay`, `cmd/bindery-redaction-scan`
+-   Promoted contracts: [`contracts/externalruntime/v1`](contracts/externalruntime/v1)
+-   Chart: `charts/bindery-external-runtime`
+
+The control plane persists identity, session, placement, execution, enrollment,
+idempotency, and reconciled evidence through a crash-safe single-writer state
+store. That file-backed mode is deliberately **not** a multi-replica database:
+the chart refuses to render with more than one replica, and running wider would
+need a shared relational store.
+
+`GET /v1/sessions` is intentionally not implemented. Known session IDs are
+public; discovery is not. The same known-ID rule applies to placements,
+executions, enrollments, and evidence sets.
+
+```sh
+make verify-external-runtime      # race tests, vet, chart lint
+
+BINDERY_RELAY_ENDPOINT=127.0.0.1:50001 \
+BINDERY_BUILD_REVISION="$(git rev-parse HEAD)" \
+BINDERY_STATE_PATH=/tmp/bindery-control-state.json \
+go run ./cmd/bindery-external-runtime
+```
+
+That `/tmp` path is disposable development state; deployments mount a volume.
+
+The RA2 path has been demonstrated end to end **once**, and the dated result and
+its limits — including why the pre-hardening run's identifiers must not be
+backfilled — are recorded in
+[`docs/assessments/2026-08-25-ra2-vertical-slice.md`](docs/assessments/2026-08-25-ra2-vertical-slice.md).
+The evidence and gate boundary is described in
+[`docs/architecture/evidence-and-gates.md`](docs/architecture/evidence-and-gates.md),
+and remaining work is tracked in
+[`docs/roadmap/post-ra2-hardening.yaml`](docs/roadmap/post-ra2-hardening.yaml).
+The research pack under
+[`docs/research/external-runtime-multiplayer`](docs/research/external-runtime-multiplayer)
+is immutable input, not a committed roadmap.
+
 ## Documentation
 
 ### Standards & Architecture
