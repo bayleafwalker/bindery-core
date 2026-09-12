@@ -15,12 +15,35 @@ workflow, and no runtime code path. Know which one you are changing — see
 
 - **Kubernetes operator** — `api/v1alpha1/`, `controllers/`, `main.go`,
   `internal/{resolver,semver,graph}`, `modules/`, `k8s/crds/`,
-  `helm/bindery-core/`, `e2e/`, `examples/booklet-bindery-sample/`.
+  `helm/bindery-core/`, `e2e/`, `examples/booklet-bindery-sample/`. Canonical
+  specs live in `docs/standards/`. Example resources are in
+  `examples/booklet-bindery-sample/k8s/`; there is no `k8s/examples/`.
 - **External runtime** — `internal/{externalruntime,relay,harness,capture}`,
   `pkg/{evidencev1,gatev1,relayv1}`, `hack/redaction-corpus/`,
   `cmd/bindery-{external-runtime,udp-relay,redaction-scan}`,
   `contracts/externalruntime/`, `charts/bindery-external-runtime/`,
-  `verification/`. It defines no CRDs and runs no controllers.
+  `verification/`. An HTTP and UDP control plane for matches simulated in game
+  clients Bindery does not own. It defines no CRDs and runs no controllers.
+
+## Orientation
+
+Read these in order before changing platform behavior:
+
+1. `README.md`
+2. `docs/standards/index.md`
+3. `docs/standards/kubernetes/capabilityresolver.md`
+4. `internal/resolver/` and `internal/semver/`
+
+## Invariants
+
+- Capability IDs are immutable. Evolve behavior through SemVer instead — see
+  `docs/standards/capabilities/README.md`.
+- Do not invent CRD fields. A new field means the CRD schema, the docs, and the
+  examples move together, in one change.
+- Capability resolution is deterministic: the same inputs produce the same
+  bindings in the same order. Preserve both the provider selection and the
+  binding sort.
+- Prefer small, targeted changes. Do not refactor unrelated packages.
 
 ## Validation
 
@@ -51,13 +74,70 @@ Both targets run over the whole module, so either one will compile the other.
   running `make manifests` — see `docs/standards/kubernetes/crds.md`, which
   explains why the generator is not the source of truth.
 
-- Use `make test-integration` (envtest) only when envtest setup is acceptable.
-  Use `make test-e2e`, `make kind-demo`, `make kind-down`, and controller runs
-  only with an explicitly verified local Kubernetes context. `make test-e2e`
-  creates and destroys a Kind cluster and takes minutes.
+- Plain unit tests are `go test ./...`. `make test-integration` runs envtest
+  (equivalently `BINDERY_INTEGRATION=1 go test ./... -run Integration`); use it
+  only when envtest setup is acceptable. Use `make test-e2e`, `make kind-demo`,
+  `make kind-down`, `./k8s/dev/kind-demo.sh`, `./k8s/dev/kind-down.sh`, and
+  controller runs (`go run .`, which uses the current kubeconfig context) only
+  with an explicitly verified local Kubernetes context. `make test-e2e` creates
+  and destroys a Kind cluster and takes minutes.
 
 - Do not apply Helm manifests, mutate a shared cluster, or treat sample game
   assets as a supported production deployment without separate authority.
+
+## Working method
+
+Default to tests first: write or update a failing test, then implement until it
+passes. A non-trivial change carries unit tests close to the logic (pure
+functions, the resolver, helpers), plus an integration test whenever the
+behavior depends on Kubernetes API semantics — the status subresource,
+ownership, watches and indexes, or the reconcile loop itself. Prefer envtest for
+controller integration tests, since it exercises real apiserver behavior without
+a cluster; keep Kind for smoke and real-cluster validation.
+
+Keep tests deterministic. No `time.Sleep`-based assertions — poll with a
+timeout. No reliance on map or slice ordering — sort before comparing.
+
+Through a task: plan the change and name the affected files; write the tests and
+implement; update `docs/` in the same change, removing entries the change makes
+obsolete rather than leaving them to rot; then verify with the targets above and
+confirm CI is green with `gh run list`. **Do not use `gh run view`** — it
+destabilizes this environment. Commit with conventional messages (`feat:`,
+`fix:`) and make sure remote CI passes before calling the task done. If a task
+exposes a gap in this guidance, update this file.
+
+## Debugging and logs
+
+Use structured logs (controller-runtime zap) with stable field names, so an
+issue stays searchable. When you change reconcile behavior, log enough to
+reconstruct the decision: `namespace`, `world`, `binding`, `consumerModule`,
+`providerModule`, `capabilityId`, and the counts and choices behind it —
+`candidateCount`, `chosenProvider`, `chosenVersion`. Run locally with
+`go run . --zap-log-level=debug` for verbose output. Any proposed fix comes with
+a minimal repro: a unit test, an integration test, or a `kubectl` inspection
+sequence.
+
+## Protobuf and gRPC
+
+`contracts/proto/game/engine/v1/engine.proto` is the source of truth; the
+generated Go code next to it is checked in. Regenerate with `make proto`
+(needs `protoc` and the Go plugins), following
+`docs/standards/rpc/engine-grpc-v1.md`.
+
+## Resolver
+
+Resolution lives in `internal/resolver/default_resolver.go`, with SemVer parsing
+and matching in `internal/semver/`. Tests move with the change, first where
+practical.
+
+## CRDs
+
+Beyond the `verify-crds` gate described under Validation: schemas are OpenAPI
+v3, so keep them valid and keep the examples in step. Prefer standard
+`properties` and `required` constructs over schema patterns that break CRD
+validation. Changing a subresource (`status`), an ownership boundary (`spec`
+versus `status`), or a reconcile side effect calls for an envtest integration
+test.
 
 ## Conventions
 
@@ -84,3 +164,5 @@ Both targets run over the whole module, so either one will compile the other.
   `authorization|bearer|token|credential|secret|password|url|ip|port|endpoint`.
   `internal/externalruntime/redaction.go` is the release-blocking oracle and
   `make redaction` runs it over the real DTO shapes.
+- When requirements are ambiguous, take the simplest reading consistent with
+  the standards docs. Ask before adding a new concept or field.
