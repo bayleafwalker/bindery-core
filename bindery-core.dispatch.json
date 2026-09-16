@@ -32,7 +32,7 @@
     }
   },
   "skills": {
-    "template_root": "/projects/dev/agentops/templates/dispatch/skills",
+    "template_root": "/projects/dev/agentops/skills",
     "selected": [
       "dispatch-plan",
       "dispatch-build",
@@ -154,7 +154,7 @@
     "targeted_first": true,
     "commands": [
       "make verify",
-      "python /projects/dev/agentops/templates/dispatch/scripts/validate_verification_artifacts.py --root .",
+      "python /projects/dev/agentops/scripts/validate_verification_artifacts.py --root .",
       "go test -race ./...",
       "go vet ./...",
       "helm lint charts/bindery-external-runtime",
@@ -175,7 +175,7 @@
       "bindery.unit.vet": "go vet ./...",
       "bindery.chart.lint": "helm lint charts/bindery-external-runtime",
       "bindery.redaction": "go run ./cmd/bindery-redaction-scan",
-      "bindery.verification.artifacts": "python /projects/dev/agentops/templates/dispatch/scripts/validate_verification_artifacts.py --root ."
+      "bindery.verification.artifacts": "python /projects/dev/agentops/scripts/validate_verification_artifacts.py --root ."
     },
     "protected_paths": [
       "AGENTS.md",
