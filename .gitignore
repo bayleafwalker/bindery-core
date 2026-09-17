@@ -40,3 +40,7 @@ engine-module-server
 .env
 .env.*
 coverage.out
+
+# NDJSON audit shards from auditctl 0.1.8 hook output (index already ignored above;
+# not committed in this repo)
+_artifacts/*/audit*/
