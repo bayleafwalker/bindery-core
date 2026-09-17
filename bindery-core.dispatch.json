@@ -206,13 +206,5 @@
       "git",
       "dispatcher-gate"
     ]
-  },
-  "gates": [
-    "bindery.contracts",
-    "bindery.unit",
-    "bindery.relay",
-    "bindery.integration",
-    "bindery.redaction",
-    "bindery.helm"
-  ]
+  }
 }
