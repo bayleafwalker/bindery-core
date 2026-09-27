@@ -93,14 +93,19 @@ that topology.
 PUB-06 ("define retention and data-license policy before accepting unrelated
 third-party users") is satisfied by gates 1 and 2 together.
 
-`GET /v1/objects/{content_hash}` is currently not served, and
-`contracts/externalruntime/v1/README.md` gives the undefined PUB-06 as the
-reason. That reason is now gone. The endpoint remains unserved because nobody
-has implemented it — which is a different statement, and the contract README
-should not be read as still blocking on policy.
+`GET /v1/objects/{content_hash}` was left unserved with the undefined PUB-06
+as the reason. Once that reason was gone the endpoint stayed unserved only
+because nobody had implemented it. It was implemented on 2026-09-27 as a
+public, unauthenticated known-ID read; see
+`contracts/externalruntime/v1/README.md` and
+[`ra2-channel.md`](ra2-channel.md).
 
 ## Gates still open
 
 3 (handle policy), 4 (abuse suspension), 5 (observer realization), and
 8 (external-user launch). Gate 5 is the one with a dependency: ERM-401 is
 gated on it.
+
+The RA2 adapter now implements one gate 5 candidate, the native spectator slot,
+but no lab run has exercised it; see [`ra2-channel.md`](ra2-channel.md). The
+gate stays open until that run produces ERM-401's measurements.

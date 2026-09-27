@@ -439,6 +439,9 @@ func (s *Service) Enroll(accountToken, sessionJoinCredential, sessionID, idempot
 	if req.Compatibility.MapHash != "" && !hashPattern.MatchString(req.Compatibility.MapHash) {
 		return EnrollmentCreateResponse{}, domainError("COMPATIBILITY_MISMATCH", "client map_hash must be a sha256 value")
 	}
+	if err := validateController(req.ClientClass, req.Controller); err != nil {
+		return EnrollmentCreateResponse{}, err
+	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -507,7 +510,7 @@ func (s *Service) Enroll(accountToken, sessionJoinCredential, sessionID, idempot
 	if err := s.admitToRelayLocked(session, clientID, req.ClientClass, transport, now); err != nil {
 		return EnrollmentCreateResponse{}, err
 	}
-	public := PublicEnrollment{ClientID: clientID, AccountID: accountID, ClientClass: req.ClientClass, Phase: EnrollmentRegistered, AdapterID: req.Adapter.ID, AdapterVersion: req.Adapter.Version, EnrolledAt: now}
+	public := PublicEnrollment{ClientID: clientID, AccountID: accountID, ClientClass: req.ClientClass, Phase: EnrollmentRegistered, AdapterID: req.Adapter.ID, AdapterVersion: req.Adapter.Version, EnrolledAt: now, Controller: cloneController(req.Controller)}
 	enrollment := &enrollmentRecord{PublicEnrollment: public, sessionID: sessionID, clientInstanceID: req.ClientInstanceID, leaseVerifier: leaseVerifier, transportVerifier: transportVerifier, expiresAt: now.Add(2 * time.Minute), reportIDs: make(map[string]string), requestHash: hash}
 	session.enrollments[clientID] = enrollment
 	s.enrollments[clientID] = enrollment
@@ -735,6 +738,46 @@ func (s *Service) refreshPublicEnrollmentsLocked(session *sessionRecord) {
 		public = append(public, session.enrollments[id].PublicEnrollment)
 	}
 	session.Enrollments = public
+}
+
+// controllerIdentifierPattern bounds an agent's declared id and version to a
+// short printable identifier: 1-128 characters of [A-Za-z0-9._:@/+-], starting
+// with a letter or digit. Both are echoed in a public record, so they are
+// validated rather than trusted, and the set excludes whitespace, quotes and
+// anything that would need escaping in a log line or a path.
+var controllerIdentifierPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:@/+-]{0,127}$`)
+
+// validateController checks a declared seat controller. An absent controller
+// is valid and stays absent: undeclared is not defaulted to human. Only a
+// player seat has a controller; an observer drives nothing.
+func validateController(class ClientClass, controller *EnrollmentController) error {
+	if controller == nil {
+		return nil
+	}
+	if class != ClientPlayer {
+		return domainError("CONTROLLER_NOT_ALLOWED", "only a player enrollment may declare a controller")
+	}
+	switch controller.Kind {
+	case ControllerAgent:
+		if !controllerIdentifierPattern.MatchString(controller.ControllerID) || !controllerIdentifierPattern.MatchString(controller.ControllerVersion) {
+			return domainError("CONTROLLER_INVALID", "an agent controller requires controller_id and controller_version matching [A-Za-z0-9][A-Za-z0-9._:@/+-]{0,127}")
+		}
+	case ControllerHuman, ControllerBuiltinAI:
+		if controller.ControllerID != "" || controller.ControllerVersion != "" {
+			return domainError("CONTROLLER_INVALID", "controller_id and controller_version are only declared for an agent controller")
+		}
+	default:
+		return domainError("CONTROLLER_INVALID", "controller kind must be human, builtin_ai or agent")
+	}
+	return nil
+}
+
+func cloneController(value *EnrollmentController) *EnrollmentController {
+	if value == nil {
+		return nil
+	}
+	copied := *value
+	return &copied
 }
 
 func validateSessionRequest(req CreateSessionRequest) error {

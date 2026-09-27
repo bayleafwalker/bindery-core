@@ -48,6 +48,11 @@ func TestSessionFixtureRepresentsPlayersAndObserver(t *testing.T) {
 	fixture := fixtureSessionWithEnrollments()
 	players, observers := 0, 0
 	for _, enrollment := range fixture.Enrollments {
+		// The corpus carries declared controllers so the redaction oracle
+		// scans that shape; each must be one the broker would admit.
+		if err := validateController(enrollment.ClientClass, enrollment.Controller); err != nil {
+			t.Fatalf("fixture enrollment %s controller: %v", enrollment.ClientID, err)
+		}
 		switch enrollment.ClientClass {
 		case ClientPlayer:
 			players++

@@ -92,8 +92,30 @@
         "adapter_id": {"type": "string", "minLength": 1, "maxLength": 128},
         "adapter_version": {"type": "string", "minLength": 1, "maxLength": 64},
         "enrolled_at": {"type": "string", "format": "date-time"},
-        "departed_at": {"type": ["string", "null"], "format": "date-time"}
-      }
+        "departed_at": {"type": ["string", "null"], "format": "date-time"},
+        "controller": {"$ref": "#/$defs/controller"}
+      },
+      "if": {"properties": {"client_class": {"const": "observer"}}},
+      "then": {"not": {"required": ["controller"]}}
+    },
+    "controller": {
+      "type": "object", "additionalProperties": false,
+      "description": "What the enrolling client declared drives its player seat. A claim, published as one; the broker validates its shape and does not verify it. Absent means undeclared, not human. An observer never carries one.",
+      "required": ["kind"],
+      "properties": {
+        "kind": {"type": "string", "enum": ["human", "builtin_ai", "agent"]},
+        "controller_id": {"type": "string", "maxLength": 128},
+        "controller_version": {"type": "string", "maxLength": 128}
+      },
+      "if": {"properties": {"kind": {"const": "agent"}}},
+      "then": {
+        "required": ["controller_id", "controller_version"],
+        "properties": {
+          "controller_id": {"pattern": "^[A-Za-z0-9][A-Za-z0-9._:@/+-]{0,127}$"},
+          "controller_version": {"pattern": "^[A-Za-z0-9][A-Za-z0-9._:@/+-]{0,127}$"}
+        }
+      },
+      "else": {"properties": {"controller_id": {"maxLength": 0}, "controller_version": {"maxLength": 0}}}
     },
     "transition": {
       "type": "object", "additionalProperties": false,
