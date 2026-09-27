@@ -104,3 +104,7 @@ should not be read as still blocking on policy.
 3 (handle policy), 4 (abuse suspension), 5 (observer realization), and
 8 (external-user launch). Gate 5 is the one with a dependency: ERM-401 is
 gated on it.
+
+The RA2 adapter now implements one gate 5 candidate, the native spectator slot,
+but no lab run has exercised it; see [`ra2-channel.md`](ra2-channel.md). The
+gate stays open until that run produces ERM-401's measurements.

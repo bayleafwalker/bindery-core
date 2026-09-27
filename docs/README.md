@@ -46,6 +46,9 @@ Start here:
 - Remaining tracked work: [`roadmap/post-ra2-hardening.yaml`](roadmap/post-ra2-hardening.yaml)
 - Promoted wire contract: [`../contracts/externalruntime/v1/README.md`](../contracts/externalruntime/v1/README.md)
 - Adapter provenance notes: [`compatibility-findings.md`](compatibility-findings.md)
+- Operator gate resolutions: [`decisions/operator-gates.md`](decisions/operator-gates.md)
+- What the RA2 broadcast channel needs from core (no contract change):
+  [`decisions/ra2-channel.md`](decisions/ra2-channel.md)
 
 The RA2 vertical slice was demonstrated **once**, in a lab. The assessment
 deliberately refuses to backfill durable identifiers onto that pre-hardening
