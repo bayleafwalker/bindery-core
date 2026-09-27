@@ -75,8 +75,13 @@ paths:
         - {in: path, name: session_id, required: true, schema: {type: string, format: uuid}}
         - {in: header, name: X-Session-Join-Credential, required: true, schema: {type: string}}
         - {in: header, name: Idempotency-Key, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/EnrollmentRequest'}}}
       responses:
         '201': {description: Enrolled, content: {application/json: {schema: {$ref: '#/components/schemas/EnrollmentCreateResponse'}}}}
+        '400': {description: 'Invalid request, including CONTROLLER_INVALID (unknown kind, or agent id/version missing or malformed, or id/version on a non-agent kind) and CONTROLLER_NOT_ALLOWED (an observer declared a controller)', content: {application/json: {schema: {$ref: './error.schema.json'}}}}
+        '409': {description: 'IDEMPOTENCY_CONFLICT -- the same client instance was re-enrolled with a different request body, controller included', content: {application/json: {schema: {$ref: './error.schema.json'}}}}
   /v1/enrollments/{client_id}/reports:
     post:
       operationId: reportEnrollment
@@ -161,6 +166,36 @@ paths:
         '401': {description: Invalid client lease, content: {application/json: {schema: {$ref: './error.schema.json'}}}}
         '409': {description: These bytes are already recorded under a different media type, content: {application/json: {schema: {$ref: './error.schema.json'}}}}
         '413': {description: Object exceeds the negotiated limit, content: {application/json: {schema: {$ref: './error.schema.json'}}}}
+  /v1/objects/{content_hash}:
+    get:
+      operationId: getObject
+      description: >-
+        Serves the bytes of one capture object, as uploaded through
+        POST /v1/captures/{capture_id}/objects, under the media type it was stored
+        with. A public known-ID read like every other: the hash is already published
+        in the capture's `objects` list and its manifest. Only capture objects are
+        served; raw and derived batches are read through the event endpoints. If two
+        captures stored the same bytes under different media types, the one recorded
+        first is served (earliest received_at, then lowest capture id). The response
+        is immutable: ETag is the quoted content hash, If-None-Match is honoured, and
+        the body is sent with nosniff and a sandbox CSP because its media type is the
+        producer's declaration.
+      parameters:
+        - {in: path, name: content_hash, required: true, schema: {type: string, pattern: '^sha256:[0-9a-f]{64}$'}}
+        - {in: header, name: If-None-Match, required: false, schema: {type: string}}
+      responses:
+        '200':
+          description: The stored bytes
+          headers:
+            ETag: {description: 'The content hash, quoted: "sha256:<hex>"', schema: {type: string}}
+            Cache-Control: {description: 'public, max-age=31536000, immutable', schema: {type: string}}
+          content:
+            '*/*':
+              schema: {type: string, format: binary}
+        '304': {description: If-None-Match named this object's ETag}
+        '400': {description: OBJECT_HASH_INVALID -- not a sha256 content hash, content: {application/json: {schema: {$ref: './error.schema.json'}}}}
+        '404': {description: OBJECT_NOT_FOUND -- no capture object has this hash, content: {application/json: {schema: {$ref: './error.schema.json'}}}}
+        '500': {description: OBJECT_UNREADABLE -- the stored bytes are missing or no longer match their hash, content: {application/json: {schema: {$ref: './error.schema.json'}}}}
   /v1/captures/{capture_id}:close:
     post:
       operationId: closeCapture
@@ -266,11 +301,51 @@ components:
         public_session: {$ref: './public-session.schema.json'}
         session_join_credential: {type: string, format: byte}
         expires_at: {type: string, format: date-time}
+    EnrollmentRequest:
+      type: object
+      additionalProperties: false
+      required: [client_instance_id, client_class, adapter, compatibility]
+      properties:
+        client_instance_id: {type: string, minLength: 1, maxLength: 128}
+        client_class: {type: string, enum: [player, observer]}
+        capture_method: {type: string, maxLength: 128}
+        adapter:
+          type: object
+          additionalProperties: false
+          required: [id, version]
+          properties:
+            id: {type: string, minLength: 1}
+            version: {type: string, minLength: 1}
+        compatibility:
+          type: object
+          additionalProperties: false
+          required: [game_hash]
+          properties:
+            game_hash: {type: string, pattern: '^sha256:[0-9a-f]{64}$'}
+            mod_hash: {type: string, pattern: '^sha256:[0-9a-f]{64}$'}
+            map_hash: {type: string, pattern: '^sha256:[0-9a-f]{64}$'}
+        region_probes:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [region, rtt_ms]
+            properties:
+              region: {type: string}
+              rtt_ms: {type: integer}
+        controller:
+          description: >-
+            Optional declaration of what drives this player seat. Absent means
+            undeclared; it is not defaulted to human. An observer that declares one
+            is refused with CONTROLLER_NOT_ALLOWED; an unknown kind, or an agent
+            without a valid controller_id and controller_version, with
+            CONTROLLER_INVALID. The declaration is echoed on the public enrollment.
+          $ref: './public-enrollment.schema.json#/$defs/controller'
     EnrollmentCreateResponse:
       type: object
       required: [public_enrollment, client_lease_token, transport_credential, expires_at]
       properties:
-        public_enrollment: {type: object}
+        public_enrollment: {$ref: './public-enrollment.schema.json'}
         client_lease_token: {type: string, format: byte}
         transport_credential: {type: string, format: byte}
         expires_at: {type: string, format: date-time}

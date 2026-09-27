@@ -401,6 +401,12 @@ func (s *Service) restoreSnapshotLocked(snapshot serviceSnapshot) error {
 		if stored.Public.ClientID != id || stored.SessionID == "" || len(stored.LeaseVerifier) != 32 || len(stored.TransportVerifier) != 32 {
 			return fmt.Errorf("enrollment %q is invalid", id)
 		}
+		// Snapshots written before controllers existed carry none, which
+		// restores as undeclared. A stored controller is held to the rule it
+		// was admitted under, so a hand-edited state file cannot publish one.
+		if err := validateController(stored.Public.ClientClass, stored.Public.Controller); err != nil {
+			return fmt.Errorf("enrollment %q has an invalid controller: %w", id, err)
+		}
 		reportIDs := make(map[string]string, len(stored.ReportIDs))
 		for key, value := range stored.ReportIDs {
 			reportIDs[key] = value

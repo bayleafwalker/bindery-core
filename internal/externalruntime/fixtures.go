@@ -118,8 +118,8 @@ func fixtureSessionWithEnrollments() PublicSession {
 		ParticipantPolicy:  ParticipantPolicy{RequiredPlayers: 2, MaximumPlayers: 2, MaximumObservers: 1},
 		CapturePolicy:      CapturePolicy{SemanticEvents: true, PostMatchDump: true, ObserverPreferred: true},
 		Enrollments: []PublicEnrollment{
-			{ClientID: "client-player-a", AccountID: "acct-player-a", ClientClass: ClientPlayer, Phase: EnrollmentReady, AdapterID: "bindery.ra2-adapter", AdapterVersion: "0.1.0", EnrolledAt: now},
-			{ClientID: "client-player-b", AccountID: "acct-player-b", ClientClass: ClientPlayer, Phase: EnrollmentReady, AdapterID: "bindery.ra2-adapter", AdapterVersion: "0.1.0", EnrolledAt: now},
+			{ClientID: "client-player-a", AccountID: "acct-player-a", ClientClass: ClientPlayer, Phase: EnrollmentReady, AdapterID: "bindery.ra2-adapter", AdapterVersion: "0.1.0", EnrolledAt: now, Controller: &EnrollmentController{Kind: ControllerAgent, ControllerID: "bindery.ra2-agent", ControllerVersion: "0.1.0"}},
+			{ClientID: "client-player-b", AccountID: "acct-player-b", ClientClass: ClientPlayer, Phase: EnrollmentReady, AdapterID: "bindery.ra2-adapter", AdapterVersion: "0.1.0", EnrolledAt: now, Controller: &EnrollmentController{Kind: ControllerHuman}},
 			{ClientID: "client-observer", AccountID: "acct-observer", ClientClass: ClientObserver, Phase: EnrollmentReady, AdapterID: "bindery.ra2-adapter", AdapterVersion: "0.1.0", EnrolledAt: now},
 		},
 		Placement:               fixtureRelayPlacement(),

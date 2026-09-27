@@ -35,6 +35,64 @@ Invariants:
   by the broker from persisted events. Client-supplied summaries are refused
   for those executions, and every summary records which of the two it is.
 
+## Declared seat controllers
+
+`POST /v1/sessions/{session_id}/enrollments` accepts an optional `controller`
+object, echoed as `controller` on the public enrollment:
+
+```json
+{"kind": "agent", "controller_id": "bindery.ra2-agent", "controller_version": "0.1.0"}
+```
+
+- `kind` is `human`, `builtin_ai` or `agent`. Any other value is refused with
+  `CONTROLLER_INVALID` (400).
+- `controller_id` and `controller_version` are required for `agent` and must be
+  absent or empty for the other kinds (`CONTROLLER_INVALID`). Each is 1-128
+  characters of `[A-Za-z0-9._:@/+-]`, starting with a letter or digit:
+  `^[A-Za-z0-9][A-Za-z0-9._:@/+-]{0,127}$`.
+- Only a `player` may declare one. An `observer` that sends `controller` is
+  refused with `CONTROLLER_NOT_ALLOWED` (400).
+- An absent `controller` means undeclared. It is not defaulted to `human`, and
+  the public enrollment omits the field.
+- The declaration is the client's claim, validated for shape and not verified.
+- It is part of the enrollment request, so re-enrolling the same client
+  instance with a different controller is `IDEMPOTENCY_CONFLICT` (409), like any
+  other change to the body.
+
+This records which seats were agent-driven. It is not a new client class and
+not an observation/action schema; see `docs/decisions/ra2-channel.md`.
+
+## Capture objects
+
+`POST /v1/captures/{capture_id}/objects` stores opaque bytes under their sha256
+and a producer-declared media type matching
+`^[a-z0-9]+/[a-z0-9][a-z0-9.+-]{0,126}$`. `GET /v1/objects/{content_hash}`
+returns them:
+
+- the body is the stored bytes and `Content-Type` is the media type they were
+  stored under;
+- `ETag` is the quoted content hash (`"sha256:<hex>"`), `If-None-Match` yields
+  `304`, and `Cache-Control` is `public, max-age=31536000, immutable`;
+- the response carries `X-Content-Type-Options: nosniff` and
+  `Content-Security-Policy: sandbox`, because the media type is the producer's
+  declaration and must not cause active content to run on this origin;
+- a malformed hash is `OBJECT_HASH_INVALID` (400), a hash no capture object has
+  is `OBJECT_NOT_FOUND` (404), and bytes that are missing or no longer match
+  their hash are `OBJECT_UNREADABLE` (500), all in the error schema;
+- one capture cannot record a hash under two media types, but two captures
+  can. The media type served is then the one recorded first: earliest
+  `received_at`, then lowest `capture_id`.
+
+### Decision traces
+
+`application/vnd.bindery.decision-trace.v1+ndjson` is the media type for an
+agent controller's decision trace uploaded as a capture object (Go:
+`externalruntime.DecisionTraceMediaType`). The body is newline-delimited JSON.
+This is a naming convention only: core does not parse, validate or interpret a
+trace, and stores and serves it like any other object. It is deliberately
+game-neutral; a runtime-specific format belongs in that runtime's adapter
+(ADR-010), and core defines none.
+
 ## Divergences from the research pack
 
 `docs/research/external-runtime-multiplayer/` is immutable input, so these are
@@ -46,12 +104,13 @@ recorded here rather than by editing it.
   DTO, which the secret-redaction invariant excludes; content addressing also
   removes the reason for a second private identifier. The bytes are therefore
   sent in the request body.
-- **`GET /v1/objects/{content_hash}` is not served.** The pack conditions it on
-  publication policy. PUB-06 (retention and data licence) was undefined when
-  this was written; it was resolved on 2026-08-26 as a CC0-like dedication with
-  indefinite retention, recorded in `docs/decisions/operator-gates.md`. The
-  policy blocker is therefore gone, and the endpoint stays unserved only because
-  nobody has implemented it -- a weaker reason than the one it replaces.
+- **`GET /v1/objects/{content_hash}` is served unconditionally.** The pack
+  conditions it on publication policy. PUB-06 (retention and data licence) was
+  resolved on 2026-08-26 as a CC0-like dedication with indefinite retention,
+  recorded in `docs/decisions/operator-gates.md`, so the policy the pack waits on
+  exists and permits it. The endpoint is a public known-ID read with no
+  authentication. It serves capture objects only; raw and derived batches share
+  the content-addressed store but are read through the event endpoints.
 - **Batches are uncompressed.** The pack says "one compressed batch". Server-side
   decompression behind a lease is a new attack surface for a bandwidth saving
   nobody has measured; there is a hard byte cap instead.

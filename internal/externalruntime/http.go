@@ -75,6 +75,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.storeCaptureObject(w, r, requestID, parts[1])
 	case len(parts) == 3 && parts[0] == "captures" && parts[2] == "batches" && r.Method == http.MethodPost:
 		h.ingestCaptureBatch(w, r, requestID, parts[1])
+	case len(parts) == 2 && parts[0] == "objects" && r.Method == http.MethodGet:
+		h.getObject(w, r, requestID, parts[1])
 	case len(parts) == 2 && parts[0] == "captures" && r.Method == http.MethodGet:
 		h.getCapture(w, requestID, parts[1])
 	case len(parts) == 3 && parts[0] == "sessions" && parts[2] == "captures" && r.Method == http.MethodGet:
@@ -224,6 +226,45 @@ func (h *Handler) storeCaptureObject(w http.ResponseWriter, r *http.Request, req
 		return
 	}
 	writeJSON(w, http.StatusCreated, manifest)
+}
+
+// getObject serves stored bytes rather than JSON. The object is immutable and
+// named by its own hash, so the hash is a strong validator and the response is
+// cacheable forever. The media type is whatever the producer declared, so the
+// response is also sandboxed and marked nosniff: a producer that uploads
+// text/html must not get a page executed on this origin.
+func (h *Handler) getObject(w http.ResponseWriter, r *http.Request, requestID, contentHash string) {
+	object, err := h.service.GetObject(contentHash)
+	if err != nil {
+		h.writeDomainError(w, requestID, err)
+		return
+	}
+	etag := `"` + object.ContentHash + `"`
+	header := w.Header()
+	header.Set("ETag", etag)
+	header.Set("Cache-Control", "public, max-age=31536000, immutable")
+	header.Set("X-Content-Type-Options", "nosniff")
+	header.Set("Content-Security-Policy", "sandbox")
+	if ifNoneMatch(r.Header.Get("If-None-Match"), etag) {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	header.Set("Content-Type", object.MediaType)
+	header.Set("Content-Length", strconv.Itoa(len(object.Data)))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(object.Data)
+}
+
+// ifNoneMatch reports whether an If-None-Match header names etag, or is "*".
+// Weak comparison applies to If-None-Match, so a W/ prefix is ignored.
+func ifNoneMatch(value, etag string) bool {
+	for _, candidate := range strings.Split(value, ",") {
+		candidate = strings.TrimPrefix(strings.TrimSpace(candidate), "W/")
+		if candidate == "*" || candidate == etag {
+			return true
+		}
+	}
+	return false
 }
 
 func (h *Handler) readCaptureEvents(w http.ResponseWriter, r *http.Request, requestID, captureID string) {
@@ -393,7 +434,7 @@ func (h *Handler) writeDomainError(w http.ResponseWriter, requestID string, err 
 		switch domain.Code {
 		case "TOKEN_INVALID", "JOIN_CREDENTIAL_INVALID", "IDENTITY_SUSPENDED":
 			status = http.StatusUnauthorized
-		case "IDENTITY_NOT_FOUND", "SESSION_NOT_FOUND", "ENROLLMENT_NOT_FOUND", "PLACEMENT_NOT_FOUND", "EXECUTION_NOT_FOUND", "EVIDENCE_SET_NOT_FOUND", "CAPTURE_NOT_FOUND":
+		case "IDENTITY_NOT_FOUND", "SESSION_NOT_FOUND", "ENROLLMENT_NOT_FOUND", "PLACEMENT_NOT_FOUND", "EXECUTION_NOT_FOUND", "EVIDENCE_SET_NOT_FOUND", "CAPTURE_NOT_FOUND", "OBJECT_NOT_FOUND":
 			status = http.StatusNotFound
 		case "HANDLE_TAKEN", "IDEMPOTENCY_CONFLICT", "SEQUENCE_CONFLICT", "OBSERVATION_ADJUDICATION_FORBIDDEN":
 			status = http.StatusConflict
@@ -409,7 +450,7 @@ func (h *Handler) writeDomainError(w http.ResponseWriter, requestID string, err 
 			status = http.StatusInternalServerError
 		case "STATE_PERSISTENCE_FAILED":
 			status = http.StatusServiceUnavailable
-		case "OBSERVATION_UNREADABLE":
+		case "OBSERVATION_UNREADABLE", "OBJECT_UNREADABLE":
 			status = http.StatusInternalServerError
 		}
 		h.fail(w, requestID, status, domain.Code, domain.Message)

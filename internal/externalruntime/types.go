@@ -193,6 +193,30 @@ type PublicEnrollment struct {
 	AdapterVersion string          `json:"adapter_version"`
 	EnrolledAt     time.Time       `json:"enrolled_at"`
 	DepartedAt     *time.Time      `json:"departed_at"`
+	// Controller is what the enrolling client declared drives its seat. It is
+	// absent when nothing was declared, which is not the same as "human": the
+	// broker records the claim and does not infer one.
+	Controller *EnrollmentController `json:"controller,omitempty"`
+}
+
+// ControllerKind names what drives a player seat.
+type ControllerKind string
+
+const (
+	ControllerHuman     ControllerKind = "human"
+	ControllerBuiltinAI ControllerKind = "builtin_ai"
+	ControllerAgent     ControllerKind = "agent"
+)
+
+// EnrollmentController is a client's declaration of what drives its player
+// seat, so a public record says which seats were agent-driven. It is a claim
+// made by the enrolling client and published as one: the broker validates its
+// shape and does not verify it. An agent names itself with an identifier and
+// an exact version; the other kinds carry neither.
+type EnrollmentController struct {
+	Kind              ControllerKind `json:"kind"`
+	ControllerID      string         `json:"controller_id,omitempty"`
+	ControllerVersion string         `json:"controller_version,omitempty"`
 }
 
 type PublicCapture struct {
@@ -306,6 +330,8 @@ type EnrollmentRequest struct {
 	Adapter          AdapterRef    `json:"adapter"`
 	Compatibility    ClientHashes  `json:"compatibility"`
 	RegionProbes     []RegionProbe `json:"region_probes,omitempty"`
+	// Controller is optional. Only a player may declare one.
+	Controller *EnrollmentController `json:"controller,omitempty"`
 }
 
 type AdapterRef struct {
