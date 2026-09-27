@@ -12,10 +12,10 @@ This note records what that work needs from Bindery Core, and what it does not
 authorize. Like [`operator-gates.md`](operator-gates.md), it is recorded here
 rather than in the immutable research pack.
 
-## No control-plane contract changes
+## What the channel uses from the control plane
 
-The channel changes no endpoint, DTO, schema or CRD in this repository.
-Everything it uses already exists:
+The channel needs no new endpoint beyond the three changes recorded below.
+Everything else it uses already existed:
 
 - **Back-to-back matches** are ordinary sessions: one session, one placement
   and one set of enrollments per match, with fresh idempotency keys each time.
@@ -24,8 +24,9 @@ Everything it uses already exists:
   above it). ADR-006 already made the observer a client class.
 - **Replays and decision traces** fit the existing capture-object lane
   (`POST /v1/captures/{capture_id}/objects`), which is content-addressed and
-  takes any concrete media type. `application/x-ndjson` is a reasonable choice
-  for a decision trace. The adapter does not upload them yet.
+  takes any concrete media type. Decision traces use
+  `application/vnd.bindery.decision-trace.v1+ndjson` (below). The adapter does
+  not upload either yet.
 
 ## Broadcast stays outside core
 
@@ -49,9 +50,12 @@ enrollment class stays `player`. The adapter filters the spectator-grade
 stream down to what that house may know, and fails closed where the bridge
 gives no ownership or visibility.
 
-This deliberately stops short of the deferred items in the research pack:
+A player enrollment may now *declare* its controller (below), so a public
+record says which seats were agent-driven. That is a label on a player seat,
+not a new class. The work still stops short of the deferred items in the
+research pack:
 
-- no new client class and no controller field on enrollment;
+- no new client class;
 - no AI observation or action schema in `contracts/`;
 - no agent logic in the broker or relay.
 
@@ -74,16 +78,34 @@ undeparted observer marks the run `observer_degraded` and does not change
 the players' lifecycle completeness. That matches the broker's existing rule
 that a degraded observer is a worse witness, not a failed player.
 
-## Candidate core changes, not made
+## Core changes made for the channel
 
-These would each be a new concept or field, so per `AGENTS.md` they need
-asking about first:
+The three candidate core changes this note first listed were approved and
+implemented on 2026-09-27. Each is documented in
+[`contracts/externalruntime/v1/README.md`](../../contracts/externalruntime/v1/README.md),
+with the shapes in `openapi.yaml` and the JSON schemas beside it.
 
-1. A declared controller on player enrollment (human, built-in AI, or an agent
-   ID and version), so public records say which seats were agent-driven.
-2. A media-type convention for decision traces among capture objects.
-3. Serving `GET /v1/objects/{content_hash}`, so replays uploaded through
-   captures can be fetched back.
+1. **Declared controller on player enrollment.** The enrollment request takes
+   an optional `controller`
+   (`{"kind": "human" | "builtin_ai" | "agent", "controller_id", "controller_version"}`),
+   and the public enrollment echoes it. An agent must name an id and a version;
+   the other kinds carry neither (`CONTROLLER_INVALID`). An observer may not
+   declare one (`CONTROLLER_NOT_ALLOWED`). An absent controller is undeclared,
+   not human. The declaration is persisted with the enrollment, and state files
+   written before it existed still load. Code:
+   `internal/externalruntime/types.go` and `validateController` in
+   `internal/externalruntime/service.go`.
+2. **A media type for decision traces.**
+   `application/vnd.bindery.decision-trace.v1+ndjson`, exported as
+   `externalruntime.DecisionTraceMediaType` in
+   `internal/externalruntime/capture_object.go`. Core does not parse or
+   validate a trace. No RA2-specific media type is defined (ADR-010).
+3. **`GET /v1/objects/{content_hash}` is served**, so replays and traces
+   uploaded through captures can be fetched back. It is a public known-ID read
+   that returns the stored bytes under their stored media type, with the
+   content hash as `ETag` and an immutable `Cache-Control`. Code: `GetObject`
+   in `internal/externalruntime/capture_object.go` and `getObject` in
+   `internal/externalruntime/http.go`.
 
 None of these blocks the channel's first build step, which broadcasts a
-two-player match.
+two-player match. None of them resolves gate 5 or ERM-401.
