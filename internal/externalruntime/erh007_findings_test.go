@@ -219,6 +219,97 @@ func TestHTTPAcceptsANullFinalSequence(t *testing.T) {
 	}
 }
 
+// RETIRED FINDING: capture streams were minted for every enrollment, gated
+// only by the session-wide semantic_events switch, so clients that observe
+// nothing by design -- every player in a server-authoritative runtime --
+// each held a stream they could not honestly close. An enrollment may now
+// decline its stream with capture: false.
+func TestAnEnrollmentCanDeclineItsCaptureStream(t *testing.T) {
+	service := NewService()
+	owner := mustIdentity(t, service, "decline-owner")
+	created, err := service.CreateSession(owner.AccountToken, "decline-session", testSessionRequest())
+	if err != nil {
+		t.Fatal(err)
+	}
+	sessionID := created.PublicSession.SessionID
+	declined := false
+	request := EnrollmentRequest{
+		ClientInstanceID: "no-stream", ClientClass: ClientPlayer, Capture: &declined,
+		Adapter:       AdapterRef{ID: "bindery.ra2-adapter", Version: "0.1.0"},
+		Compatibility: ClientHashes{GameHash: testHashA, ModHash: testHashA, MapHash: testHashB},
+	}
+	response, err := service.Enroll(owner.AccountToken, created.SessionJoinCredential, sessionID, "enroll-no-stream", request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(response.CaptureStreamOffers) != 0 {
+		t.Fatalf("a declined enrollment was offered %d capture streams", len(response.CaptureStreamOffers))
+	}
+	replay, err := service.Enroll(owner.AccountToken, created.SessionJoinCredential, sessionID, "enroll-no-stream", request)
+	if err != nil || replay.PublicEnrollment.ClientID != response.PublicEnrollment.ClientID || len(replay.CaptureStreamOffers) != 0 {
+		t.Fatalf("replay = %+v, %v", replay, err)
+	}
+	request.Capture = nil
+	if _, err := service.Enroll(owner.AccountToken, created.SessionJoinCredential, sessionID, "enroll-no-stream", request); !hasCode(err, "IDEMPOTENCY_CONFLICT") {
+		t.Fatalf("changing capture on a replay = %v, want IDEMPOTENCY_CONFLICT", err)
+	}
+
+	// The default is unchanged: a session that captures semantic events
+	// still offers a stream to an enrollment that does not decline one.
+	streamed := mustEnroll(t, service, owner.AccountToken, created.SessionJoinCredential, sessionID, "with-stream", ClientPlayer)
+	if streamed.capture == "" {
+		t.Fatal("an enrollment that did not decline its stream was not offered one")
+	}
+	captures, err := service.ListSessionCaptures(sessionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, record := range captures {
+		if record.ProducerClientID == response.PublicEnrollment.ClientID {
+			t.Fatal("a declined enrollment holds a capture stream")
+		}
+	}
+	if len(captures) != 1 {
+		t.Fatalf("session holds %d captures, want 1", len(captures))
+	}
+}
+
+func TestDecliningCaptureRefusesACaptureMethod(t *testing.T) {
+	service := NewService()
+	owner := mustIdentity(t, service, "decline-method-owner")
+	created, err := service.CreateSession(owner.AccountToken, "decline-method-session", testSessionRequest())
+	if err != nil {
+		t.Fatal(err)
+	}
+	declined := false
+	_, err = service.Enroll(owner.AccountToken, created.SessionJoinCredential, created.PublicSession.SessionID, "enroll-contradiction",
+		EnrollmentRequest{
+			ClientInstanceID: "contradiction", ClientClass: ClientPlayer, Capture: &declined, CaptureMethod: "adapter-log-tail",
+			Adapter:       AdapterRef{ID: "bindery.ra2-adapter", Version: "0.1.0"},
+			Compatibility: ClientHashes{GameHash: testHashA, ModHash: testHashA, MapHash: testHashB},
+		})
+	if !hasCode(err, "CAPTURE_INVALID") {
+		t.Fatalf("error = %v, want CAPTURE_INVALID", err)
+	}
+}
+
+func TestEnrollmentRequestDecodesCapture(t *testing.T) {
+	decoder := json.NewDecoder(strings.NewReader(`{"client_instance_id":"x","client_class":"player","capture":false,` +
+		`"adapter":{"id":"a","version":"1"},"compatibility":{"game_hash":"` + testHashA + `"}}`))
+	decoder.DisallowUnknownFields()
+	var request EnrollmentRequest
+	if err := decoder.Decode(&request); err != nil {
+		t.Fatal(err)
+	}
+	if request.Capture == nil || *request.Capture {
+		t.Fatal("capture: false did not decode as a declined stream")
+	}
+	// Omitting the field must not change an existing enrollment's identity.
+	if encoded, _ := json.Marshal(EnrollmentRequest{ClientInstanceID: "x"}); strings.Contains(string(encoded), `"capture"`) {
+		t.Fatalf("an enrollment that does not decline still serializes capture: %s", encoded)
+	}
+}
+
 // The counterpart to the findings: what ERH-007 caused to be removed from core
 // must stay removed. These are the shapes a non-RA2 runtime needs and that the
 // control plane refused before 2026-08-26.

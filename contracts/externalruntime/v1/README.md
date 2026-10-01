@@ -93,6 +93,17 @@ trace, and stores and serves it like any other object. It is deliberately
 game-neutral; a runtime-specific format belongs in that runtime's adapter
 (ADR-010), and core defines none.
 
+## Declining a capture stream
+
+A session whose capture policy captures semantic events opens a capture stream
+for every enrollment by default. An enrollment that sends `"capture": false`
+gets none: no offer, and no stream on the session. This is for clients that
+observe nothing by design, such as the players of a server-authoritative
+runtime, which would otherwise each hold a stream they could not honestly fill.
+Naming a `capture_method` while declining is refused with `CAPTURE_INVALID`.
+Omitting the field keeps the default and leaves existing enrollment request
+hashes unchanged. Code: `Enroll` in `internal/externalruntime/service.go`.
+
 ## Closing an empty capture
 
 `final_sequence` on `POST /v1/captures/{capture_id}:close` is nullable. `null`

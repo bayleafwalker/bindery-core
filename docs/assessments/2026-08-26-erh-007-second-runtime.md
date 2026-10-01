@@ -150,3 +150,9 @@ range and no phantom gap, and is refused with `CLOSE_CONTRADICTS_OBSERVATIONS`
 from a producer that ingested observations or reports gaps.
 `TestFindingAnEmptyStreamCannotCloseCleanly` was retired in favour of
 `TestAnEmptyStreamClosesWithoutAPhantomGap` and its refusal control.
+
+The per-client stream finding is resolved too. An enrollment may send
+`"capture": false` and is then offered no capture stream, so the players of a
+server-authoritative runtime need not each hold an empty one; omitting the
+field keeps the session default. `TestAnEnrollmentCanDeclineItsCaptureStream`
+covers it.

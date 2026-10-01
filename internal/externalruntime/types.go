@@ -324,12 +324,17 @@ type CreateSessionResponse struct {
 }
 
 type EnrollmentRequest struct {
-	ClientInstanceID string        `json:"client_instance_id"`
-	ClientClass      ClientClass   `json:"client_class"`
-	CaptureMethod    string        `json:"capture_method,omitempty"`
-	Adapter          AdapterRef    `json:"adapter"`
-	Compatibility    ClientHashes  `json:"compatibility"`
-	RegionProbes     []RegionProbe `json:"region_probes,omitempty"`
+	ClientInstanceID string      `json:"client_instance_id"`
+	ClientClass      ClientClass `json:"client_class"`
+	CaptureMethod    string      `json:"capture_method,omitempty"`
+	// Capture false declines the capture stream a session that captures
+	// semantic events would otherwise open for this client: a client that
+	// observes nothing by design should not hold a stream it cannot honestly
+	// fill. Absent keeps the session's default.
+	Capture       *bool         `json:"capture,omitempty"`
+	Adapter       AdapterRef    `json:"adapter"`
+	Compatibility ClientHashes  `json:"compatibility"`
+	RegionProbes  []RegionProbe `json:"region_probes,omitempty"`
 	// Controller is optional. Only a player may declare one.
 	Controller *EnrollmentController `json:"controller,omitempty"`
 }

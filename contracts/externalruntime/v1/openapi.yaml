@@ -80,7 +80,7 @@ paths:
         content: {application/json: {schema: {$ref: '#/components/schemas/EnrollmentRequest'}}}
       responses:
         '201': {description: Enrolled, content: {application/json: {schema: {$ref: '#/components/schemas/EnrollmentCreateResponse'}}}}
-        '400': {description: 'Invalid request, including CONTROLLER_INVALID (unknown kind, or agent id/version missing or malformed, or id/version on a non-agent kind) and CONTROLLER_NOT_ALLOWED (an observer declared a controller)', content: {application/json: {schema: {$ref: './error.schema.json'}}}}
+        '400': {description: 'Invalid request, including CAPTURE_INVALID (capture false with a capture_method), CONTROLLER_INVALID (unknown kind, or agent id/version missing or malformed, or id/version on a non-agent kind) and CONTROLLER_NOT_ALLOWED (an observer declared a controller)', content: {application/json: {schema: {$ref: './error.schema.json'}}}}
         '409': {description: 'IDEMPOTENCY_CONFLICT -- the same client instance was re-enrolled with a different request body, controller included', content: {application/json: {schema: {$ref: './error.schema.json'}}}}
   /v1/enrollments/{client_id}/reports:
     post:
@@ -309,6 +309,13 @@ components:
         client_instance_id: {type: string, minLength: 1, maxLength: 128}
         client_class: {type: string, enum: [player, observer]}
         capture_method: {type: string, maxLength: 128}
+        capture:
+          type: boolean
+          description: >-
+            false declines the capture stream a session that captures semantic
+            events would otherwise open for this client, for a client that
+            observes nothing by design. Absent keeps the session default. Naming a
+            capture_method while declining is refused with CAPTURE_INVALID.
         adapter:
           type: object
           additionalProperties: false

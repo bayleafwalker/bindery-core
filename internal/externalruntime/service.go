@@ -442,6 +442,9 @@ func (s *Service) Enroll(accountToken, sessionJoinCredential, sessionID, idempot
 	if err := validateController(req.ClientClass, req.Controller); err != nil {
 		return EnrollmentCreateResponse{}, err
 	}
+	if req.Capture != nil && !*req.Capture && req.CaptureMethod != "" {
+		return EnrollmentCreateResponse{}, domainError("CAPTURE_INVALID", "an enrollment that declines its capture stream cannot name a capture method")
+	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -519,13 +522,15 @@ func (s *Service) Enroll(accountToken, sessionJoinCredential, sessionID, idempot
 	}
 	s.refreshPublicEnrollmentsLocked(session)
 	var offers []CaptureStreamOffer
-	offer, minted, err := s.mintCaptureLocked(session, enrollment, req.CaptureMethod, now)
-	if err != nil {
-		return EnrollmentCreateResponse{}, fmt.Errorf("open capture stream: %w", err)
-	}
-	if minted {
-		offers = append(offers, offer)
-		s.refreshSessionCapturesLocked(session)
+	if req.Capture == nil || *req.Capture {
+		offer, minted, err := s.mintCaptureLocked(session, enrollment, req.CaptureMethod, now)
+		if err != nil {
+			return EnrollmentCreateResponse{}, fmt.Errorf("open capture stream: %w", err)
+		}
+		if minted {
+			offers = append(offers, offer)
+			s.refreshSessionCapturesLocked(session)
+		}
 	}
 	response := EnrollmentCreateResponse{PublicEnrollment: public, ClientLeaseToken: lease, TransportCredential: transport, ExpiresAt: enrollment.expiresAt, CaptureStreamOffers: offers}
 	s.enrollmentIdempotency[replayKey] = enrollmentCreateReplay{RequestHash: hash, Public: public, ExpiresAt: enrollment.expiresAt, Offers: append([]CaptureStreamOffer(nil), offers...)}
