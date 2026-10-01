@@ -156,3 +156,11 @@ The per-client stream finding is resolved too. An enrollment may send
 server-authoritative runtime need not each hold an empty one; omitting the
 field keeps the session default. `TestAnEnrollmentCanDeclineItsCaptureStream`
 covers it.
+
+The single-authority finding is resolved as well. A `record` evidence set
+publishes the broker-derived observations of the streams that passed the
+completeness gate, from one observer or more, with outcome `uncompared` and
+`compared_observers` 0; it refuses client-reported summaries. The
+cross-check methods still require two observers, so a hot standby remains the
+way a server-authoritative runtime gets a cross-check.
+`TestASingleAuthorityExecutionPublishesARecord` covers it.

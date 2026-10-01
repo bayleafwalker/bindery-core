@@ -436,7 +436,7 @@ components:
         OBSERVATION_ADJUDICATION_FORBIDDEN. `observations` survives only for
         executions with no capture plane at all.
       properties:
-        method: {type: string, enum: [exact-count, ordered-hash, semantic-equivalence, quorum, domain-specific]}
+        method: {type: string, enum: [exact-count, ordered-hash, record, semantic-equivalence, quorum, domain-specific]}
         capture_ids:
           type: array
           description: Which captured streams to compare. Empty means every non-derived capture on the execution.

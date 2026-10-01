@@ -11,7 +11,7 @@
     "execution_id": {"type": "string", "format": "uuid"},
     "observations": {
       "type": "array",
-      "minItems": 2,
+      "minItems": 1,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -44,9 +44,9 @@
       "additionalProperties": false,
       "required": ["method", "outcome", "compared_observers"],
       "properties": {
-        "method": {"type": "string", "enum": ["exact-count", "ordered-hash", "semantic-equivalence", "quorum", "domain-specific"]},
-        "outcome": {"type": "string", "enum": ["consistent", "inconsistent"]},
-        "compared_observers": {"type": "integer", "minimum": 2},
+        "method": {"type": "string", "enum": ["exact-count", "ordered-hash", "record", "semantic-equivalence", "quorum", "domain-specific"]},
+        "outcome": {"type": "string", "enum": ["consistent", "inconsistent", "uncompared"], "description": "uncompared is the outcome of a record, which compares nothing."},
+        "compared_observers": {"type": "integer", "minimum": 0, "description": "At least 2 for a cross-check method; 0 for a record."},
         "distinct_counts": {"type": "array", "items": {"type": "integer", "minimum": 0}},
         "distinct_hashes": {"type": "array", "items": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}
       }

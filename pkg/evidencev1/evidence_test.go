@@ -159,3 +159,69 @@ func TestOrderedHashRejectsMalformedObservedHash(t *testing.T) {
 		t.Fatal("a malformed observed hash was accepted")
 	}
 }
+
+// An evidence set is a record of what was observed before it is a cross-check
+// between observers. A runtime with one authority has exactly one honest
+// witness, and record publishes its observations without pretending they were
+// compared with anything.
+func TestRecordPublishesASingleAuthorityWithoutComparingIt(t *testing.T) {
+	set, err := Reconcile(ReconcileRequest{
+		ExecutionID: "execution-1",
+		Method:      MethodRecord,
+		CreatedAt:   time.Now(),
+		Observations: []ObservationSummary{
+			{ObserverID: "server", ExecutionID: "execution-1", StreamID: "server-stream", EventCount: 32, OrderedHash: hashA, ObservedHash: hashC, Source: SourceBrokerDerived},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if set.Reconciliation.Outcome != OutcomeUncompared || set.Reconciliation.ComparedObservers != 0 {
+		t.Fatalf("reconciliation = %+v, want uncompared over no observers", set.Reconciliation)
+	}
+	if len(set.Reconciliation.DistinctCounts) != 0 || len(set.Reconciliation.DistinctHashes) != 0 {
+		t.Fatalf("a record carried comparison results: %+v", set.Reconciliation)
+	}
+	if len(set.Observations) != 1 || set.EvidenceSetID == "" {
+		t.Fatalf("record = %+v", set)
+	}
+}
+
+// A record is the broker's account, not a client's account of itself.
+func TestRecordRefusesClientReportedSummaries(t *testing.T) {
+	_, err := Reconcile(ReconcileRequest{
+		ExecutionID: "execution-1",
+		Method:      MethodRecord,
+		CreatedAt:   time.Now(),
+		Observations: []ObservationSummary{
+			{ObserverID: "server", ExecutionID: "execution-1", StreamID: "server-stream", EventCount: 32, Source: SourceClientReported},
+		},
+	})
+	if !errors.Is(err, ErrRecordNotBrokerDerived) {
+		t.Fatalf("error = %v, want ErrRecordNotBrokerDerived", err)
+	}
+}
+
+func TestRecordRequiresAnObservation(t *testing.T) {
+	_, err := Reconcile(ReconcileRequest{ExecutionID: "execution-1", Method: MethodRecord, CreatedAt: time.Now()})
+	if err == nil {
+		t.Fatal("an empty record was accepted")
+	}
+}
+
+// The cross-check methods still need two independent observers.
+func TestComparisonMethodsStillRequireTwoObservers(t *testing.T) {
+	for _, method := range []Method{MethodExactCount, MethodOrderedHash} {
+		_, err := Reconcile(ReconcileRequest{
+			ExecutionID: "execution-1",
+			Method:      method,
+			CreatedAt:   time.Now(),
+			Observations: []ObservationSummary{
+				{ObserverID: "server", ExecutionID: "execution-1", StreamID: "server-stream", EventCount: 32, OrderedHash: hashA, ObservedHash: hashC, Source: SourceBrokerDerived},
+			},
+		})
+		if err == nil {
+			t.Fatalf("%s accepted a single observer", method)
+		}
+	}
+}

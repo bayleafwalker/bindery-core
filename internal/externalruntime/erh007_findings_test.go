@@ -310,6 +310,86 @@ func TestEnrollmentRequestDecodesCapture(t *testing.T) {
 	}
 }
 
+// RETIRED FINDING: a single-authority execution could publish no evidence at
+// all, because reconciliation required two observers and "evidence set"
+// conflated the record of what was observed with the cross-check between
+// observers. The record method publishes the broker-derived observations
+// uncompared; the cross-check methods still refuse a single observer.
+func TestASingleAuthorityExecutionPublishesARecord(t *testing.T) {
+	service := NewService()
+	owner := mustIdentity(t, service, "authority-owner")
+	created, err := service.CreateSession(owner.AccountToken, "authority-session", testSessionRequest())
+	if err != nil {
+		t.Fatal(err)
+	}
+	sessionID := created.PublicSession.SessionID
+	authority := mustEnroll(t, service, owner.AccountToken, created.SessionJoinCredential, sessionID, "authority", ClientPlayer)
+	declined := false
+	if _, err := service.Enroll(owner.AccountToken, created.SessionJoinCredential, sessionID, "enroll-seat", EnrollmentRequest{
+		ClientInstanceID: "seat", ClientClass: ClientPlayer, Capture: &declined,
+		Adapter:       AdapterRef{ID: "bindery.ra2-adapter", Version: "0.1.0"},
+		Compatibility: ClientHashes{GameHash: testHashA, ModHash: testHashA, MapHash: testHashB},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	ingestRange(t, service, authority, 0, 31, 500)
+	if _, err := service.CloseCapture(authority.lease, authority.capture, CaptureCloseRequest{FinalSequence: through(31), EndReason: "simulation complete"}); err != nil {
+		t.Fatal(err)
+	}
+	executionID := created.PublicSession.ExecutionID
+
+	if _, err := service.CreateEvidenceSet(owner.AccountToken, executionID, "authority-count",
+		ReconcileEvidenceRequest{Method: evidencev1.MethodExactCount}); !hasCode(err, "RECONCILIATION_INVALID") {
+		t.Fatalf("a single observer was cross-checked: %v", err)
+	}
+	record, err := service.CreateEvidenceSet(owner.AccountToken, executionID, "authority-record",
+		ReconcileEvidenceRequest{Method: evidencev1.MethodRecord})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if record.Reconciliation.Outcome != evidencev1.OutcomeUncompared || record.Reconciliation.ComparedObservers != 0 {
+		t.Fatalf("reconciliation = %+v, want uncompared", record.Reconciliation)
+	}
+	if len(record.Observations) != 1 {
+		t.Fatalf("observations = %d, want the authority's", len(record.Observations))
+	}
+	observation := record.Observations[0]
+	if observation.ObserverID != authority.id || observation.EventCount != 32 || observation.Source != evidencev1.SourceBrokerDerived {
+		t.Fatalf("observation = %+v", observation)
+	}
+	if len(record.GateResults) != 1 || record.GateResults[0].Status != string(gatev1.StatusPass) {
+		t.Fatalf("gate results = %+v", record.GateResults)
+	}
+	published, err := service.GetEvidenceSet(record.EvidenceSetID)
+	if err != nil || published.EvidenceSetID != record.EvidenceSetID {
+		t.Fatalf("the record is not publicly readable: %+v, %v", published, err)
+	}
+}
+
+// Without captured streams the only observations are the client's own
+// account, and a record will not publish those uncompared.
+func TestARecordRefusesClientReportedObservations(t *testing.T) {
+	service := NewService()
+	owner := mustIdentity(t, service, "record-claim-owner")
+	request := testSessionRequest()
+	request.Capture.SemanticEvents = false
+	created, err := service.CreateSession(owner.AccountToken, "record-claim-session", request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := mustEnroll(t, service, owner.AccountToken, created.SessionJoinCredential, created.PublicSession.SessionID, "claim-a", ClientPlayer)
+	executionID := created.PublicSession.ExecutionID
+	_, err = service.CreateEvidenceSet(owner.AccountToken, executionID, "record-claim", ReconcileEvidenceRequest{
+		Method: evidencev1.MethodRecord,
+		Observations: []evidencev1.ObservationSummary{
+			{ObserverID: a.id, ExecutionID: executionID, StreamID: "claimed", EventCount: 9, Source: evidencev1.SourceClientReported},
+		},
+	})
+	if !hasCode(err, "RECONCILIATION_INVALID") {
+		t.Fatalf("error = %v, want RECONCILIATION_INVALID", err)
+	}
+}
+
 // The counterpart to the findings: what ERH-007 caused to be removed from core
 // must stay removed. These are the shapes a non-RA2 runtime needs and that the
 // control plane refused before 2026-08-26.

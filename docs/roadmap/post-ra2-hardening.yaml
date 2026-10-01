@@ -92,7 +92,9 @@ work:
       only by removing game-specific constraints.
 
       All three acceptance criteria are met, and the item is not marked done,
-      because the findings are the deliverable and one of them is open. See
+      because the findings are the deliverable and the two found by the
+      third-party run are still open; the four core leaks the second runtime
+      found are resolved as of 2026-10-01. See
       docs/assessments/2026-08-26-erh-007-second-runtime.md.
 
       What it is not: a second commercial game. It cannot surface the
@@ -248,10 +250,11 @@ erh007_findings_note: >-
   The canonical encoding did not move. The OpenTTD acceptance run now
   reconciles its two identical admin streams as consistent.
 
-  Three further leaks are open and recorded: a single-authority execution can
-  publish no evidence at all, because reconciliation requires two observers and
-  "evidence set" conflates the record of what was observed with the cross-check
-  between observers; capture streams were minted per client with no per-client
+  Three further leaks were recorded: a single-authority execution could
+  publish no evidence at all, because reconciliation required two observers and
+  "evidence set" conflated the record of what was observed with the cross-check
+  between observers (resolved 2026-10-01: the record method publishes
+  broker-derived observations uncompared, outcome uncompared); capture streams were minted per client with no per-client
   opt-out, so clients that produce nothing by design each held one (resolved
   2026-10-01: an enrollment may send capture false and get no stream); and a
   producer could not close a stream as legitimately empty, because

@@ -101,9 +101,22 @@ agreement or disagreement at the level promised by its method.
 | --- | --- | --- |
 | `exact-count` | All independent streams report the same event count | Implemented |
 | `ordered-hash` | All independent streams witnessed the same events in the same order (`observed_hash`; see below) | Implemented |
+| `record` | Publishes broker-derived observations from one or more observers without comparing them; outcome `uncompared`, `compared_observers` 0 | Implemented |
 | `semantic-equivalence` | Domain normalizer considers streams equivalent | Reserved |
 | `quorum` | A declared observer quorum agrees | Reserved |
 | `domain-specific` | Versioned adapter/domain policy | Reserved |
+
+### A record is not a cross-check
+
+An evidence set is first a record of what was observed and only then,
+optionally, a cross-check between observers. `record` publishes the
+broker-derived observation summaries of the streams that passed the
+completeness gate, from one observer or several, with outcome `uncompared`
+and `compared_observers` 0. It is how a server-authoritative execution, which
+has exactly one honest witness, publishes evidence at all. It refuses
+client-reported summaries (`ErrRecordNotBrokerDerived`): a record is
+published uncompared, so the broker must have counted. `exact-count` and
+`ordered-hash` still require two distinct observers.
 
 ### What `ordered-hash` compares
 

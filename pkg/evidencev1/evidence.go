@@ -23,6 +23,11 @@ const (
 	MethodSemanticEquivalent Method = "semantic-equivalence"
 	MethodQuorum             Method = "quorum"
 	MethodDomainSpecific     Method = "domain-specific"
+	// MethodRecord publishes broker-derived observations without comparing
+	// them. An evidence set is a record of what was observed before it is a
+	// cross-check between observers, and a runtime with a single authority
+	// has exactly one honest witness.
+	MethodRecord Method = "record"
 )
 
 type Outcome string
@@ -30,6 +35,9 @@ type Outcome string
 const (
 	OutcomeConsistent   Outcome = "consistent"
 	OutcomeInconsistent Outcome = "inconsistent"
+	// OutcomeUncompared is the outcome of a record: nothing was compared, so
+	// nothing agreed or disagreed.
+	OutcomeUncompared Outcome = "uncompared"
 )
 
 // Observation is one attributable event. Capture stores may retain these in
@@ -103,6 +111,10 @@ var ErrSourceUnknown = errors.New("observation summary does not record how it wa
 
 var ErrUnsupportedMethod = errors.New("reconciliation method is not implemented")
 
+// ErrRecordNotBrokerDerived rejects a record built from a client's account of
+// itself. A record is published uncompared, so the broker must have counted.
+var ErrRecordNotBrokerDerived = errors.New("a record publishes only broker-derived observations")
+
 // ErrMixedHashKinds rejects an ordered-hash reconciliation in which some
 // summaries carry an observed hash and others only a stream hash. The two are
 // different digests, and comparing them would report disagreement that is not
@@ -117,7 +129,10 @@ func Reconcile(request ReconcileRequest) (EvidenceSet, error) {
 	if request.ExecutionID == "" || request.CreatedAt.IsZero() {
 		return EvidenceSet{}, errors.New("execution id and reconciliation time are required")
 	}
-	if len(request.Observations) < 2 {
+	if len(request.Observations) == 0 {
+		return EvidenceSet{}, errors.New("at least one observation is required")
+	}
+	if request.Method != MethodRecord && len(request.Observations) < 2 {
 		return EvidenceSet{}, errors.New("at least two independent observations are required")
 	}
 
@@ -137,7 +152,7 @@ func Reconcile(request ReconcileRequest) (EvidenceSet, error) {
 		observers[observation.ObserverID] = struct{}{}
 		streams[observation.StreamID] = struct{}{}
 	}
-	if len(observers) < 2 {
+	if request.Method != MethodRecord && len(observers) < 2 {
 		return EvidenceSet{}, errors.New("reconciliation requires at least two distinct observers")
 	}
 	sort.Slice(observations, func(i, j int) bool {
@@ -149,6 +164,14 @@ func Reconcile(request ReconcileRequest) (EvidenceSet, error) {
 
 	reconciliation := Reconciliation{Method: request.Method, ComparedObservers: len(observers)}
 	switch request.Method {
+	case MethodRecord:
+		for _, observation := range observations {
+			if observation.Source != SourceBrokerDerived {
+				return EvidenceSet{}, fmt.Errorf("%w: stream %q", ErrRecordNotBrokerDerived, observation.StreamID)
+			}
+		}
+		reconciliation.ComparedObservers = 0
+		reconciliation.Outcome = OutcomeUncompared
 	case MethodExactCount:
 		reconciliation.DistinctCounts = distinctCounts(observations)
 		reconciliation.Outcome = outcome(len(reconciliation.DistinctCounts) == 1)
