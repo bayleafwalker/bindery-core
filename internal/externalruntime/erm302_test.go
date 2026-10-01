@@ -193,7 +193,7 @@ func closeMatchingStreams(t *testing.T, service *Service, a, b testEnrollmentSec
 	t.Helper()
 	for _, client := range []testEnrollmentSecrets{a, b} {
 		ingestRange(t, service, client, 0, events-1, 500)
-		if _, err := service.CloseCapture(client.lease, client.capture, CaptureCloseRequest{FinalSequence: events - 1, EndReason: "match-ended"}); err != nil {
+		if _, err := service.CloseCapture(client.lease, client.capture, CaptureCloseRequest{FinalSequence: through(events - 1), EndReason: "match-ended"}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -214,3 +214,6 @@ func ingestRange(t *testing.T, service *Service, client testEnrollmentSecrets, f
 		}
 	}
 }
+
+// through is a close's claim that the stream ran through sequence n.
+func through(n uint64) *uint64 { return &n }

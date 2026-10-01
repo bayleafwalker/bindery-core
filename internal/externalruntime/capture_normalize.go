@@ -115,7 +115,8 @@ func (s *Service) NormalizeCapture(accountToken, captureID string, req Normalize
 			FirstSequence: derived[0].Event.Sequence, LastSequence: derived[len(derived)-1].Event.Sequence,
 			EventCount: uint64(len(derived)), Bytes: int64(len(body)), ReceivedAt: now,
 		})
-		record.Close.FinalSequence = derived[len(derived)-1].Event.Sequence
+		finalSequence := derived[len(derived)-1].Event.Sequence
+		record.Close.FinalSequence = &finalSequence
 	}
 	s.captures[derivedID] = record
 	source.DerivationIDs = appendUnique(source.DerivationIDs, derivedID)

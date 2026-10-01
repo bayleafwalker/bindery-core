@@ -26,7 +26,7 @@ func TestCompletenessManifestMakesGapsAndDropsExplicit(t *testing.T) {
 	}
 
 	closed, err := service.CloseCapture(fixture.playerA.lease, fixture.playerA.capture, CaptureCloseRequest{
-		FinalSequence: 4, ObservedGaps: [][2]uint64{{2, 2}}, LocalDrops: 1, EndReason: "client-exit",
+		FinalSequence: through(4), ObservedGaps: [][2]uint64{{2, 2}}, LocalDrops: 1, EndReason: "client-exit",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -66,7 +66,7 @@ func TestCloseIsIdempotentAndRefusesADifferentAccount(t *testing.T) {
 	service := NewService()
 	fixture := newCaptureFixture(t, service, "close-twice")
 	mustIngest(t, service, fixture.playerA, 0, 2)
-	request := CaptureCloseRequest{FinalSequence: 2, LocalDrops: 0, EndReason: "match-ended"}
+	request := CaptureCloseRequest{FinalSequence: through(2), LocalDrops: 0, EndReason: "match-ended"}
 
 	first, err := service.CloseCapture(fixture.playerA.lease, fixture.playerA.capture, request)
 	if err != nil {
@@ -79,7 +79,7 @@ func TestCloseIsIdempotentAndRefusesADifferentAccount(t *testing.T) {
 	if !first.ClosedAt.Equal(*second.ClosedAt) {
 		t.Fatal("a repeated close moved the close time")
 	}
-	if _, err := service.CloseCapture(fixture.playerA.lease, fixture.playerA.capture, CaptureCloseRequest{FinalSequence: 9, EndReason: "match-ended"}); !hasCode(err, "IDEMPOTENCY_CONFLICT") {
+	if _, err := service.CloseCapture(fixture.playerA.lease, fixture.playerA.capture, CaptureCloseRequest{FinalSequence: through(9), EndReason: "match-ended"}); !hasCode(err, "IDEMPOTENCY_CONFLICT") {
 		t.Fatalf("contradictory close error = %v", err)
 	}
 	if _, err := service.IngestCaptureBatch(fixture.playerA.lease, fixture.playerA.capture, "after-close", batchRequest(3, 3, `{"a":1}`)); !hasCode(err, "CAPTURE_NOT_OPEN") {
@@ -118,7 +118,7 @@ func TestCloseOverHTTPUsesTheColonVerbAndLeaksNothing(t *testing.T) {
 	fixture := newCaptureFixture(t, service, "http-close")
 	mustIngest(t, service, fixture.playerA, 0, 1)
 
-	body, err := json.Marshal(CaptureCloseRequest{FinalSequence: 1, EndReason: "match-ended"})
+	body, err := json.Marshal(CaptureCloseRequest{FinalSequence: through(1), EndReason: "match-ended"})
 	if err != nil {
 		t.Fatal(err)
 	}

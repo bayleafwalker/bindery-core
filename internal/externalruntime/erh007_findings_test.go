@@ -9,6 +9,7 @@ import (
 
 	"github.com/bayleafwalker/bindery-core/internal/capture"
 	"github.com/bayleafwalker/bindery-core/pkg/evidencev1"
+	"github.com/bayleafwalker/bindery-core/pkg/gatev1"
 )
 
 // These pin what running a second, non-RA2 runtime found in core. They are
@@ -71,7 +72,7 @@ func TestOrderedHashStillReportsDivergentObservations(t *testing.T) {
 		if _, err := service.IngestCaptureBatch(client.lease, client.capture, "divergent-"+client.id, batchRequest(0, 7, payload)); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := service.CloseCapture(client.lease, client.capture, CaptureCloseRequest{FinalSequence: 7, EndReason: "match-ended"}); err != nil {
+		if _, err := service.CloseCapture(client.lease, client.capture, CaptureCloseRequest{FinalSequence: through(7), EndReason: "match-ended"}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -122,32 +123,100 @@ func TestFindingGameTickIsFrozenIntoEveryPublishedHash(t *testing.T) {
 	}
 }
 
-// FINDING: a producer cannot close a stream as legitimately empty.
-//
-// CaptureCloseRequest.FinalSequence is an unsigned sequence number, so the
-// smallest thing a producer can claim is that sequence 0 exists. A client that
-// honestly observed nothing -- every player in a server-authoritative runtime
-// -- must therefore close with a gap it does not have, and is indistinguishable
-// from a producer that lost its first event.
-func TestFindingAnEmptyStreamCannotCloseCleanly(t *testing.T) {
+// RETIRED FINDING: a producer could not close a stream as legitimately empty.
+// final_sequence was an unsigned sequence number, so the smallest claim was
+// that sequence 0 exists, and a client that honestly observed nothing closed
+// with a gap it did not have. final_sequence is now nullable: null says "this
+// producer observed nothing", and is refused from a producer that did.
+func TestAnEmptyStreamClosesWithoutAPhantomGap(t *testing.T) {
 	service := NewService()
 	fixture := newCaptureFixture(t, service, "empty-stream")
-	closed, err := service.CloseCapture(fixture.playerA.lease, fixture.playerA.capture, CaptureCloseRequest{
-		FinalSequence: 0, LocalDrops: 0, EndReason: "client produced no observations",
-	})
+	request := CaptureCloseRequest{FinalSequence: nil, EndReason: "client produced no observations"}
+	closed, err := service.CloseCapture(fixture.playerA.lease, fixture.playerA.capture, request)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if closed.Completeness == nil {
-		t.Fatal("no completeness manifest")
+	completeness := closed.Completeness
+	if completeness == nil || !completeness.Closed {
+		t.Fatalf("completeness = %+v, want a closed manifest", completeness)
 	}
-	if len(closed.Completeness.MissingRanges) == 0 {
-		t.Fatal("an empty stream now closes without a phantom gap: the finding is fixed and must be retired")
+	if len(completeness.MissingRanges) != 0 || completeness.ExpectedThrough != nil || completeness.EventCount != 0 {
+		t.Fatalf("an empty stream closed as %+v, want no expected range, no gap and no events", completeness)
 	}
-	if closed.Completeness.EventCount != 0 {
-		t.Fatalf("event count = %d, want 0", closed.Completeness.EventCount)
+	replay, err := service.CloseCapture(fixture.playerA.lease, fixture.playerA.capture, request)
+	if err != nil || replay.Completeness.ExpectedThrough != nil {
+		t.Fatalf("replaying the empty close = %+v, %v", replay.Completeness, err)
 	}
-	t.Logf("a stream that produced nothing closes reporting missing %v", closed.Completeness.MissingRanges)
+	if _, err := service.CloseCapture(fixture.playerA.lease, fixture.playerA.capture,
+		CaptureCloseRequest{FinalSequence: through(0), EndReason: request.EndReason}); !hasCode(err, "IDEMPOTENCY_CONFLICT") {
+		t.Fatalf("an empty close was silently changed to a claim of sequence 0: %v", err)
+	}
+	gate := evaluateCaptureCompleteness(service.captures[fixture.playerA.capture], service.objects, gatev1.Context{
+		Phase: GatePhaseEvidenceReconciliation, ArtifactType: GateArtifactCaptureStream, CapabilitiesKnown: true,
+	})
+	if gate.Status != string(gatev1.StatusPass) {
+		t.Fatalf("an honestly empty stream fails completeness: %s %s", gate.Status, gate.Reason)
+	}
+}
+
+// The control that keeps the empty close honest: a producer that ingested
+// anything, or reports gaps, cannot claim it observed nothing.
+func TestAnEmptyCloseIsRefusedFromAProducerThatObserved(t *testing.T) {
+	service := NewService()
+	fixture := newCaptureFixture(t, service, "empty-refused")
+	mustIngest(t, service, fixture.playerA, 0, 1)
+	_, err := service.CloseCapture(fixture.playerA.lease, fixture.playerA.capture,
+		CaptureCloseRequest{FinalSequence: nil, EndReason: "claims nothing"})
+	if !hasCode(err, "CLOSE_CONTRADICTS_OBSERVATIONS") {
+		t.Fatalf("error = %v, want CLOSE_CONTRADICTS_OBSERVATIONS", err)
+	}
+	_, err = service.CloseCapture(fixture.playerB.lease, fixture.playerB.capture,
+		CaptureCloseRequest{FinalSequence: nil, ObservedGaps: [][2]uint64{{0, 0}}, EndReason: "claims a gap in nothing"})
+	if !hasCode(err, "CLOSE_CONTRADICTS_OBSERVATIONS") {
+		t.Fatalf("error = %v, want CLOSE_CONTRADICTS_OBSERVATIONS", err)
+	}
+	// Once empty, a stream stays empty.
+	if _, err := service.CloseCapture(fixture.playerB.lease, fixture.playerB.capture,
+		CaptureCloseRequest{EndReason: "nothing"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.IngestCaptureBatch(fixture.playerB.lease, fixture.playerB.capture, "after-empty", batchRequest(0, 0, `{}`)); err == nil {
+		t.Fatal("a stream closed as empty accepted an observation afterwards")
+	}
+}
+
+func TestAnEmptyCloseSurvivesARestart(t *testing.T) {
+	directory := t.TempDir()
+	service := openPersistentCaptureService(t, directory)
+	fixture := newCaptureFixture(t, service, "empty-restart")
+	if _, err := service.CloseCapture(fixture.playerA.lease, fixture.playerA.capture,
+		CaptureCloseRequest{EndReason: "nothing"}); err != nil {
+		t.Fatal(err)
+	}
+	reopened := openPersistentCaptureService(t, directory)
+	record, err := reopened.GetCapture(fixture.playerA.capture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !record.Completeness.Closed || record.Completeness.ExpectedThrough != nil || len(record.Completeness.MissingRanges) != 0 {
+		t.Fatalf("empty close after restart = %+v", record.Completeness)
+	}
+}
+
+func TestHTTPAcceptsANullFinalSequence(t *testing.T) {
+	var request CaptureCloseRequest
+	if err := json.Unmarshal([]byte(`{"final_sequence":null,"local_drops":0,"end_reason":"nothing"}`), &request); err != nil {
+		t.Fatal(err)
+	}
+	if request.FinalSequence != nil {
+		t.Fatalf("final_sequence null decoded as %d", *request.FinalSequence)
+	}
+	if err := json.Unmarshal([]byte(`{"final_sequence":0,"local_drops":0,"end_reason":"one"}`), &request); err != nil {
+		t.Fatal(err)
+	}
+	if request.FinalSequence == nil || *request.FinalSequence != 0 {
+		t.Fatal("final_sequence 0 no longer claims sequence 0")
+	}
 }
 
 // The counterpart to the findings: what ERH-007 caused to be removed from core
@@ -278,7 +347,7 @@ func TestFindingEvidenceSetsRecordNoObservationInterval(t *testing.T) {
 	}{{fixture.playerA, 8}, {fixture.playerB, 6}} {
 		ingestRange(t, service, watched.client, 0, watched.events-1, 500)
 		if _, err := service.CloseCapture(watched.client.lease, watched.client.capture, CaptureCloseRequest{
-			FinalSequence: watched.events - 1, EndReason: "the observer stopped watching",
+			FinalSequence: through(watched.events - 1), EndReason: "the observer stopped watching",
 		}); err != nil {
 			t.Fatal(err)
 		}

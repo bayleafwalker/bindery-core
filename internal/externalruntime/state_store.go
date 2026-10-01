@@ -572,6 +572,7 @@ func restoreCaptures(snapshot serviceSnapshot, sessions map[string]*sessionRecor
 		}
 		if stored.Close != nil {
 			closeCopy := *stored.Close
+			closeCopy.FinalSequence = copySequence(stored.Close.FinalSequence)
 			closeCopy.ObservedGaps = append([][2]uint64(nil), stored.Close.ObservedGaps...)
 			record.Close = &closeCopy
 		}

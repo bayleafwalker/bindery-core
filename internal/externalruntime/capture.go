@@ -93,7 +93,8 @@ type CaptureIndexEntry struct {
 // retained as a claim, not as truth: the broker's observed ranges are computed
 // independently and the two are compared in the completeness manifest.
 type CaptureClose struct {
-	FinalSequence uint64      `json:"final_sequence"`
+	// FinalSequence is nil for a stream the producer closed as empty.
+	FinalSequence *uint64     `json:"final_sequence"`
 	ObservedGaps  [][2]uint64 `json:"observed_gaps,omitempty"`
 	LocalDrops    uint64      `json:"local_drops"`
 	EndReason     string      `json:"end_reason"`
@@ -121,6 +122,7 @@ func (r *captureRecord) clone() *captureRecord {
 	copied.Index = append([]CaptureIndexEntry(nil), r.Index...)
 	if r.Close != nil {
 		closeCopy := *r.Close
+		closeCopy.FinalSequence = copySequence(r.Close.FinalSequence)
 		closeCopy.ObservedGaps = append([][2]uint64(nil), r.Close.ObservedGaps...)
 		copied.Close = &closeCopy
 	}
@@ -189,9 +191,11 @@ func (r *captureRecord) completeness() CaptureCompleteness {
 		SourceCoverage:  string(r.ProducerClass),
 	}
 	if r.Close != nil {
-		expected := r.Close.FinalSequence
-		manifest.ExpectedThrough = &expected
-		manifest.MissingRanges = capture.MissingThrough(sequences, expected)
+		if r.Close.FinalSequence != nil {
+			expected := *r.Close.FinalSequence
+			manifest.ExpectedThrough = &expected
+			manifest.MissingRanges = capture.MissingThrough(sequences, expected)
+		}
 		manifest.LocalDrops = r.Close.LocalDrops
 		manifest.Closed = true
 		manifest.EndReason = r.Close.EndReason

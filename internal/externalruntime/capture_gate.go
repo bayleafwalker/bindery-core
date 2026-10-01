@@ -217,7 +217,8 @@ func fixtureCalibrationCapture(gapped bool) (*captureRecord, ObjectStore, string
 	}
 	closedAt := stamp
 	record.ClosedAt = &closedAt
-	record.Close = &CaptureClose{FinalSequence: 3, EndReason: "calibration"}
+	calibrationThrough := uint64(3)
+	record.Close = &CaptureClose{FinalSequence: &calibrationThrough, EndReason: "calibration"}
 	if gapped {
 		record.Close.ObservedGaps = [][2]uint64{{2, 2}}
 		record.Close.LocalDrops = 1

@@ -374,7 +374,10 @@ components:
       additionalProperties: false
       required: [final_sequence, end_reason]
       properties:
-        final_sequence: {type: integer, minimum: 0}
+        final_sequence:
+          type: [integer, 'null']
+          minimum: 0
+          description: The last sequence the producer sent. null closes the stream as empty -- the producer observed nothing -- and is refused with CLOSE_CONTRADICTS_OBSERVATIONS from a producer that ingested observations or reports gaps. Zero is not empty; it claims sequence 0 exists.
         observed_gaps:
           type: array
           items: {type: array, minItems: 2, maxItems: 2, items: {type: integer, minimum: 0}}

@@ -143,4 +143,10 @@ stream, so no published hash moved. The pinning test was retired in favour of
 `TestOrderedHashAgreesAcrossProducersOnIdenticalObservations` and a negative
 control, `TestOrderedHashStillReportsDivergentObservations`; the OpenTTD
 acceptance run now reconciles its two identical admin streams as `consistent`.
-The other findings above stand.
+
+The empty-stream finding is resolved the same day. `final_sequence` on a
+capture close is nullable: `null` closes the stream as empty, with no expected
+range and no phantom gap, and is refused with `CLOSE_CONTRADICTS_OBSERVATIONS`
+from a producer that ingested observations or reports gaps.
+`TestFindingAnEmptyStreamCannotCloseCleanly` was retired in favour of
+`TestAnEmptyStreamClosesWithoutAPhantomGap` and its refusal control.

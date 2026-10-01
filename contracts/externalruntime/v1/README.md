@@ -93,6 +93,17 @@ trace, and stores and serves it like any other object. It is deliberately
 game-neutral; a runtime-specific format belongs in that runtime's adapter
 (ADR-010), and core defines none.
 
+## Closing an empty capture
+
+`final_sequence` on `POST /v1/captures/{capture_id}:close` is nullable. `null`
+says the producer observed nothing, and the stream closes with no expected
+range and no missing ranges, so it can pass the completeness gate. Zero is a
+different claim: that sequence 0 exists. An empty close from a producer that
+ingested observations, or that reports `observed_gaps`, is refused with
+`CLOSE_CONTRADICTS_OBSERVATIONS`, and a stream closed as empty accepts no
+later observations. Code: `CloseCapture` in
+`internal/externalruntime/capture_close.go`.
+
 ## Divergences from the research pack
 
 `docs/research/external-runtime-multiplayer/` is immutable input, so these are

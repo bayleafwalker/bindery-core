@@ -35,7 +35,7 @@ func gappedClosedCapture(t *testing.T, service *Service, name string) (captureFi
 	mustIngest(t, service, fixture.playerA, 0, 1)
 	mustIngest(t, service, fixture.playerA, 3, 4)
 	if _, err := service.CloseCapture(fixture.playerA.lease, fixture.playerA.capture, CaptureCloseRequest{
-		FinalSequence: 4, ObservedGaps: [][2]uint64{{2, 2}}, LocalDrops: 1, EndReason: "client-exit",
+		FinalSequence: through(4), ObservedGaps: [][2]uint64{{2, 2}}, LocalDrops: 1, EndReason: "client-exit",
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -159,11 +159,11 @@ func TestDerivationsAreNotIndependentObservations(t *testing.T) {
 	b := mustEnroll(t, service, owner.AccountToken, created.SessionJoinCredential, created.PublicSession.SessionID, "derived-b", ClientPlayer)
 	ingestRange(t, service, a, 0, 1, 10)
 	ingestRange(t, service, a, 3, 3, 10)
-	if _, err := service.CloseCapture(a.lease, a.capture, CaptureCloseRequest{FinalSequence: 3, ObservedGaps: [][2]uint64{{2, 2}}, EndReason: "client-exit"}); err != nil {
+	if _, err := service.CloseCapture(a.lease, a.capture, CaptureCloseRequest{FinalSequence: through(3), ObservedGaps: [][2]uint64{{2, 2}}, EndReason: "client-exit"}); err != nil {
 		t.Fatal(err)
 	}
 	ingestRange(t, service, b, 0, 3, 10)
-	if _, err := service.CloseCapture(b.lease, b.capture, CaptureCloseRequest{FinalSequence: 3, EndReason: "match-ended"}); err != nil {
+	if _, err := service.CloseCapture(b.lease, b.capture, CaptureCloseRequest{FinalSequence: through(3), EndReason: "match-ended"}); err != nil {
 		t.Fatal(err)
 	}
 

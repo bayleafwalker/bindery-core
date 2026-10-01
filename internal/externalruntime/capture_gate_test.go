@@ -23,7 +23,7 @@ func TestCompletenessGateSeparatesAllFiveOutcomes(t *testing.T) {
 	}
 
 	// Closed and contiguous.
-	if _, err := service.CloseCapture(fixture.playerA.lease, fixture.playerA.capture, CaptureCloseRequest{FinalSequence: 2, EndReason: "match-ended"}); err != nil {
+	if _, err := service.CloseCapture(fixture.playerA.lease, fixture.playerA.capture, CaptureCloseRequest{FinalSequence: through(2), EndReason: "match-ended"}); err != nil {
 		t.Fatal(err)
 	}
 	complete := evaluateCaptureCompleteness(service.captures[fixture.playerA.capture], service.objects, reconciliationContext())
@@ -37,7 +37,7 @@ func TestCompletenessGateSeparatesAllFiveOutcomes(t *testing.T) {
 	// Closed with a gap.
 	mustIngest(t, service, fixture.playerB, 0, 1)
 	mustIngest(t, service, fixture.playerB, 3, 3)
-	if _, err := service.CloseCapture(fixture.playerB.lease, fixture.playerB.capture, CaptureCloseRequest{FinalSequence: 3, EndReason: "client-exit"}); err != nil {
+	if _, err := service.CloseCapture(fixture.playerB.lease, fixture.playerB.capture, CaptureCloseRequest{FinalSequence: through(3), EndReason: "client-exit"}); err != nil {
 		t.Fatal(err)
 	}
 	gapped := evaluateCaptureCompleteness(service.captures[fixture.playerB.capture], service.objects, reconciliationContext())
@@ -71,7 +71,7 @@ func TestUnreadableEvidenceIsErrorNotFailure(t *testing.T) {
 	service := NewService()
 	fixture := newCaptureFixture(t, service, "unreadable")
 	mustIngest(t, service, fixture.playerA, 0, 1)
-	if _, err := service.CloseCapture(fixture.playerA.lease, fixture.playerA.capture, CaptureCloseRequest{FinalSequence: 1, EndReason: "match-ended"}); err != nil {
+	if _, err := service.CloseCapture(fixture.playerA.lease, fixture.playerA.capture, CaptureCloseRequest{FinalSequence: through(1), EndReason: "match-ended"}); err != nil {
 		t.Fatal(err)
 	}
 	record := service.captures[fixture.playerA.capture]

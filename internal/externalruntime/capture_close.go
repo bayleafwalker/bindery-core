@@ -5,7 +5,10 @@ package externalruntime
 // observed rather than in place of it, so a producer that under-reports its
 // drops is contradicted by the manifest instead of believed by it.
 type CaptureCloseRequest struct {
-	FinalSequence uint64      `json:"final_sequence"`
+	// FinalSequence is the last sequence the producer claims to have sent.
+	// null says the producer observed nothing at all; zero is not that claim,
+	// it says sequence 0 exists.
+	FinalSequence *uint64     `json:"final_sequence"`
 	ObservedGaps  [][2]uint64 `json:"observed_gaps,omitempty"`
 	LocalDrops    uint64      `json:"local_drops"`
 	EndReason     string      `json:"end_reason"`
@@ -47,10 +50,14 @@ func (s *Service) CloseCapture(clientLease, captureID string, req CaptureCloseRe
 		return PublicCapture{}, domainError("CAPTURE_NOT_OPEN", "capture was abandoned after its producer lease ended")
 	}
 
+	if req.FinalSequence == nil && (len(record.observedSequences()) > 0 || len(req.ObservedGaps) > 0) {
+		return PublicCapture{}, domainError("CLOSE_CONTRADICTS_OBSERVATIONS", "a producer that observed something cannot close its stream as empty")
+	}
+
 	before := s.snapshotLocked()
 	now := s.now()
 	record.Close = &CaptureClose{
-		FinalSequence: req.FinalSequence,
+		FinalSequence: copySequence(req.FinalSequence),
 		ObservedGaps:  append([][2]uint64(nil), req.ObservedGaps...),
 		LocalDrops:    req.LocalDrops,
 		EndReason:     req.EndReason,
@@ -79,8 +86,23 @@ func (s *Service) markCaptureDegradedLocked(clientID string) {
 	}
 }
 
+func copySequence(value *uint64) *uint64 {
+	if value == nil {
+		return nil
+	}
+	copied := *value
+	return &copied
+}
+
+func sameSequence(a, b *uint64) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
+}
+
 func sameClose(existing *CaptureClose, req CaptureCloseRequest) bool {
-	if existing.FinalSequence != req.FinalSequence || existing.LocalDrops != req.LocalDrops || existing.EndReason != req.EndReason {
+	if !sameSequence(existing.FinalSequence, req.FinalSequence) || existing.LocalDrops != req.LocalDrops || existing.EndReason != req.EndReason {
 		return false
 	}
 	if len(existing.ObservedGaps) != len(req.ObservedGaps) {

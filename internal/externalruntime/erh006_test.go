@@ -73,10 +73,10 @@ func TestDisagreeingStreamsStayAttributableAndInconsistent(t *testing.T) {
 	b := mustEnroll(t, service, owner.AccountToken, created.SessionJoinCredential, created.PublicSession.SessionID, "disagree-b", ClientPlayer)
 	ingestRange(t, service, a, 0, 9, 10)
 	ingestRange(t, service, b, 0, 7, 10)
-	if _, err := service.CloseCapture(a.lease, a.capture, CaptureCloseRequest{FinalSequence: 9, EndReason: "match-ended"}); err != nil {
+	if _, err := service.CloseCapture(a.lease, a.capture, CaptureCloseRequest{FinalSequence: through(9), EndReason: "match-ended"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.CloseCapture(b.lease, b.capture, CaptureCloseRequest{FinalSequence: 7, EndReason: "match-ended"}); err != nil {
+	if _, err := service.CloseCapture(b.lease, b.capture, CaptureCloseRequest{FinalSequence: through(7), EndReason: "match-ended"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -105,7 +105,7 @@ func TestAnIncompleteStreamIsExcludedByTheGateAndNamedInTheResult(t *testing.T) 
 	a := mustEnroll(t, service, owner.AccountToken, created.SessionJoinCredential, created.PublicSession.SessionID, "excluded-a", ClientPlayer)
 	b := mustEnroll(t, service, owner.AccountToken, created.SessionJoinCredential, created.PublicSession.SessionID, "excluded-b", ClientPlayer)
 	ingestRange(t, service, a, 0, 9, 10)
-	if _, err := service.CloseCapture(a.lease, a.capture, CaptureCloseRequest{FinalSequence: 9, EndReason: "match-ended"}); err != nil {
+	if _, err := service.CloseCapture(a.lease, a.capture, CaptureCloseRequest{FinalSequence: through(9), EndReason: "match-ended"}); err != nil {
 		t.Fatal(err)
 	}
 	// B never closes its stream, so there is no complete second account.
@@ -119,7 +119,7 @@ func TestAnIncompleteStreamIsExcludedByTheGateAndNamedInTheResult(t *testing.T) 
 	}
 
 	// Once B closes, both are admitted.
-	if _, err := service.CloseCapture(b.lease, b.capture, CaptureCloseRequest{FinalSequence: 9, EndReason: "match-ended"}); err != nil {
+	if _, err := service.CloseCapture(b.lease, b.capture, CaptureCloseRequest{FinalSequence: through(9), EndReason: "match-ended"}); err != nil {
 		t.Fatal(err)
 	}
 	result, err := service.CreateEvidenceSet(owner.AccountToken, created.PublicSession.ExecutionID, "excluded-evidence-2", ReconcileEvidenceRequest{

@@ -92,7 +92,7 @@ work:
       only by removing game-specific constraints.
 
       All three acceptance criteria are met, and the item is not marked done,
-      because the findings are the deliverable and three of them are open. See
+      because the findings are the deliverable and two of them are open. See
       docs/assessments/2026-08-26-erh-007-second-runtime.md.
 
       What it is not: a second commercial game. It cannot surface the
@@ -253,8 +253,11 @@ erh007_findings_note: >-
   "evidence set" conflates the record of what was observed with the cross-check
   between observers; capture streams are minted per client with no per-client
   opt-out, so clients that produce nothing by design each hold one; and a
-  producer cannot close a stream as legitimately empty, because final_sequence
-  is unsigned and zero already claims sequence 0 exists.
+  producer could not close a stream as legitimately empty, because
+  final_sequence was unsigned and zero claims sequence 0 exists. Resolved
+  2026-10-01: final_sequence is nullable, null closes the stream as empty with
+  no phantom gap, and an empty close from a producer that observed anything is
+  refused with CLOSE_CONTRADICTS_OBSERVATIONS.
 
   Two further findings came from the third-party run against OpenTTD on
   2026-08-26, and neither was reachable from Red Alert 2 or from a runtime

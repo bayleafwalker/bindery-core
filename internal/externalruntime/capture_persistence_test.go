@@ -32,7 +32,7 @@ func TestCapturesAndTheirObjectsSurviveARestart(t *testing.T) {
 	mustIngest(t, service, fixture.playerA, 0, 1)
 	mustIngest(t, service, fixture.playerA, 3, 3)
 	mustIngest(t, service, fixture.playerB, 0, 3)
-	if _, err := service.CloseCapture(fixture.playerB.lease, fixture.playerB.capture, CaptureCloseRequest{FinalSequence: 3, EndReason: "match-ended"}); err != nil {
+	if _, err := service.CloseCapture(fixture.playerB.lease, fixture.playerB.capture, CaptureCloseRequest{FinalSequence: through(3), EndReason: "match-ended"}); err != nil {
 		t.Fatal(err)
 	}
 	beforeA, err := service.GetCapture(fixture.playerA.capture)
