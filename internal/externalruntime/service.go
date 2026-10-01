@@ -932,6 +932,9 @@ func clonePublicExecution(value PublicExecution) PublicExecution {
 
 func cloneEvidenceSet(value evidencev1.EvidenceSet) evidencev1.EvidenceSet {
 	value.Observations = append([]evidencev1.ObservationSummary(nil), value.Observations...)
+	for index := range value.Observations {
+		value.Observations[index].Interval = value.Observations[index].Interval.Clone()
+	}
 	value.Reconciliation.DistinctCounts = append([]uint64(nil), value.Reconciliation.DistinctCounts...)
 	value.Reconciliation.DistinctHashes = append([]string(nil), value.Reconciliation.DistinctHashes...)
 	return value

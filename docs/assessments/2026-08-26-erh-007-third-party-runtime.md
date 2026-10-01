@@ -186,3 +186,10 @@ compatibility are no longer one field. A session that declares none admits
 only its own build. The acceptance run now declares the published Windows
 build, enrolls a client running it, and still sees an undeclared build
 refused with `COMPATIBILITY_MISMATCH`.
+
+The interval finding is resolved too, which leaves no finding from either
+run open. Each broker-derived observation in an evidence set records
+`interval`: first and last game tick where the runtime has ticks, and first
+and last broker receive time. Two observers who watched different intervals
+still reconcile as `inconsistent` under `exact-count`, but the set now shows
+why. `TestEvidenceRecordsTheIntervalEachObserverWatched` covers it.

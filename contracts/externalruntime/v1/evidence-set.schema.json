@@ -31,6 +31,18 @@
             "pattern": "^sha256:[0-9a-f]{64}$",
             "description": "Digest of what the stream witnessed, in order, excluding who observed it and when it was received. ordered-hash reconciliation compares this when every observation carries one, ordered_hash when none does, and refuses a mix."
           },
+          "interval": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["first_received_at", "last_received_at"],
+            "description": "What part of the execution the stream covers, so that observers who watched different intervals are distinguishable from observers who disagree about one. Game ticks are present only where the runtime has them. Absent for a stream with no observations.",
+            "properties": {
+              "first_game_tick": {"type": "integer", "minimum": 0},
+              "last_game_tick": {"type": "integer", "minimum": 0},
+              "first_received_at": {"type": "string", "format": "date-time"},
+              "last_received_at": {"type": "string", "format": "date-time"}
+            }
+          },
           "source": {
             "type": "string",
             "enum": ["client-reported", "broker-derived"],

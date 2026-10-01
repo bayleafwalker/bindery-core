@@ -79,7 +79,38 @@ type ObservationSummary struct {
 	// ObservedHash covers only what the stream witnessed, in order, and is
 	// what ordered-hash reconciliation compares between producers.
 	ObservedHash string `json:"observed_hash,omitempty"`
-	Source       Source `json:"source"`
+	// Interval is what part of the execution the stream covers. Without it,
+	// two honest observers who watched different intervals are
+	// indistinguishable from two who disagree about the same one. It is
+	// absent for a stream with no observations.
+	Interval *ObservationInterval `json:"interval,omitempty"`
+	Source   Source               `json:"source"`
+}
+
+// ObservationInterval bounds a stream in game time, where the runtime has
+// ticks, and in broker receive time, which every stream has.
+type ObservationInterval struct {
+	FirstGameTick   *uint64   `json:"first_game_tick,omitempty"`
+	LastGameTick    *uint64   `json:"last_game_tick,omitempty"`
+	FirstReceivedAt time.Time `json:"first_received_at"`
+	LastReceivedAt  time.Time `json:"last_received_at"`
+}
+
+// Clone copies the interval and the ticks it points to.
+func (i *ObservationInterval) Clone() *ObservationInterval {
+	if i == nil {
+		return nil
+	}
+	copied := *i
+	if i.FirstGameTick != nil {
+		tick := *i.FirstGameTick
+		copied.FirstGameTick = &tick
+	}
+	if i.LastGameTick != nil {
+		tick := *i.LastGameTick
+		copied.LastGameTick = &tick
+	}
+	return &copied
 }
 
 type Reconciliation struct {
@@ -137,6 +168,9 @@ func Reconcile(request ReconcileRequest) (EvidenceSet, error) {
 	}
 
 	observations := append([]ObservationSummary(nil), request.Observations...)
+	for index := range observations {
+		observations[index].Interval = observations[index].Interval.Clone()
+	}
 	observers := make(map[string]struct{}, len(observations))
 	streams := make(map[string]struct{}, len(observations))
 	for _, observation := range observations {

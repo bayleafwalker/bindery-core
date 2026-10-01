@@ -70,7 +70,7 @@ work:
       when the tests that would let them pass.
   - id: ERH-007
     title: Run a non-RA2 external runtime
-    status: implemented-with-findings
+    status: implemented
     depends_on: [ERH-006]
     constraints:
       - materially-different-integration-mechanism
@@ -95,10 +95,10 @@ work:
       and the gate controls are explicit -- one stream closed honestly empty
       that must PASS and one claiming a sequence it never sent that must FAIL.
 
-      All three acceptance criteria are met, and the item is not marked done,
-      because the findings are the deliverable and the two found by the
-      third-party run are still open; the four core leaks the second runtime
-      found are resolved as of 2026-10-01. See
+      All three acceptance criteria are met. The item stayed
+      implemented-with-findings until its findings were resolved: all six were
+      resolved on 2026-10-01, and game_tick in the canonical encoding is
+      formally accepted as permanent. See
       docs/assessments/2026-08-26-erh-007-second-runtime.md.
 
       What it is not: a second commercial game. It cannot surface the
@@ -279,13 +279,13 @@ erh007_findings_note: >-
   evidence set records no
   observation interval, so two honest observers who watched different intervals
   of one execution are indistinguishable from two observers who disagree about
-  the same interval. Both are pinned in
-  internal/externalruntime/erh007_findings_test.go, which needs no game
-  installed.
+  the same interval (resolved 2026-10-01: each broker-derived observation
+  records its interval in game ticks and broker receive time). Both fixes are
+  covered in internal/externalruntime/erh007_findings_test.go, which needs no
+  game installed.
 
   game_tick in the canonical encoding is accepted as a permanent leak. It bars
   no runtime -- a game without ticks sends null -- but it cannot be removed
-  without reissuing every hash this repository has published. Each open and
-  permanent finding is pinned by a test in
-  internal/externalruntime/erh007_findings_test.go, so a fix retires it loudly
-  instead of leaving the assessment quietly wrong.
+  without reissuing every hash this repository has published, and its test in
+  internal/externalruntime/erh007_findings_test.go fails if the encoding
+  moves. Every other finding is resolved, each by a test that holds the fix.

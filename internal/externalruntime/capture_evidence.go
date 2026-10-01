@@ -93,8 +93,42 @@ func (s *Service) summarizeCaptureLocked(record *captureRecord) (evidencev1.Obse
 		EventCount:   uint64(len(events)),
 		OrderedHash:  orderedHash,
 		ObservedHash: observedHash,
+		Interval:     observationInterval(events),
 		Source:       evidencev1.SourceBrokerDerived,
 	}, nil
+}
+
+// observationInterval bounds a stream by the game ticks and broker receive
+// times of its events. Ticks are optional per event, so they are bounded over
+// the events that carry one; receive time is always present.
+func observationInterval(events []capture.RawEvent) *evidencev1.ObservationInterval {
+	if len(events) == 0 {
+		return nil
+	}
+	interval := &evidencev1.ObservationInterval{FirstReceivedAt: events[0].ReceivedAt, LastReceivedAt: events[0].ReceivedAt}
+	for _, event := range events {
+		if event.ReceivedAt.Before(interval.FirstReceivedAt) {
+			interval.FirstReceivedAt = event.ReceivedAt
+		}
+		if event.ReceivedAt.After(interval.LastReceivedAt) {
+			interval.LastReceivedAt = event.ReceivedAt
+		}
+		if event.GameTick == nil {
+			continue
+		}
+		tick := *event.GameTick
+		if interval.FirstGameTick == nil || tick < *interval.FirstGameTick {
+			first := tick
+			interval.FirstGameTick = &first
+		}
+		if interval.LastGameTick == nil || tick > *interval.LastGameTick {
+			last := tick
+			interval.LastGameTick = &last
+		}
+	}
+	interval.FirstReceivedAt = interval.FirstReceivedAt.UTC()
+	interval.LastReceivedAt = interval.LastReceivedAt.UTC()
+	return interval
 }
 
 // executionCaptureIDsLocked lists every capture attached to an execution, in a

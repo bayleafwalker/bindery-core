@@ -12,10 +12,14 @@ import (
 	"github.com/bayleafwalker/bindery-core/pkg/gatev1"
 )
 
-// These pin what running a second, non-RA2 runtime found in core. They are
-// written to fail if the behaviour changes, so a fix retires a finding
-// loudly instead of leaving the assessment quietly wrong. See
-// docs/assessments/2026-08-26-erh-007-second-runtime.md.
+// These cover what running a second, non-RA2 runtime and a third-party game
+// found in core. Each finding was first pinned by a test written to fail
+// when it was fixed; every one is now resolved, and its test was retired in
+// favour of one that holds the fix, with a negative control where a fix
+// could pass vacuously. game_tick in the canonical encoding is the one leak
+// accepted permanently, and its test still fails if the encoding moves. See
+// docs/assessments/2026-08-26-erh-007-second-runtime.md and
+// docs/assessments/2026-08-26-erh-007-third-party-runtime.md.
 
 // RETIRED FINDING: ordered-hash could not report agreement between two
 // producers, ever. capture.OrderedHash covers producer_client_id, capture_id
@@ -537,33 +541,39 @@ func TestCompatibleGameHashesAreValidated(t *testing.T) {
 	}
 }
 
-// FINDING: an evidence set does not record what interval each observer watched.
-//
-// Two honest observers of one execution can watch different intervals of it --
-// the second connected later, the first was disconnected early -- and produce
-// different counts of the same execution. Reconciliation calls that
-// `inconsistent`, and the evidence set holds nothing that distinguishes it from
-// two observers of the same interval who genuinely disagree. Anyone reading the
-// set later cannot tell "they saw different things" from "they saw different
-// amounts of it".
-//
-// This surfaced against a real game: two admin connections to the same OpenTTD
-// server differ by exactly one event, because the earlier one observes the
-// later one arriving. The adapter works around it by bounding both recordings
-// between two facts in the game's own history, which is a thing an adapter can
-// do only because it controls both observers.
-func TestFindingEvidenceSetsRecordNoObservationInterval(t *testing.T) {
+// RETIRED FINDING: an evidence set recorded no observation interval, so two
+// honest observers who watched different intervals of one execution were
+// indistinguishable from two who disagree about the same interval. Each
+// broker-derived summary now records the interval its stream covers: first
+// and last game tick, and first and last broker receive time.
+func TestEvidenceRecordsTheIntervalEachObserverWatched(t *testing.T) {
 	service := NewService()
+	now := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
+	service.clock = func() time.Time { return now }
 	fixture := newCaptureFixture(t, service, "interval")
-	// One observer files eight observations; the other, having started later,
-	// files six of the same execution. Neither is lying.
+	// One observer files ticks 100..107; the other, having started later,
+	// files ticks 102..107 of the same execution. Neither is lying.
 	for _, watched := range []struct {
-		client testEnrollmentSecrets
-		events uint64
-	}{{fixture.playerA, 8}, {fixture.playerB, 6}} {
-		ingestRange(t, service, watched.client, 0, watched.events-1, 500)
+		client    testEnrollmentSecrets
+		firstTick uint64
+	}{{fixture.playerA, 100}, {fixture.playerB, 102}} {
+		events := make([]TelemetryEventInput, 0, 8)
+		for tick := watched.firstTick; tick <= 107; tick++ {
+			tick := tick
+			sequence := uint64(len(events))
+			events = append(events, TelemetryEventInput{
+				EventID: fmt.Sprintf("event-%016d", sequence), Sequence: sequence, GameTick: &tick,
+				EventType: "game.player.action-observed", Payload: json.RawMessage(`{"action":"move"}`),
+			})
+		}
+		last := uint64(len(events) - 1)
+		if _, err := service.IngestCaptureBatch(watched.client.lease, watched.client.capture, "interval-"+watched.client.id,
+			IngestBatchRequest{FirstSequence: 0, LastSequence: last, Events: events}); err != nil {
+			t.Fatal(err)
+		}
+		now = now.Add(10 * time.Second)
 		if _, err := service.CloseCapture(watched.client.lease, watched.client.capture, CaptureCloseRequest{
-			FinalSequence: through(watched.events - 1), EndReason: "the observer stopped watching",
+			FinalSequence: through(last), EndReason: "the observer stopped watching",
 		}); err != nil {
 			t.Fatal(err)
 		}
@@ -578,17 +588,53 @@ func TestFindingEvidenceSetsRecordNoObservationInterval(t *testing.T) {
 	if result.Reconciliation.Outcome != evidencev1.OutcomeInconsistent {
 		t.Fatalf("outcome = %s, want inconsistent", result.Reconciliation.Outcome)
 	}
-	encoded, err := json.Marshal(result)
+	firstTicks := map[string]uint64{}
+	for _, observation := range result.Observations {
+		interval := observation.Interval
+		if interval == nil || interval.FirstGameTick == nil || interval.LastGameTick == nil {
+			t.Fatalf("observation %s records no interval: %+v", observation.StreamID, interval)
+		}
+		if *interval.LastGameTick != 107 {
+			t.Fatalf("observation %s last tick = %d, want 107", observation.StreamID, *interval.LastGameTick)
+		}
+		if interval.FirstReceivedAt.IsZero() || interval.LastReceivedAt.Before(interval.FirstReceivedAt) {
+			t.Fatalf("observation %s receive interval = %+v", observation.StreamID, interval)
+		}
+		firstTicks[observation.ObserverID] = *interval.FirstGameTick
+	}
+	if firstTicks[fixture.playerA.id] != 100 || firstTicks[fixture.playerB.id] != 102 {
+		t.Fatalf("first ticks = %v, want 100 for the early observer and 102 for the late one", firstTicks)
+	}
+	// The stored set is not aliased by what was returned.
+	*result.Observations[0].Interval.FirstGameTick = 999
+	stored, err := service.GetEvidenceSet(result.EvidenceSetID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, field := range []string{"observed_from", "observed_until", "observation_interval", "interval"} {
-		if strings.Contains(string(encoded), field) {
-			t.Fatalf("evidence sets now record %q: the finding is fixed and must be retired", field)
+	for _, observation := range stored.Observations {
+		if *observation.Interval.FirstGameTick == 999 {
+			t.Fatal("mutating a returned evidence set changed the stored one")
 		}
 	}
-	t.Logf("two honest observers of different intervals are recorded as a disagreement: %v",
-		result.Reconciliation.DistinctCounts)
+}
+
+// A runtime without ticks still gets a receive-time interval, and an empty
+// stream records none.
+func TestIntervalWithoutTicksAndForAnEmptyStream(t *testing.T) {
+	events := []capture.RawEvent{
+		{Sequence: 0, ReceivedAt: time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)},
+		{Sequence: 1, ReceivedAt: time.Date(2026, 10, 1, 12, 5, 0, 0, time.UTC)},
+	}
+	interval := observationInterval(events)
+	if interval == nil || interval.FirstGameTick != nil || interval.LastGameTick != nil {
+		t.Fatalf("interval without ticks = %+v", interval)
+	}
+	if !interval.FirstReceivedAt.Equal(events[0].ReceivedAt) || !interval.LastReceivedAt.Equal(events[1].ReceivedAt) {
+		t.Fatalf("receive interval = %+v", interval)
+	}
+	if observationInterval(nil) != nil {
+		t.Fatal("an empty stream recorded an interval")
+	}
 }
 
 const testHashC = "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"

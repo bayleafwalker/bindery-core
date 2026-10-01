@@ -106,6 +106,15 @@ agreement or disagreement at the level promised by its method.
 | `quorum` | A declared observer quorum agrees | Reserved |
 | `domain-specific` | Versioned adapter/domain policy | Reserved |
 
+### Each observation records its interval
+
+A broker-derived summary carries `interval`: the first and last game tick of
+its events, where the runtime has ticks, and the first and last broker
+receive time, which every stream has. Two honest observers who watched
+different intervals of one execution still reconcile as `inconsistent` under
+`exact-count`, but the evidence set now says why: their intervals differ.
+An empty stream has no interval.
+
 ### A record is not a cross-check
 
 An evidence set is first a record of what was observed and only then,
