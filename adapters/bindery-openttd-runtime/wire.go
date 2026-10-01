@@ -148,9 +148,10 @@ type Capture struct {
 	CaptureID    string `json:"capture_id"`
 	Status       string `json:"status"`
 	Completeness *struct {
-		EventCount    uint64      `json:"event_count"`
-		MissingRanges [][2]uint64 `json:"missing_ranges"`
-		Closed        bool        `json:"closed"`
+		EventCount      uint64      `json:"event_count"`
+		ExpectedThrough *uint64     `json:"expected_through"`
+		MissingRanges   [][2]uint64 `json:"missing_ranges"`
+		Closed          bool        `json:"closed"`
 	} `json:"completeness"`
 }
 

@@ -220,7 +220,8 @@ func TestERH007ThirdPartyRuntime(t *testing.T) {
 	if err := runtime.ClaimIdentity("openttd-operator"); err != nil {
 		t.Fatalf("claim identity: %v", err)
 	}
-	if err := runtime.CreateSession(welcome, players, len(observers)); err != nil {
+	// Two extra player seats are the completeness gate's controls.
+	if err := runtime.CreateSession(welcome, players+2, len(observers)); err != nil {
 		t.Fatalf("create a session for a game with no mod and no map: %v", err)
 	}
 	t.Logf("session %s execution %s, game_hash %s", runtime.SessionID, runtime.ExecutionID, runtime.GameHash)
@@ -326,15 +327,26 @@ func TestERH007ThirdPartyRuntime(t *testing.T) {
 		}
 	}
 
-	// Negative controls: the game's own clients hold streams they cannot write
-	// to, because OpenTTD's clients are told what happened rather than
-	// witnessing it.
-	empty, err := runtime.ClosePlayerCaptures()
-	if err != nil {
-		t.Fatalf("close the game clients' streams: %v", err)
+	// OpenTTD's clients are told what happened rather than witnessing it, so
+	// they declined their streams. The gate controls are two seats that run no
+	// game: one closes honestly empty, one claims a sequence it never sent.
+	for _, seat := range runtime.Players {
+		if seat.CaptureID != "" {
+			t.Fatalf("game client %s holds a capture stream it declined", seat.Name)
+		}
 	}
-	if len(empty) != players {
-		t.Fatalf("closed %d client streams, want %d", len(empty), players)
+	if err := runtime.EnrollControls(); err != nil {
+		t.Fatalf("enroll gate controls: %v", err)
+	}
+	emptyControl, phantomControl, err := runtime.CloseControls()
+	if err != nil {
+		t.Fatalf("close gate controls: %v", err)
+	}
+	if emptyControl.Completeness == nil || emptyControl.Completeness.ExpectedThrough != nil || len(emptyControl.Completeness.MissingRanges) != 0 {
+		t.Fatalf("the empty control did not close empty: %+v", emptyControl.Completeness)
+	}
+	if phantomControl.Completeness == nil || len(phantomControl.Completeness.MissingRanges) != 1 {
+		t.Fatalf("the phantom control did not close with its gap: %+v", phantomControl.Completeness)
 	}
 
 	// The restart drill sits between production and reconciliation: everything
@@ -355,7 +367,7 @@ func TestERH007ThirdPartyRuntime(t *testing.T) {
 	}
 	t.Logf("restart drill: %d observations and the close survived a killed broker", afterRestart.Completeness.EventCount)
 
-	evidence, err := runtime.Reconcile("exact-count", "openttd-exact-count")
+	evidence, err := runtime.Reconcile("exact-count", "openttd-exact-count", runtime.ObserverCaptureIDs()...)
 	if err != nil {
 		t.Fatalf("reconcile after the restart: %v", err)
 	}
@@ -378,8 +390,17 @@ func TestERH007ThirdPartyRuntime(t *testing.T) {
 		t.Fatalf("compared observers = %d, want %d", evidence.Reconciliation.ComparedObservers, len(observers))
 	}
 
+	// Gate controls, over every capture on the execution: the observing
+	// streams and the honest empty one PASS, the phantom FAILs.
+	all, err := runtime.Reconcile("record", "openttd-gate-controls")
+	if err != nil {
+		t.Fatalf("record every capture: %v", err)
+	}
+	if all.Reconciliation.Outcome != "uncompared" || len(all.Observations) != len(observers)+1 {
+		t.Fatalf("record over every capture = %d observations, outcome %s", len(all.Observations), all.Reconciliation.Outcome)
+	}
 	passed, failed := 0, 0
-	for _, gate := range evidence.GateResults {
+	for _, gate := range all.GateResults {
 		if !gate.CalibrationValid {
 			t.Fatalf("a gate ran without valid calibration: %+v", gate)
 		}
@@ -390,15 +411,18 @@ func TestERH007ThirdPartyRuntime(t *testing.T) {
 		case "PASS":
 			passed++
 		case "FAIL":
+			if gate.CaptureID != runtime.Controls[1].CaptureID {
+				t.Fatalf("a stream other than the phantom control failed: %s", gate.CaptureID)
+			}
 			failed++
 		default:
 			t.Fatalf("gate status = %q on %s", gate.Status, gate.CaptureID)
 		}
 	}
-	if passed != len(observers) || failed != players {
-		t.Fatalf("gate outcomes: %d pass, %d fail; want %d and %d", passed, failed, len(observers), players)
+	if passed != len(observers)+1 || failed != 1 {
+		t.Fatalf("gate outcomes: %d pass, %d fail; want %d and 1", passed, failed, len(observers)+1)
 	}
-	t.Logf("gate controls: %d PASS on the observing streams, %d FAIL on the game clients' empty ones", passed, failed)
+	t.Logf("gate controls: %d PASS (the observing streams and an honestly empty one), %d FAIL (a phantom sequence)", passed, failed)
 
 	// RETIRED FINDING, first confirmed against this game: ordered-hash could
 	// not report agreement, because the stream hash binds producer_client_id,
@@ -406,7 +430,7 @@ func TestERH007ThirdPartyRuntime(t *testing.T) {
 	// same events, in the same order, with the same content-derived event ids.
 	// Reconciliation now compares observed_hash, which covers only what was
 	// observed, so they agree -- while each keeps its own ordered_hash.
-	status, orderedHash, failure, err := runtime.ReconcileRaw("ordered-hash", "openttd-ordered-hash")
+	status, orderedHash, failure, err := runtime.ReconcileRaw("ordered-hash", "openttd-ordered-hash", runtime.ObserverCaptureIDs()...)
 	if err != nil {
 		t.Fatalf("ordered-hash reconciliation: %v", err)
 	}
@@ -433,7 +457,7 @@ func TestERH007ThirdPartyRuntime(t *testing.T) {
 		len(streamHashes), orderedHash.Reconciliation.Outcome)
 
 	// Idempotency survives the restart.
-	replay, err := runtime.Reconcile("exact-count", "openttd-exact-count")
+	replay, err := runtime.Reconcile("exact-count", "openttd-exact-count", runtime.ObserverCaptureIDs()...)
 	if err != nil {
 		t.Fatalf("replay the evidence set: %v", err)
 	}

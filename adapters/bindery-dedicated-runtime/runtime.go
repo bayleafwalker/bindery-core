@@ -32,11 +32,12 @@ type Server struct {
 	ReplicaLease string
 	ReplicaCap   string
 	PlayerLeases []PlayerClient
+	Controls     []PlayerClient
 }
 
-// PlayerClient is an enrolled human seat. In this runtime a player observes
-// nothing independently, so it holds a capture stream it will never write to.
-// That is not a bug in the adapter; see the ERH-007 assessment.
+// PlayerClient is an enrolled seat. In this runtime a player observes nothing
+// independently, so it declines the capture stream the session would
+// otherwise open for it; CaptureID is set only on the gate-control seats.
 type PlayerClient struct {
 	ClientID  string
 	Lease     string
@@ -124,11 +125,11 @@ func (s *Server) EnrollReplica() error {
 	return nil
 }
 
-// EnrollPlayers seats the humans. Each is handed a capture stream because the
-// control plane mints one per client, which this runtime has no use for.
+// EnrollPlayers seats the humans. They observe nothing independently, so each
+// declines its capture stream rather than holding one it cannot fill.
 func (s *Server) EnrollPlayers(count int) error {
 	for index := 0; index < count; index++ {
-		response, err := s.enroll(fmt.Sprintf("dedicated-player-%d", index), "player", "")
+		response, err := s.enrollWithoutCapture(fmt.Sprintf("dedicated-player-%d", index), "player")
 		if err != nil {
 			return fmt.Errorf("enroll player %d: %w", index, err)
 		}
@@ -141,7 +142,54 @@ func (s *Server) EnrollPlayers(count int) error {
 	return nil
 }
 
+// EnrollControls seats two player clients that keep their capture streams,
+// so the completeness gate has one control of each outcome: CloseControls
+// closes the first honestly empty and the second with a claim to a sequence
+// it never sent.
+func (s *Server) EnrollControls() error {
+	for _, instance := range []string{"dedicated-control-empty", "dedicated-control-phantom"} {
+		response, err := s.enroll(instance, "player", "")
+		if err != nil {
+			return fmt.Errorf("enroll %s: %w", instance, err)
+		}
+		if len(response.CaptureStreamOffers) != 1 {
+			return fmt.Errorf("%s received %d capture offers, want 1", instance, len(response.CaptureStreamOffers))
+		}
+		s.Controls = append(s.Controls, PlayerClient{
+			ClientID: response.PublicEnrollment.ClientID, Lease: response.ClientLeaseToken,
+			CaptureID: response.CaptureStreamOffers[0].CaptureID,
+		})
+	}
+	return nil
+}
+
+// CloseControls closes the empty control with final_sequence null, which says
+// it observed nothing, and the phantom control with final_sequence 0, which
+// claims a sequence 0 it never sent.
+func (s *Server) CloseControls() (empty, phantom Capture, err error) {
+	if len(s.Controls) != 2 {
+		return Capture{}, Capture{}, fmt.Errorf("%d control seats enrolled, want 2", len(s.Controls))
+	}
+	if err = s.client.Do("POST", "/v1/captures/"+s.Controls[0].CaptureID+":close", map[string]any{
+		"final_sequence": nil, "local_drops": 0, "end_reason": "client produced no observations",
+	}, 200, &empty, Options{Bearer: s.Controls[0].Lease}); err != nil {
+		return
+	}
+	err = s.client.Do("POST", "/v1/captures/"+s.Controls[1].CaptureID+":close", map[string]any{
+		"final_sequence": 0, "local_drops": 0, "end_reason": "claims a sequence it never sent",
+	}, 200, &phantom, Options{Bearer: s.Controls[1].Lease})
+	return
+}
+
+func (s *Server) enrollWithoutCapture(instance, class string) (EnrollmentResponse, error) {
+	return s.enrollRequest(instance, class, "", false)
+}
+
 func (s *Server) enroll(instance, class, captureMethod string) (EnrollmentResponse, error) {
+	return s.enrollRequest(instance, class, captureMethod, true)
+}
+
+func (s *Server) enrollRequest(instance, class, captureMethod string, capture bool) (EnrollmentResponse, error) {
 	request := map[string]any{
 		"client_instance_id": instance,
 		"client_class":       class,
@@ -151,6 +199,9 @@ func (s *Server) enroll(instance, class, captureMethod string) (EnrollmentRespon
 	}
 	if captureMethod != "" {
 		request["capture_method"] = captureMethod
+	}
+	if !capture {
+		request["capture"] = false
 	}
 	var response EnrollmentResponse
 	err := s.client.Do("POST", "/v1/sessions/"+s.SessionID+"/enrollments", request, 201, &response,
@@ -224,36 +275,16 @@ func (s *Server) closeStream(captureID, lease string, finalSequence uint64) (Cap
 	return record, err
 }
 
-// ReconcileExpectingRefusal is used to pin a contract refusal as a finding.
-func (s *Server) ReconcileExpectingRefusal(method, idempotencyKey string) (string, error) {
+// ReconcileExpectingRefusal asserts that the control plane refuses a
+// reconciliation, and returns the refusal code.
+func (s *Server) ReconcileExpectingRefusal(method, idempotencyKey string, captureIDs ...string) (string, error) {
 	var failure struct {
 		Code string `json:"code"`
 	}
 	err := s.client.Do("POST", "/v1/executions/"+s.ExecutionID+"/evidence-sets",
-		map[string]any{"method": method}, 400, &failure,
+		evidenceRequest(method, captureIDs), 400, &failure,
 		Options{Bearer: s.account, IdempotencyKey: idempotencyKey})
 	return failure.Code, err
-}
-
-// ClosePlayerCaptures ends the streams the players never wrote to. There is no
-// way to say "this producer legitimately observed nothing": final_sequence is
-// an unsigned sequence number, so zero claims that sequence 0 exists. The
-// stream therefore closes with a gap it does not really have.
-func (s *Server) ClosePlayerCaptures() ([]Capture, error) {
-	records := make([]Capture, 0, len(s.PlayerLeases))
-	for _, seat := range s.PlayerLeases {
-		if seat.CaptureID == "" {
-			continue
-		}
-		var record Capture
-		if err := s.client.Do("POST", "/v1/captures/"+seat.CaptureID+":close", map[string]any{
-			"final_sequence": 0, "local_drops": 0, "end_reason": "client produced no observations",
-		}, 200, &record, Options{Bearer: seat.Lease}); err != nil {
-			return nil, err
-		}
-		records = append(records, record)
-	}
-	return records, nil
 }
 
 func (s *Server) GetCapture(captureID string) (Capture, error) {
@@ -262,10 +293,20 @@ func (s *Server) GetCapture(captureID string) (Capture, error) {
 	return record, err
 }
 
-func (s *Server) ReconcileEvidence(method, idempotencyKey string) (EvidenceSet, error) {
+// ReconcileEvidence creates an evidence set over the named captures, or over
+// every capture on the execution when none is named.
+func (s *Server) ReconcileEvidence(method, idempotencyKey string, captureIDs ...string) (EvidenceSet, error) {
 	var result EvidenceSet
 	err := s.client.Do("POST", "/v1/executions/"+s.ExecutionID+"/evidence-sets",
-		map[string]any{"method": method}, 201, &result,
+		evidenceRequest(method, captureIDs), 201, &result,
 		Options{Bearer: s.account, IdempotencyKey: idempotencyKey})
 	return result, err
+}
+
+func evidenceRequest(method string, captureIDs []string) map[string]any {
+	request := map[string]any{"method": method}
+	if len(captureIDs) > 0 {
+		request["capture_ids"] = captureIDs
+	}
+	return request
 }

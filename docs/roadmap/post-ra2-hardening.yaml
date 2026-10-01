@@ -89,7 +89,11 @@ work:
       process, seats ten players and two observers, kills the broker outright
       and restarts it on the same state file, and reconciles evidence with two
       PASS and ten FAIL gate controls. Only the adapter differs; core changed
-      only by removing game-specific constraints.
+      only by removing game-specific constraints. Since 2026-10-01 both
+      acceptance runs use the contract the findings produced: game clients
+      decline their capture streams, a single authority publishes a record,
+      and the gate controls are explicit -- one stream closed honestly empty
+      that must PASS and one claiming a sequence it never sent that must FAIL.
 
       All three acceptance criteria are met, and the item is not marked done,
       because the findings are the deliverable and the two found by the

@@ -30,6 +30,9 @@ type Runtime struct {
 
 	Observers []Enrolled
 	Players   []Enrolled
+	// Controls are two player seats that keep capture streams so the
+	// completeness gate has one control of each outcome. They run no game.
+	Controls []Enrolled
 }
 
 // Enrolled is one participant the control plane knows about.
@@ -130,9 +133,9 @@ func (r *Runtime) EnrollObserver(name string) error {
 
 // EnrollPlayer seats a human's game client. In OpenTTD a client is told what
 // happened by the server, so it witnesses nothing independently and produces
-// no observations -- and the control plane hands it a capture stream anyway.
+// no observations; it declines the capture stream it would otherwise be given.
 func (r *Runtime) EnrollPlayer(name string) error {
-	response, err := r.enroll(name, "player", "")
+	response, err := r.enrollRequest(name, "player", "", false)
 	if err != nil {
 		return err
 	}
@@ -167,7 +170,45 @@ func (r *Runtime) EnrollExpectingRefusal(instance, gameHash string) (string, err
 	return failure.Code, nil
 }
 
+// EnrollControls seats the two gate-control player seats with streams.
+func (r *Runtime) EnrollControls() error {
+	for _, name := range []string{"control-empty", "control-phantom"} {
+		response, err := r.enroll(name, "player", "")
+		if err != nil {
+			return fmt.Errorf("enroll %s: %w", name, err)
+		}
+		if len(response.CaptureStreamOffers) != 1 {
+			return fmt.Errorf("%s received %d capture offers, want 1", name, len(response.CaptureStreamOffers))
+		}
+		r.Controls = append(r.Controls, Enrolled{
+			Name: name, ClientID: response.PublicEnrollment.ClientID, Lease: response.ClientLeaseToken,
+			CaptureID: response.CaptureStreamOffers[0].CaptureID,
+		})
+	}
+	return nil
+}
+
+// CloseControls closes the first control with final_sequence null, which
+// says it observed nothing, and the second with final_sequence 0, which
+// claims a sequence 0 it never sent.
+func (r *Runtime) CloseControls() (empty, phantom Capture, err error) {
+	if len(r.Controls) != 2 {
+		return Capture{}, Capture{}, fmt.Errorf("%d control seats enrolled, want 2", len(r.Controls))
+	}
+	if err = r.client.Do("POST", "/v1/captures/"+r.Controls[0].CaptureID+":close", map[string]any{
+		"final_sequence": nil, "local_drops": 0, "end_reason": "observed nothing",
+	}, 200, &empty, Options{Bearer: r.Controls[0].Lease}); err != nil {
+		return
+	}
+	phantom, err = r.CloseCapture(r.Controls[1], 0, "claims a sequence it never sent")
+	return
+}
+
 func (r *Runtime) enroll(instance, class, captureMethod string) (EnrollmentResponse, error) {
+	return r.enrollRequest(instance, class, captureMethod, true)
+}
+
+func (r *Runtime) enrollRequest(instance, class, captureMethod string, capture bool) (EnrollmentResponse, error) {
 	request := map[string]any{
 		"client_instance_id": instance,
 		"client_class":       class,
@@ -176,6 +217,9 @@ func (r *Runtime) enroll(instance, class, captureMethod string) (EnrollmentRespo
 	}
 	if captureMethod != "" {
 		request["capture_method"] = captureMethod
+	}
+	if !capture {
+		request["capture"] = false
 	}
 	var response EnrollmentResponse
 	err := r.client.Do("POST", "/v1/sessions/"+r.SessionID+"/enrollments", request, 201, &response,
@@ -245,45 +289,28 @@ func (r *Runtime) CloseCapture(participant Enrolled, finalSequence uint64, reaso
 	return record, err
 }
 
-// ClosePlayerCaptures ends the streams the game's own clients were given and
-// never used. final_sequence is unsigned, so the smallest claim available is
-// that sequence 0 exists; a client that honestly saw nothing has no way to say
-// so, which is the finding this repeats against a game nobody here wrote.
-func (r *Runtime) ClosePlayerCaptures() ([]Capture, error) {
-	records := make([]Capture, 0, len(r.Players))
-	for _, seat := range r.Players {
-		if seat.CaptureID == "" {
-			continue
-		}
-		record, err := r.CloseCapture(seat, 0, "the game's clients observe nothing independently")
-		if err != nil {
-			return nil, err
-		}
-		records = append(records, record)
-	}
-	return records, nil
-}
-
 func (r *Runtime) GetCapture(captureID string) (Capture, error) {
 	var record Capture
 	err := r.client.Do("GET", "/v1/captures/"+captureID, nil, 200, &record, Options{})
 	return record, err
 }
 
-// Reconcile publishes an evidence set over whatever streams passed the gate.
-func (r *Runtime) Reconcile(method, idempotencyKey string) (EvidenceSet, error) {
+// Reconcile publishes an evidence set over the named captures, or over every
+// capture on the execution when none is named; only streams that pass the
+// completeness gate contribute.
+func (r *Runtime) Reconcile(method, idempotencyKey string, captureIDs ...string) (EvidenceSet, error) {
 	var result EvidenceSet
 	err := r.client.Do("POST", "/v1/executions/"+r.ExecutionID+"/evidence-sets",
-		map[string]any{"method": method}, 201, &result,
+		evidenceRequest(method, captureIDs), 201, &result,
 		Options{Bearer: r.account, IdempotencyKey: idempotencyKey})
 	return result, err
 }
 
 // ReconcileRaw returns the status and body as they came, for the cases where
 // the interesting answer is a refusal or an unwelcome outcome.
-func (r *Runtime) ReconcileRaw(method, idempotencyKey string) (int, EvidenceSet, Failure, error) {
+func (r *Runtime) ReconcileRaw(method, idempotencyKey string, captureIDs ...string) (int, EvidenceSet, Failure, error) {
 	status, body, err := r.client.Call("POST", "/v1/executions/"+r.ExecutionID+"/evidence-sets",
-		map[string]any{"method": method},
+		evidenceRequest(method, captureIDs),
 		Options{Bearer: r.account, IdempotencyKey: idempotencyKey})
 	if err != nil {
 		return 0, EvidenceSet{}, Failure{}, err
@@ -300,4 +327,22 @@ func (r *Runtime) ReconcileRaw(method, idempotencyKey string) (int, EvidenceSet,
 		return status, EvidenceSet{}, Failure{}, fmt.Errorf("status %d: %s", status, string(body))
 	}
 	return status, EvidenceSet{}, failure, nil
+}
+
+func evidenceRequest(method string, captureIDs []string) map[string]any {
+	request := map[string]any{"method": method}
+	if len(captureIDs) > 0 {
+		request["capture_ids"] = captureIDs
+	}
+	return request
+}
+
+// ObserverCaptureIDs names the admin applications' streams, which are the
+// ones a cross-check compares.
+func (r *Runtime) ObserverCaptureIDs() []string {
+	ids := make([]string, 0, len(r.Observers))
+	for _, observer := range r.Observers {
+		ids = append(ids, observer.CaptureID)
+	}
+	return ids
 }

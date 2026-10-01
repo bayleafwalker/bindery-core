@@ -117,7 +117,8 @@ func TestERH007SecondRuntime(t *testing.T) {
 	}
 
 	// Session contract: no mod, no map, and a seat count no RA2 session has.
-	if err := server.CreateSession(players, 2); err != nil {
+	// The two extra player seats are the completeness gate's controls.
+	if err := server.CreateSession(players+2, 2); err != nil {
 		t.Fatalf("create session without mod or map: %v", err)
 	}
 	t.Logf("session %s execution %s", server.SessionID, server.ExecutionID)
@@ -128,6 +129,14 @@ func TestERH007SecondRuntime(t *testing.T) {
 	if err := server.EnrollPlayers(players); err != nil {
 		t.Fatalf("enroll players: %v", err)
 	}
+	for _, seat := range server.PlayerLeases {
+		if seat.CaptureID != "" {
+			t.Fatalf("player %s holds a capture stream it declined", seat.ClientID)
+		}
+	}
+	if err := server.EnrollControls(); err != nil {
+		t.Fatalf("enroll gate controls: %v", err)
+	}
 
 	produced, err := server.Simulate(ticks, 7)
 	if err != nil {
@@ -136,9 +145,9 @@ func TestERH007SecondRuntime(t *testing.T) {
 	if produced != ticks*convoys {
 		t.Fatalf("produced %d events, want %d", produced, ticks*convoys)
 	}
-	t.Logf("server produced %d observations; %d player clients produced none", produced, players)
+	t.Logf("server produced %d observations; %d player clients declined capture streams", produced, players)
 
-	// Positive control: the authoritative stream closes complete.
+	// The authoritative stream closes complete.
 	closed, err := server.CloseServerCapture(uint64(produced - 1))
 	if err != nil {
 		t.Fatalf("close server capture: %v", err)
@@ -147,28 +156,38 @@ func TestERH007SecondRuntime(t *testing.T) {
 		t.Fatalf("authoritative stream did not close complete: %+v", closed.Completeness)
 	}
 
-	// Negative control: streams whose producers legitimately observed nothing.
-	emptyStreams, err := server.ClosePlayerCaptures()
+	// The controls: one stream closed honestly empty, one claiming a
+	// sequence it never sent.
+	empty, phantom, err := server.CloseControls()
 	if err != nil {
-		t.Fatalf("close player captures: %v", err)
+		t.Fatalf("close gate controls: %v", err)
 	}
-	if len(emptyStreams) != players {
-		t.Fatalf("closed %d player captures, want %d", len(emptyStreams), players)
+	if empty.Completeness == nil || !empty.Completeness.Closed || empty.Completeness.ExpectedThrough != nil || len(empty.Completeness.MissingRanges) != 0 {
+		t.Fatalf("the empty control did not close empty: %+v", empty.Completeness)
+	}
+	if phantom.Completeness == nil || len(phantom.Completeness.MissingRanges) != 1 {
+		t.Fatalf("the phantom control did not close with its gap: %+v", phantom.Completeness)
 	}
 
-	// FINDING, pinned rather than worked around: with one authority there is
-	// nothing to reconcile against, and the contract has no way to publish an
-	// execution's observations without also cross-checking them. A runtime
-	// whose server is the only honest witness therefore produces no evidence
-	// set at all. See the assessment.
-	code, err := server.ReconcileExpectingRefusal("exact-count", "dedicated-single-authority")
+	// One authority has nothing to be cross-checked against, and a
+	// cross-check method still says so. A record publishes what it observed.
+	code, err := server.ReconcileExpectingRefusal("exact-count", "dedicated-single-authority", server.CaptureID)
 	if err != nil {
-		t.Fatalf("single-authority reconciliation was not refused as expected: %v", err)
+		t.Fatalf("single-authority cross-check was not refused: %v", err)
 	}
 	if code != "RECONCILIATION_INVALID" {
 		t.Fatalf("single-authority refusal code = %q", code)
 	}
-	t.Logf("finding: a single-authority execution cannot produce an evidence set (%s)", code)
+	record, err := server.ReconcileEvidence("record", "dedicated-single-authority-record", server.CaptureID)
+	if err != nil {
+		t.Fatalf("record the single authority: %v", err)
+	}
+	if record.Reconciliation.Outcome != "uncompared" || record.Reconciliation.ComparedObservers != 0 ||
+		len(record.Observations) != 1 || record.Observations[0].EventCount != uint64(produced) {
+		t.Fatalf("single-authority record = %+v", record)
+	}
+	t.Logf("single authority: cross-check refused (%s), record published uncompared with %d observations",
+		code, record.Observations[0].EventCount)
 
 	// The server-authoritative answer to "two independent observers" is a hot
 	// standby running the same deterministic world, which is the divergence
@@ -204,13 +223,10 @@ func TestERH007SecondRuntime(t *testing.T) {
 	}
 	t.Logf("restart drill: %d observations and the close survived", afterRestart.Completeness.EventCount)
 
-	evidence, err := server.ReconcileEvidence("exact-count", "dedicated-evidence")
+	evidence, err := server.ReconcileEvidence("exact-count", "dedicated-evidence", server.CaptureID, server.ReplicaCap)
 	if err != nil {
 		t.Fatalf("reconcile evidence after restart: %v", err)
 	}
-
-	// Evidence contract: only streams that passed the gate contribute, so the
-	// primary and the replica are compared and the ten empty seats are not.
 	if len(evidence.Observations) != 2 {
 		t.Fatalf("observations = %d, want the primary and the replica", len(evidence.Observations))
 	}
@@ -219,52 +235,57 @@ func TestERH007SecondRuntime(t *testing.T) {
 		if observation.Source != "broker-derived" {
 			t.Fatalf("observation source = %q, want broker-derived", observation.Source)
 		}
-		if observation.OrderedHash == "" {
-			t.Fatal("observation carried no ordered hash")
+		if observation.OrderedHash == "" || observation.ObservedHash == "" {
+			t.Fatal("observation carried no ordered or observed hash")
 		}
 		byStream[observation.StreamID] = observation.EventCount
 	}
 	if byStream[server.CaptureID] != uint64(produced) || byStream[server.ReplicaCap] != uint64(produced) {
 		t.Fatalf("counts = %v, want %d on both authoritative streams", byStream, produced)
 	}
-	if evidence.Reconciliation.Outcome != "consistent" {
-		t.Fatalf("primary and replica disagreed on a deterministic world: %s", evidence.Reconciliation.Outcome)
+	if evidence.Reconciliation.Outcome != "consistent" || evidence.Reconciliation.ComparedObservers != 2 {
+		t.Fatalf("primary and replica: %+v", evidence.Reconciliation)
 	}
+	t.Logf("reconciliation: %s over %d observers, outcome %s",
+		evidence.Reconciliation.Method, evidence.Reconciliation.ComparedObservers, evidence.Reconciliation.Outcome)
 
-	// Gate controls: exactly one PASS, and every empty stream refused.
-	passed, failed := 0, 0
-	for _, gate := range evidence.GateResults {
+	// Gate controls, over every capture on the execution: the two
+	// authoritative streams and the honest empty one PASS, the phantom FAILs.
+	all, err := server.ReconcileEvidence("record", "dedicated-gate-controls")
+	if err != nil {
+		t.Fatalf("record every capture: %v", err)
+	}
+	statuses := map[string]string{}
+	for _, gate := range all.GateResults {
 		if !gate.CalibrationValid {
 			t.Fatalf("gate ran without valid calibration: %+v", gate)
 		}
 		if gate.GateID != "bindery.capture.completeness" {
 			t.Fatalf("unexpected gate %q", gate.GateID)
 		}
-		switch gate.Status {
-		case "PASS":
-			passed++
-			if gate.CaptureID != server.CaptureID && gate.CaptureID != server.ReplicaCap {
-				t.Fatalf("a stream other than the authoritative ones passed: %s", gate.CaptureID)
-			}
-		case "FAIL":
-			failed++
-		default:
-			t.Fatalf("gate status = %q on %s", gate.Status, gate.CaptureID)
+		statuses[gate.CaptureID] = gate.Status
+	}
+	want := map[string]string{
+		server.CaptureID:             "PASS",
+		server.ReplicaCap:            "PASS",
+		server.Controls[0].CaptureID: "PASS",
+		server.Controls[1].CaptureID: "FAIL",
+	}
+	if len(statuses) != len(want) {
+		t.Fatalf("gate results cover %d captures, want %d: %v", len(statuses), len(want), statuses)
+	}
+	for captureID, status := range want {
+		if statuses[captureID] != status {
+			t.Fatalf("gate on %s = %q, want %s (all: %v)", captureID, statuses[captureID], status, statuses)
 		}
 	}
-	if passed != 2 || failed != players {
-		t.Fatalf("gate outcomes: %d pass, %d fail; want 2 and %d", passed, failed, players)
+	if len(all.Observations) != 3 || all.Reconciliation.Outcome != "uncompared" {
+		t.Fatalf("record over every capture = %d observations, outcome %s", len(all.Observations), all.Reconciliation.Outcome)
 	}
-	t.Logf("gate controls: 2 PASS on the authoritative streams, %d FAIL on streams that produced nothing", failed)
-
-	if evidence.Reconciliation.ComparedObservers != 2 {
-		t.Fatalf("compared observers = %d, want 2", evidence.Reconciliation.ComparedObservers)
-	}
-	t.Logf("reconciliation: %s over %d observer, outcome %s",
-		evidence.Reconciliation.Method, evidence.Reconciliation.ComparedObservers, evidence.Reconciliation.Outcome)
+	t.Logf("gate controls: 3 PASS (two authoritative streams, one honestly empty), 1 FAIL (a phantom sequence)")
 
 	// Idempotency survives the restart too.
-	replay, err := server.ReconcileEvidence("exact-count", "dedicated-evidence")
+	replay, err := server.ReconcileEvidence("exact-count", "dedicated-evidence", server.CaptureID, server.ReplicaCap)
 	if err != nil {
 		t.Fatalf("replay evidence set: %v", err)
 	}

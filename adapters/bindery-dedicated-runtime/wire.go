@@ -132,9 +132,10 @@ type Capture struct {
 	CaptureID    string `json:"capture_id"`
 	Status       string `json:"status"`
 	Completeness *struct {
-		EventCount    uint64      `json:"event_count"`
-		MissingRanges [][2]uint64 `json:"missing_ranges"`
-		Closed        bool        `json:"closed"`
+		EventCount      uint64      `json:"event_count"`
+		ExpectedThrough *uint64     `json:"expected_through"`
+		MissingRanges   [][2]uint64 `json:"missing_ranges"`
+		Closed          bool        `json:"closed"`
 	} `json:"completeness"`
 }
 
@@ -155,11 +156,12 @@ type EvidenceSet struct {
 		ComparedObservers int    `json:"compared_observers"`
 	} `json:"reconciliation"`
 	Observations []struct {
-		StreamID    string `json:"stream_id"`
-		ObserverID  string `json:"observer_id"`
-		EventCount  uint64 `json:"event_count"`
-		OrderedHash string `json:"ordered_hash"`
-		Source      string `json:"source"`
+		StreamID     string `json:"stream_id"`
+		ObserverID   string `json:"observer_id"`
+		EventCount   uint64 `json:"event_count"`
+		OrderedHash  string `json:"ordered_hash"`
+		ObservedHash string `json:"observed_hash"`
+		Source       string `json:"source"`
 	} `json:"observations"`
 	GateResults []GateResult `json:"gate_results"`
 }
