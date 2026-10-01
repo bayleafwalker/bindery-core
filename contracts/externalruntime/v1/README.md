@@ -93,6 +93,17 @@ trace, and stores and serves it like any other object. It is deliberately
 game-neutral; a runtime-specific format belongs in that runtime's adapter
 (ADR-010), and core defines none.
 
+## Builds that play together
+
+A session's `compatibility.compatible_game_hashes` names further builds of
+the same release that play together with its `game_hash`, such as the other
+platforms' executables. Enrollment admits a client running the session's
+build or any declared one, and refuses others with `COMPATIBILITY_MISMATCH`
+as before; a session that declares none admits only its own build. Which
+build a client runs is provenance, recorded on its public enrollment as
+`game_hash`. Entries must be sha256 values, may not repeat a build the
+session already declares, and are capped at 16 (`COMPATIBILITY_INVALID`).
+
 ## Declining a capture stream
 
 A session whose capture policy captures semantic events opens a capture stream

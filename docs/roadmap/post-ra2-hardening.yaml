@@ -273,7 +273,10 @@ erh007_findings_note: >-
   session's, so a game that ships a Windows, a macOS and a Linux build of one
   release -- which play together over the network -- cannot enroll its second
   platform at all; game_hash is carrying provenance and compatibility at once,
-  and only compatibility belongs in that check. And an evidence set records no
+  and only compatibility belongs in that check (resolved 2026-10-01: a session
+  may declare compatible_game_hashes, enrollment admits any declared build, and
+  each enrollment records the build its client runs as game_hash). And an
+  evidence set records no
   observation interval, so two honest observers who watched different intervals
   of one execution are indistinguishable from two observers who disagree about
   the same interval. Both are pinned in

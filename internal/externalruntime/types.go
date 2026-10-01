@@ -57,15 +57,20 @@ const (
 // what a compatibility check is for. The pairs are all-or-nothing: an id
 // without its hash names content nobody can verify.
 type Compatibility struct {
-	GameFamily     string `json:"game_family"`
-	GameVersion    string `json:"game_version"`
-	GameHash       string `json:"game_hash"`
-	AdapterID      string `json:"adapter_id"`
-	AdapterVersion string `json:"adapter_version"`
-	ModID          string `json:"mod_id,omitempty"`
-	ModHash        string `json:"mod_hash,omitempty"`
-	MapID          string `json:"map_id,omitempty"`
-	MapHash        string `json:"map_hash,omitempty"`
+	GameFamily  string `json:"game_family"`
+	GameVersion string `json:"game_version"`
+	GameHash    string `json:"game_hash"`
+	// CompatibleGameHashes names further builds of the same release that play
+	// together with GameHash, such as other platforms' executables. A client
+	// running any of them may enroll; which one it runs is provenance, and is
+	// recorded on its enrollment rather than required to match.
+	CompatibleGameHashes []string `json:"compatible_game_hashes,omitempty"`
+	AdapterID            string   `json:"adapter_id"`
+	AdapterVersion       string   `json:"adapter_version"`
+	ModID                string   `json:"mod_id,omitempty"`
+	ModHash              string   `json:"mod_hash,omitempty"`
+	MapID                string   `json:"map_id,omitempty"`
+	MapHash              string   `json:"map_hash,omitempty"`
 }
 
 type ParticipantPolicy struct {
@@ -191,8 +196,11 @@ type PublicEnrollment struct {
 	Phase          EnrollmentPhase `json:"phase"`
 	AdapterID      string          `json:"adapter_id"`
 	AdapterVersion string          `json:"adapter_version"`
-	EnrolledAt     time.Time       `json:"enrolled_at"`
-	DepartedAt     *time.Time      `json:"departed_at"`
+	// GameHash is the build this client declared it runs: provenance, not a
+	// compatibility claim. It is absent on enrollments recorded before it was.
+	GameHash   string     `json:"game_hash,omitempty"`
+	EnrolledAt time.Time  `json:"enrolled_at"`
+	DepartedAt *time.Time `json:"departed_at"`
 	// Controller is what the enrolling client declared drives its seat. It is
 	// absent when nothing was declared, which is not the same as "human": the
 	// broker records the claim and does not infer one.

@@ -177,3 +177,12 @@ stream, so no published hash moved. The pinning test was retired in favour of
 control, `TestOrderedHashStillReportsDivergentObservations`; the OpenTTD
 acceptance run now reconciles its two identical admin streams as `consistent`.
 The other findings above stand.
+
+The cross-build finding is resolved as well. A session may declare
+`compatibility.compatible_game_hashes`, further builds of the same release that
+play together; enrollment admits any declared build and records the one each
+client runs as `game_hash` on its public enrollment, so provenance and
+compatibility are no longer one field. A session that declares none admits
+only its own build. The acceptance run now declares the published Windows
+build, enrolls a client running it, and still sees an undeclared build
+refused with `COMPATIBILITY_MISMATCH`.

@@ -231,7 +231,7 @@ func (s *Service) CreateSession(accountToken, idempotencyKey string, req CreateS
 		SchemaVersion: SchemaVersion, SessionID: sessionID,
 		ExecutionID:        executionID,
 		CreatedByAccountID: accountID, CreatedAt: now, UpdatedAt: now,
-		Phase: SessionCreated, Compatibility: req.Compatibility,
+		Phase: SessionCreated, Compatibility: req.Compatibility.clone(),
 		ParticipantPolicy: req.ParticipantPolicy, CapturePolicy: req.Capture,
 		Placement:   placement,
 		Enrollments: []PublicEnrollment{}, Transitions: []PublicTransition{},
@@ -465,7 +465,7 @@ func (s *Service) Enroll(accountToken, sessionJoinCredential, sessionID, idempot
 	if !verifyCredential(sessionJoinCredential, session.joinVerifier) {
 		return EnrollmentCreateResponse{}, domainError("JOIN_CREDENTIAL_INVALID", "session join credential is invalid or expired")
 	}
-	if req.Adapter.ID != session.Compatibility.AdapterID || req.Adapter.Version != session.Compatibility.AdapterVersion || req.Compatibility.GameHash != session.Compatibility.GameHash || req.Compatibility.ModHash != session.Compatibility.ModHash || req.Compatibility.MapHash != session.Compatibility.MapHash {
+	if req.Adapter.ID != session.Compatibility.AdapterID || req.Adapter.Version != session.Compatibility.AdapterVersion || !session.Compatibility.admitsGameHash(req.Compatibility.GameHash) || req.Compatibility.ModHash != session.Compatibility.ModHash || req.Compatibility.MapHash != session.Compatibility.MapHash {
 		return EnrollmentCreateResponse{}, domainError("COMPATIBILITY_MISMATCH", "client adapter, mod, or map does not match the session")
 	}
 	players, observers := 0, 0
@@ -513,7 +513,7 @@ func (s *Service) Enroll(accountToken, sessionJoinCredential, sessionID, idempot
 	if err := s.admitToRelayLocked(session, clientID, req.ClientClass, transport, now); err != nil {
 		return EnrollmentCreateResponse{}, err
 	}
-	public := PublicEnrollment{ClientID: clientID, AccountID: accountID, ClientClass: req.ClientClass, Phase: EnrollmentRegistered, AdapterID: req.Adapter.ID, AdapterVersion: req.Adapter.Version, EnrolledAt: now, Controller: cloneController(req.Controller)}
+	public := PublicEnrollment{ClientID: clientID, AccountID: accountID, ClientClass: req.ClientClass, Phase: EnrollmentRegistered, AdapterID: req.Adapter.ID, AdapterVersion: req.Adapter.Version, GameHash: req.Compatibility.GameHash, EnrolledAt: now, Controller: cloneController(req.Controller)}
 	enrollment := &enrollmentRecord{PublicEnrollment: public, sessionID: sessionID, clientInstanceID: req.ClientInstanceID, leaseVerifier: leaseVerifier, transportVerifier: transportVerifier, expiresAt: now.Add(2 * time.Minute), reportIDs: make(map[string]string), requestHash: hash}
 	session.enrollments[clientID] = enrollment
 	s.enrollments[clientID] = enrollment
@@ -792,6 +792,19 @@ func validateSessionRequest(req CreateSessionRequest) error {
 	if !hashPattern.MatchString(req.Compatibility.GameHash) {
 		return domainError("COMPATIBILITY_INVALID", "game_hash must be a sha256 value")
 	}
+	if len(req.Compatibility.CompatibleGameHashes) > MaximumCompatibleGameHashes {
+		return domainError("COMPATIBILITY_INVALID", "too many compatible game builds")
+	}
+	declared := map[string]struct{}{req.Compatibility.GameHash: {}}
+	for _, hash := range req.Compatibility.CompatibleGameHashes {
+		if !hashPattern.MatchString(hash) {
+			return domainError("COMPATIBILITY_INVALID", "every compatible_game_hashes entry must be a sha256 value")
+		}
+		if _, duplicate := declared[hash]; duplicate {
+			return domainError("COMPATIBILITY_INVALID", "compatible_game_hashes repeats a build the session already declares")
+		}
+		declared[hash] = struct{}{}
+	}
 	// Mod and map are optional but paired. An id without a hash names content
 	// no participant can verify, and a hash without an id names nothing.
 	if err := validateContentPair("mod", req.Compatibility.ModID, req.Compatibility.ModHash); err != nil {
@@ -807,6 +820,30 @@ func validateSessionRequest(req CreateSessionRequest) error {
 		return domainError("PLACEMENT_INVALID", "at least one allowed region and a non-negative latency target are required")
 	}
 	return nil
+}
+
+// MaximumCompatibleGameHashes bounds how many further builds a session may
+// declare. A release ships one build per platform and architecture, not
+// dozens.
+const MaximumCompatibleGameHashes = 16
+
+func (c Compatibility) clone() Compatibility {
+	c.CompatibleGameHashes = append([]string(nil), c.CompatibleGameHashes...)
+	return c
+}
+
+// admitsGameHash is the enrollment compatibility check: the session's own
+// build or one it declared compatible.
+func (c Compatibility) admitsGameHash(hash string) bool {
+	if hash == c.GameHash {
+		return true
+	}
+	for _, compatible := range c.CompatibleGameHashes {
+		if hash == compatible {
+			return true
+		}
+	}
+	return false
 }
 
 // MaximumParticipantsPerSession bounds what one session may admit. It is a
@@ -871,6 +908,7 @@ func clonePublicSession(value PublicSession) PublicSession {
 	value.Enrollments = append([]PublicEnrollment(nil), value.Enrollments...)
 	value.CaptureIDs = append([]string(nil), value.CaptureIDs...)
 	value.Transitions = append([]PublicTransition(nil), value.Transitions...)
+	value.Compatibility.CompatibleGameHashes = append([]string(nil), value.Compatibility.CompatibleGameHashes...)
 	if value.Placement != nil {
 		placement := *value.Placement
 		placementCopy := placement

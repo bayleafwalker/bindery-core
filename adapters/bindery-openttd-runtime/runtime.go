@@ -23,6 +23,10 @@ type Runtime struct {
 	// shipped content for participants to agree on.
 	GameHash    string
 	GameVersion string
+	// CompatibleGameHashes are other builds of the same release that play
+	// together with GameHash -- other platforms' executables. The session
+	// declares them so clients running them can enroll.
+	CompatibleGameHashes []string
 
 	SessionID   string
 	ExecutionID string
@@ -94,6 +98,9 @@ func (r *Runtime) CreateSession(welcome Welcome, players, observers int) error {
 		"placement": map[string]any{"allowed_regions": []string{"eu-north"}, "latency_p95_ms": 100},
 		"capture":   map[string]any{"semantic_events": true, "post_match_dump": false},
 	}
+	if len(r.CompatibleGameHashes) > 0 {
+		request["compatibility"].(map[string]any)["compatible_game_hashes"] = r.CompatibleGameHashes
+	}
 	var response SessionResponse
 	if err := r.client.Do("POST", "/v1/sessions", request, 201, &response,
 		Options{Bearer: r.account, IdempotencyKey: "openttd-session"}); err != nil {
@@ -145,6 +152,21 @@ func (r *Runtime) EnrollPlayer(name string) error {
 	}
 	r.Players = append(r.Players, seat)
 	return nil
+}
+
+// EnrollBuild seats a player client running the named build of the game,
+// declining a capture stream like every OpenTTD client, and returns the build
+// its public enrollment records.
+func (r *Runtime) EnrollBuild(instance, gameHash string) (string, error) {
+	var response EnrollmentResponse
+	err := r.client.Do("POST", "/v1/sessions/"+r.SessionID+"/enrollments", map[string]any{
+		"client_instance_id": instance,
+		"client_class":       "player",
+		"capture":            false,
+		"adapter":            map[string]any{"id": AdapterID, "version": AdapterVersion},
+		"compatibility":      map[string]any{"game_hash": gameHash},
+	}, 201, &response, Options{Bearer: r.account, IdempotencyKey: "openttd-enroll-" + instance, JoinCredential: r.JoinToken})
+	return response.PublicEnrollment.GameHash, err
 }
 
 // EnrollExpectingRefusal offers a client that differs from the session only in

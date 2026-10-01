@@ -97,13 +97,14 @@ type SessionResponse struct {
 		ExecutionID   string `json:"execution_id"`
 		Phase         string `json:"phase"`
 		Compatibility struct {
-			GameFamily  string `json:"game_family"`
-			GameVersion string `json:"game_version"`
-			GameHash    string `json:"game_hash"`
-			ModID       string `json:"mod_id"`
-			MapID       string `json:"map_id"`
-			ModHash     string `json:"mod_hash"`
-			MapHash     string `json:"map_hash"`
+			GameFamily  string   `json:"game_family"`
+			GameVersion string   `json:"game_version"`
+			GameHash    string   `json:"game_hash"`
+			Compatible  []string `json:"compatible_game_hashes"`
+			ModID       string   `json:"mod_id"`
+			MapID       string   `json:"map_id"`
+			ModHash     string   `json:"mod_hash"`
+			MapHash     string   `json:"map_hash"`
 		} `json:"compatibility"`
 	} `json:"public_session"`
 	SessionJoinCredential string `json:"session_join_credential"`
@@ -120,6 +121,7 @@ type EnrollmentResponse struct {
 		ClientID       string `json:"client_id"`
 		AdapterID      string `json:"adapter_id"`
 		AdapterVersion string `json:"adapter_version"`
+		GameHash       string `json:"game_hash"`
 	} `json:"public_enrollment"`
 	ClientLeaseToken    string         `json:"client_lease_token"`
 	CaptureStreamOffers []CaptureOffer `json:"capture_stream_offers"`

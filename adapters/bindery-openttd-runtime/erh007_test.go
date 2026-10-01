@@ -20,6 +20,10 @@ const buildRevision = "19db3c2f00d3b6c2126e6fadd1f911f42521d3b8"
 // over the network -- which is the whole point of using it here.
 const publishedWindowsBuildHash = "sha256:61c0a6a43d81008c7ff4330fb56351bbf66a980cdad041f1d0e08b51f2eeb34c"
 
+// undeclaredBuildHash is a build the session never declared: the sha256 of
+// the string "not a release of this game".
+const undeclaredBuildHash = "sha256:28062561caa89dffd9f6487d66d61223b2466fefdf427ca692e04c185f2894c5"
+
 // broker is the real control plane, run as its own process so the restart
 // drill restarts something rather than reconstructing it in memory.
 type broker struct {
@@ -220,8 +224,11 @@ func TestERH007ThirdPartyRuntime(t *testing.T) {
 	if err := runtime.ClaimIdentity("openttd-operator"); err != nil {
 		t.Fatalf("claim identity: %v", err)
 	}
-	// Two extra player seats are the completeness gate's controls.
-	if err := runtime.CreateSession(welcome, players+2, len(observers)); err != nil {
+	// Two extra player seats are the completeness gate's controls, and one
+	// more is a client running the Windows build of the same release, which
+	// the session declares compatible.
+	runtime.CompatibleGameHashes = []string{publishedWindowsBuildHash}
+	if err := runtime.CreateSession(welcome, players+3, len(observers)); err != nil {
 		t.Fatalf("create a session for a game with no mod and no map: %v", err)
 	}
 	t.Logf("session %s execution %s, game_hash %s", runtime.SessionID, runtime.ExecutionID, runtime.GameHash)
@@ -231,19 +238,27 @@ func TestERH007ThirdPartyRuntime(t *testing.T) {
 		}
 	}
 
-	// FINDING, and one only a cross-platform game can surface: enrollment
-	// requires every participant to run a byte-identical build. OpenTTD's
-	// Windows, macOS and Linux builds of one release play together; Bindery
-	// refuses the second of them. Red Alert 2 ships one platform's executable,
-	// so nothing in the RA2 slice could have found this.
-	code, err := runtime.EnrollExpectingRefusal("bindery-player-windows", publishedWindowsBuildHash)
+	// RETIRED FINDING, and one only a cross-platform game could surface:
+	// enrollment required every participant to run a byte-identical build,
+	// though OpenTTD's Windows, macOS and Linux builds of one release play
+	// together. The session now declares the Windows build compatible, so a
+	// client running it enrolls, and its enrollment records which build it
+	// runs. A build the session never declared is still refused.
+	recorded, err := runtime.EnrollBuild("bindery-player-windows", publishedWindowsBuildHash)
 	if err != nil {
-		t.Fatalf("offering another platform's build of the same game: %v", err)
+		t.Fatalf("a client running the declared Windows build was refused: %v", err)
+	}
+	if recorded != publishedWindowsBuildHash {
+		t.Fatalf("the Windows client's enrollment records game_hash %q", recorded)
+	}
+	code, err := runtime.EnrollExpectingRefusal("bindery-player-undeclared", undeclaredBuildHash)
+	if err != nil {
+		t.Fatalf("offering an undeclared build: %v", err)
 	}
 	if code != "COMPATIBILITY_MISMATCH" {
 		t.Fatalf("refusal code = %q, want COMPATIBILITY_MISMATCH", code)
 	}
-	t.Logf("finding: a client running the published Windows build of the same release is refused (%s)", code)
+	t.Logf("the published Windows build of the same release enrolls; an undeclared build is refused (%s)", code)
 
 	// Real game clients, joining over the network. Each creates a company on
 	// arrival, which is what an OpenTTD client does when it joins with no

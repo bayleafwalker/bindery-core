@@ -454,28 +454,61 @@ func TestNonRA2SessionShapesAreAccepted(t *testing.T) {
 // core is testable without a game installed. See
 // docs/assessments/2026-08-26-erh-007-third-party-runtime.md.
 
-// FINDING: every participant must run a byte-identical build of the game.
-//
-// Enrollment refuses any client whose game_hash differs from the session's.
-// For Red Alert 2 that is nearly free -- one platform, one executable -- but
-// most games ship a different binary per platform, and OpenTTD's Windows,
-// macOS and Linux builds of the same release play together. Under this rule a
-// cross-platform match cannot be enrolled at all: the second platform's client
-// is refused as incompatible with the first.
-//
-// The fix is a contract decision rather than a patch. game_hash currently
-// carries two meanings at once -- "which build am I running" and "are we
-// playing the same thing" -- and only the second belongs in a compatibility
-// check. Recorded rather than fixed, because deciding what makes two builds
-// the same game is not an adapter's call.
-func TestFindingEnrollmentRequiresByteIdenticalGameBuilds(t *testing.T) {
+// RETIRED FINDING: enrollment refused any client whose game_hash differed
+// from the session's, so a game that ships a Windows, a macOS and a Linux
+// build of one release -- which play together -- could not enroll its second
+// platform. game_hash carried provenance and compatibility at once. A session
+// may now declare compatible_game_hashes: the check is membership in that
+// set, and each enrollment records the build its client declared.
+func TestASessionAdmitsTheBuildsItDeclaresCompatible(t *testing.T) {
 	service := NewService()
 	owner := mustIdentity(t, service, "cross-build-owner")
-	created, err := service.CreateSession(owner.AccountToken, "cross-build-session", testSessionRequest())
+	request := testSessionRequest()
+	request.Compatibility.CompatibleGameHashes = []string{testHashB}
+	created, err := service.CreateSession(owner.AccountToken, "cross-build-session", request)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// testHashB stands in for the same game, same version, other platform.
+	sessionID := created.PublicSession.SessionID
+	enroll := func(instance, gameHash string) (EnrollmentCreateResponse, error) {
+		return service.Enroll(owner.AccountToken, created.SessionJoinCredential, sessionID, "enroll-"+instance, EnrollmentRequest{
+			ClientInstanceID: instance, ClientClass: ClientPlayer,
+			Adapter:       AdapterRef{ID: "bindery.ra2-adapter", Version: "0.1.0"},
+			Compatibility: ClientHashes{GameHash: gameHash, ModHash: testHashA, MapHash: testHashB},
+		})
+	}
+	primary, err := enroll("primary-platform", testHashA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := enroll("other-platform", testHashB)
+	if err != nil {
+		t.Fatalf("a declared compatible build was refused: %v", err)
+	}
+	if primary.PublicEnrollment.GameHash != testHashA || other.PublicEnrollment.GameHash != testHashB {
+		t.Fatalf("enrollments do not record their builds: %q and %q", primary.PublicEnrollment.GameHash, other.PublicEnrollment.GameHash)
+	}
+	if _, err := enroll("undeclared-build", testHashC); !hasCode(err, "COMPATIBILITY_MISMATCH") {
+		t.Fatalf("an undeclared build = %v, want COMPATIBILITY_MISMATCH", err)
+	}
+	session, err := service.GetSession(sessionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(session.Compatibility.CompatibleGameHashes) != 1 || session.Compatibility.CompatibleGameHashes[0] != testHashB {
+		t.Fatalf("the session does not publish its compatible builds: %+v", session.Compatibility)
+	}
+}
+
+// The default is unchanged: a session that declares no other build admits
+// only its own.
+func TestASessionWithoutCompatibleBuildsAdmitsOnlyItsOwn(t *testing.T) {
+	service := NewService()
+	owner := mustIdentity(t, service, "one-build-owner")
+	created, err := service.CreateSession(owner.AccountToken, "one-build-session", testSessionRequest())
+	if err != nil {
+		t.Fatal(err)
+	}
 	_, err = service.Enroll(owner.AccountToken, created.SessionJoinCredential, created.PublicSession.SessionID,
 		"enroll-other-platform", EnrollmentRequest{
 			ClientInstanceID: "other-platform",
@@ -483,12 +516,24 @@ func TestFindingEnrollmentRequiresByteIdenticalGameBuilds(t *testing.T) {
 			Adapter:          AdapterRef{ID: "bindery.ra2-adapter", Version: "0.1.0"},
 			Compatibility:    ClientHashes{GameHash: testHashB, ModHash: testHashA, MapHash: testHashB},
 		})
-	if err == nil {
-		t.Fatal("a client running another platform's build of the same game now enrolls: " +
-			"the finding is fixed and this test and the assessment must be retired")
-	}
 	if !hasCode(err, "COMPATIBILITY_MISMATCH") {
 		t.Fatalf("refusal code = %v, want COMPATIBILITY_MISMATCH", err)
+	}
+}
+
+func TestCompatibleGameHashesAreValidated(t *testing.T) {
+	for name, hashes := range map[string][]string{
+		"malformed": {"sha256:nope"},
+		"duplicate": {testHashB, testHashB},
+		"own-build": {testHashA},
+	} {
+		service := NewService()
+		owner := mustIdentity(t, service, "validate-"+strings.ReplaceAll(name, " ", "-"))
+		request := testSessionRequest()
+		request.Compatibility.CompatibleGameHashes = hashes
+		if _, err := service.CreateSession(owner.AccountToken, "validate-session", request); !hasCode(err, "COMPATIBILITY_INVALID") {
+			t.Errorf("%s: error = %v, want COMPATIBILITY_INVALID", name, err)
+		}
 	}
 }
 
@@ -545,3 +590,5 @@ func TestFindingEvidenceSetsRecordNoObservationInterval(t *testing.T) {
 	t.Logf("two honest observers of different intervals are recorded as a disagreement: %v",
 		result.Reconciliation.DistinctCounts)
 }
+
+const testHashC = "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"

@@ -32,6 +32,10 @@
         "game_family": {"type": "string", "minLength": 1, "maxLength": 64},
         "game_version": {"type": "string", "minLength": 1, "maxLength": 64},
         "game_hash": {"$ref": "#/$defs/hash"},
+        "compatible_game_hashes": {
+          "type": "array", "maxItems": 16, "uniqueItems": true, "items": {"$ref": "#/$defs/hash"},
+          "description": "Further builds of the same release that play together with game_hash, such as other platforms' executables. Enrollment admits any of them; which one a client runs is recorded on its enrollment as game_hash."
+        },
         "adapter_id": {"type": "string", "minLength": 1, "maxLength": 128},
         "adapter_version": {"type": "string", "minLength": 1, "maxLength": 64},
         "mod_id": {"type": "string", "minLength": 1, "maxLength": 128},
@@ -91,6 +95,7 @@
         "phase": {"type": "string", "enum": ["issued", "registered", "ready", "active", "departed", "lost", "expired"]},
         "adapter_id": {"type": "string", "minLength": 1, "maxLength": 128},
         "adapter_version": {"type": "string", "minLength": 1, "maxLength": 64},
+        "game_hash": {"$ref": "#/$defs/hash", "description": "The build this client declared it runs: provenance, not a compatibility claim."},
         "enrolled_at": {"type": "string", "format": "date-time"},
         "departed_at": {"type": ["string", "null"], "format": "date-time"},
         "controller": {"$ref": "#/$defs/controller"}
