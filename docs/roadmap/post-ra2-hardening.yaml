@@ -92,7 +92,7 @@ work:
       only by removing game-specific constraints.
 
       All three acceptance criteria are met, and the item is not marked done,
-      because the findings are the deliverable and four of them are open. See
+      because the findings are the deliverable and three of them are open. See
       docs/assessments/2026-08-26-erh-007-second-runtime.md.
 
       What it is not: a second commercial game. It cannot surface the
@@ -240,9 +240,13 @@ erh007_findings_note: >-
   producers that observed exactly the same thing hash differently by
   construction and reconcile as inconsistent. OrderedHash's own doc comment
   states the opposite intent. RA2's two-client cross-check has the same defect;
-  a second runtime is what made anyone look. The fix is a contract decision --
-  what makes two observations the same observation across producers -- and is
-  deliberately not taken here.
+  a second runtime is what made anyone look. Resolved 2026-10-01: two
+  observations are the same observation when they agree on session, execution,
+  game_tick, event type, payload version and payload, in order. Broker-derived
+  summaries carry that as observed_hash (capture.ObservedHash), ordered-hash
+  reconciliation compares it, and ordered_hash keeps identifying the stream.
+  The canonical encoding did not move. The OpenTTD acceptance run now
+  reconciles its two identical admin streams as consistent.
 
   Three further leaks are open and recorded: a single-authority execution can
   publish no evidence at all, because reconciliation requires two observers and

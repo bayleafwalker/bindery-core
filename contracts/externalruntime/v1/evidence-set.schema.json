@@ -21,7 +21,16 @@
           "execution_id": {"type": "string", "format": "uuid"},
           "stream_id": {"type": "string", "minLength": 1, "maxLength": 256},
           "event_count": {"type": "integer", "minimum": 0},
-          "ordered_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+          "ordered_hash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "description": "Identity of one producer's stream. It covers who produced the stream, so two producers never share one."
+          },
+          "observed_hash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "description": "Digest of what the stream witnessed, in order, excluding who observed it and when it was received. ordered-hash reconciliation compares this when every observation carries one, ordered_hash when none does, and refuses a mix."
+          },
           "source": {
             "type": "string",
             "enum": ["client-reported", "broker-derived"],

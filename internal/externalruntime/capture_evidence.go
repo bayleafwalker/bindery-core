@@ -82,13 +82,18 @@ func (s *Service) summarizeCaptureLocked(record *captureRecord) (evidencev1.Obse
 	if err != nil {
 		return evidencev1.ObservationSummary{}, domainError("OBSERVATION_UNREADABLE", "observations could not be canonically hashed")
 	}
+	observedHash, err := capture.ObservedHash(events)
+	if err != nil {
+		return evidencev1.ObservationSummary{}, domainError("OBSERVATION_UNREADABLE", "observations could not be canonically hashed")
+	}
 	return evidencev1.ObservationSummary{
-		ObserverID:  record.ProducerClientID,
-		ExecutionID: record.ExecutionID,
-		StreamID:    record.CaptureID,
-		EventCount:  uint64(len(events)),
-		OrderedHash: orderedHash,
-		Source:      evidencev1.SourceBrokerDerived,
+		ObserverID:   record.ProducerClientID,
+		ExecutionID:  record.ExecutionID,
+		StreamID:     record.CaptureID,
+		EventCount:   uint64(len(events)),
+		OrderedHash:  orderedHash,
+		ObservedHash: observedHash,
+		Source:       evidencev1.SourceBrokerDerived,
 	}, nil
 }
 

@@ -100,10 +100,28 @@ agreement or disagreement at the level promised by its method.
 | Method | Meaning | Core status |
 | --- | --- | --- |
 | `exact-count` | All independent streams report the same event count | Implemented |
-| `ordered-hash` | All independent streams report the same ordered-stream digest | Implemented |
+| `ordered-hash` | All independent streams witnessed the same events in the same order (`observed_hash`; see below) | Implemented |
 | `semantic-equivalence` | Domain normalizer considers streams equivalent | Reserved |
 | `quorum` | A declared observer quorum agrees | Reserved |
 | `domain-specific` | Versioned adapter/domain policy | Reserved |
+
+### What `ordered-hash` compares
+
+A broker-derived summary carries two digests. `ordered_hash` identifies one
+producer's stream: it covers the full canonical event, producer identity and
+receive time included, so two producers never share one. `observed_hash`
+(`capture.ObservedHash`) covers only what was observed -- session, execution,
+`game_tick`, event type, payload version and payload, in sequence order --
+and leaves out `event_id`, `capture_id`, producer and adapter identity,
+`producer_time`, `received_at` and the sequence number. Two producers that
+witnessed the same events in the same order therefore agree on it.
+
+Reconciliation compares `observed_hash` when every summary carries one, and
+`ordered_hash` when none does: a client-reported stream hash means whatever
+the client made it mean, so it is compared as given. A mix of the two is
+refused, because a stream identity and an observed digest are not comparable.
+Both encodings are frozen and pinned by golden vectors in
+`internal/capture/canon_test.go`.
 
 Reserved methods fail explicitly as unsupported. They are not aliases for count
 equality with more ambitious names.

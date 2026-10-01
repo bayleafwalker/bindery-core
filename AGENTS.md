@@ -160,6 +160,10 @@ test.
   batch, never change `internal/capture/canon.go`'s encoding without accepting
   that every published hash moves, and never satisfy a completeness question by
   relaxing the gate — `canon_test.go` and `capture_gate_test.go` freeze both.
+  The observed encoding behind `observed_hash` is frozen the same way.
+  `ordered_hash` identifies one producer's stream and never agrees across
+  producers; cross-producer agreement is `observed_hash`. Do not "fix" either
+  by making it the other.
 - No public DTO field may end in
   `authorization|bearer|token|credential|secret|password|url|ip|port|endpoint`.
   `internal/externalruntime/redaction.go` is the release-blocking oracle and

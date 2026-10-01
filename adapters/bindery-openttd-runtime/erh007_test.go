@@ -400,29 +400,37 @@ func TestERH007ThirdPartyRuntime(t *testing.T) {
 	}
 	t.Logf("gate controls: %d PASS on the observing streams, %d FAIL on the game clients' empty ones", passed, failed)
 
-	// FINDING, confirmed against a game this repository does not control:
-	// ordered-hash reconciliation cannot report agreement. These two streams
-	// are the same events, in the same order, with the same content-derived
-	// event ids -- and they still hash differently, because the canonical
-	// encoding binds producer_client_id, capture_id and received_at into every
-	// event. The dedicated runtime found this; a real game confirms it is not
-	// an artefact of a runtime written alongside the contracts.
+	// RETIRED FINDING, first confirmed against this game: ordered-hash could
+	// not report agreement, because the stream hash binds producer_client_id,
+	// capture_id and received_at into every event. These two streams are the
+	// same events, in the same order, with the same content-derived event ids.
+	// Reconciliation now compares observed_hash, which covers only what was
+	// observed, so they agree -- while each keeps its own ordered_hash.
 	status, orderedHash, failure, err := runtime.ReconcileRaw("ordered-hash", "openttd-ordered-hash")
 	if err != nil {
 		t.Fatalf("ordered-hash reconciliation: %v", err)
 	}
 	if status != 201 {
-		t.Fatalf("ordered-hash reconciliation was refused (%d %s); the finding this pins has changed shape", status, failure.Code)
+		t.Fatalf("ordered-hash reconciliation was refused (%d %s)", status, failure.Code)
 	}
-	if orderedHash.Reconciliation.Outcome != "inconsistent" {
-		t.Fatalf("ordered-hash now reports %q for identical streams -- the finding is fixed and this test must be retired",
-			orderedHash.Reconciliation.Outcome)
+	if orderedHash.Reconciliation.Outcome != "consistent" {
+		t.Fatalf("ordered-hash reports %q for identical streams", orderedHash.Reconciliation.Outcome)
 	}
-	if len(orderedHash.Reconciliation.DistinctHashes) != len(observers) {
-		t.Fatalf("distinct hashes = %d, want one per producer", len(orderedHash.Reconciliation.DistinctHashes))
+	if len(orderedHash.Reconciliation.DistinctHashes) != 1 {
+		t.Fatalf("distinct hashes = %d, want one observed hash", len(orderedHash.Reconciliation.DistinctHashes))
 	}
-	t.Logf("finding confirmed on a third-party game: identical observations, %d distinct ordered hashes, outcome %s",
-		len(orderedHash.Reconciliation.DistinctHashes), orderedHash.Reconciliation.Outcome)
+	streamHashes := map[string]struct{}{}
+	for _, observation := range orderedHash.Observations {
+		if observation.ObservedHash != orderedHash.Reconciliation.DistinctHashes[0] {
+			t.Fatalf("stream %s observed hash %q is not the compared one", observation.StreamID, observation.ObservedHash)
+		}
+		streamHashes[observation.OrderedHash] = struct{}{}
+	}
+	if len(streamHashes) != len(orderedHash.Observations) {
+		t.Fatalf("stream hashes = %d, want one per producer", len(streamHashes))
+	}
+	t.Logf("identical observations on a third-party game: one observed hash, %d stream hashes, outcome %s",
+		len(streamHashes), orderedHash.Reconciliation.Outcome)
 
 	// Idempotency survives the restart.
 	replay, err := runtime.Reconcile("exact-count", "openttd-exact-count")

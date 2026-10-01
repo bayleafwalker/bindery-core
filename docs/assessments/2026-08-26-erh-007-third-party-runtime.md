@@ -162,3 +162,18 @@ runtime runs.
 The ordering rule still holds: this ran ahead of ERH-006, which remains blocked
 on a Windows machine, an owned copy of Red Alert 2, and an unresolved spawner
 provenance gate. Nothing here closes ERH-006.
+
+## Resolution, 2026-10-01
+
+The ordered-hash finding is resolved. Two observations are now the same
+observation when they agree on session, execution, `game_tick`, event type,
+payload version and payload, in sequence order; producer and adapter identity,
+`event_id`, `capture_id`, `producer_time`, `received_at` and the sequence
+number are left out. Broker-derived summaries carry that digest as
+`observed_hash` (`capture.ObservedHash`), and `ordered-hash` reconciliation
+compares it. `ordered_hash` is unchanged and still identifies each producer's
+stream, so no published hash moved. The pinning test was retired in favour of
+`TestOrderedHashAgreesAcrossProducersOnIdenticalObservations` and a negative
+control, `TestOrderedHashStillReportsDivergentObservations`; the OpenTTD
+acceptance run now reconciles its two identical admin streams as `consistent`.
+The other findings above stand.

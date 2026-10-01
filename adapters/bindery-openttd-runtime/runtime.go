@@ -185,8 +185,8 @@ func (r *Runtime) enroll(instance, class, captureMethod string) (EnrollmentRespo
 
 // EventID is derived from what was observed and nothing else, so two admin
 // applications that saw the same fact mint the same identifier for it. That is
-// the strongest form of agreement this runtime can offer, and the ordered-hash
-// finding survives it.
+// the strongest form of agreement this runtime can offer. Reconciliation does
+// not depend on it: observed_hash leaves event ids out.
 func EventID(sequence int, observation Observation) string {
 	digest := sha256.New()
 	fmt.Fprintf(digest, "%d\n%s\n", sequence, observation.Kind)

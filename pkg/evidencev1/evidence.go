@@ -65,8 +65,13 @@ type ObservationSummary struct {
 	ExecutionID string `json:"execution_id"`
 	StreamID    string `json:"stream_id"`
 	EventCount  uint64 `json:"event_count"`
+	// OrderedHash identifies one producer's stream. It covers who produced
+	// the stream, so two producers never share one.
 	OrderedHash string `json:"ordered_hash,omitempty"`
-	Source      Source `json:"source"`
+	// ObservedHash covers only what the stream witnessed, in order, and is
+	// what ordered-hash reconciliation compares between producers.
+	ObservedHash string `json:"observed_hash,omitempty"`
+	Source       Source `json:"source"`
 }
 
 type Reconciliation struct {
@@ -97,6 +102,12 @@ type ReconcileRequest struct {
 var ErrSourceUnknown = errors.New("observation summary does not record how it was produced")
 
 var ErrUnsupportedMethod = errors.New("reconciliation method is not implemented")
+
+// ErrMixedHashKinds rejects an ordered-hash reconciliation in which some
+// summaries carry an observed hash and others only a stream hash. The two are
+// different digests, and comparing them would report disagreement that is not
+// there.
+var ErrMixedHashKinds = errors.New("ordered-hash reconciliation cannot compare observed hashes with stream hashes")
 
 // Reconcile compares independent observation streams without changing or
 // discarding any of the claims. exact-count is intentionally policy #1: it
@@ -142,12 +153,11 @@ func Reconcile(request ReconcileRequest) (EvidenceSet, error) {
 		reconciliation.DistinctCounts = distinctCounts(observations)
 		reconciliation.Outcome = outcome(len(reconciliation.DistinctCounts) == 1)
 	case MethodOrderedHash:
-		for _, observation := range observations {
-			if !digestPattern.MatchString(observation.OrderedHash) {
-				return EvidenceSet{}, errors.New("ordered-hash reconciliation requires a sha256 digest for every stream")
-			}
+		hashes, err := comparedHashes(observations)
+		if err != nil {
+			return EvidenceSet{}, err
 		}
-		reconciliation.DistinctHashes = distinctHashes(observations)
+		reconciliation.DistinctHashes = distinctStrings(hashes)
 		reconciliation.Outcome = outcome(len(reconciliation.DistinctHashes) == 1)
 	case MethodSemanticEquivalent, MethodQuorum, MethodDomainSpecific:
 		return EvidenceSet{}, fmt.Errorf("%w: %s", ErrUnsupportedMethod, request.Method)
@@ -189,14 +199,42 @@ func distinctCounts(observations []ObservationSummary) []uint64 {
 	return result
 }
 
-func distinctHashes(observations []ObservationSummary) []string {
-	seen := make(map[string]struct{}, len(observations))
+// comparedHashes picks the digest ordered-hash reconciliation compares: the
+// observed hash when every summary carries one, the stream hash when none
+// does. A client-reported stream hash means whatever the client made it mean,
+// so it is still compared as given; a mix of the two is refused.
+func comparedHashes(observations []ObservationSummary) ([]string, error) {
+	observed := 0
 	for _, observation := range observations {
-		seen[observation.OrderedHash] = struct{}{}
+		if observation.ObservedHash != "" {
+			observed++
+		}
+	}
+	if observed != 0 && observed != len(observations) {
+		return nil, ErrMixedHashKinds
+	}
+	hashes := make([]string, 0, len(observations))
+	for _, observation := range observations {
+		hash := observation.OrderedHash
+		if observed != 0 {
+			hash = observation.ObservedHash
+		}
+		if !digestPattern.MatchString(hash) {
+			return nil, errors.New("ordered-hash reconciliation requires a sha256 digest for every stream")
+		}
+		hashes = append(hashes, hash)
+	}
+	return hashes, nil
+}
+
+func distinctStrings(values []string) []string {
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		seen[value] = struct{}{}
 	}
 	result := make([]string, 0, len(seen))
-	for hash := range seen {
-		result = append(result, hash)
+	for value := range seen {
+		result = append(result, value)
 	}
 	sort.Strings(result)
 	return result

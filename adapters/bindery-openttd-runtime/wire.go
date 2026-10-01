@@ -164,11 +164,12 @@ type GateResult struct {
 }
 
 type EvidenceObservation struct {
-	StreamID    string `json:"stream_id"`
-	ObserverID  string `json:"observer_id"`
-	EventCount  uint64 `json:"event_count"`
-	OrderedHash string `json:"ordered_hash"`
-	Source      string `json:"source"`
+	StreamID     string `json:"stream_id"`
+	ObserverID   string `json:"observer_id"`
+	EventCount   uint64 `json:"event_count"`
+	OrderedHash  string `json:"ordered_hash"`
+	ObservedHash string `json:"observed_hash"`
+	Source       string `json:"source"`
 }
 
 type EvidenceSet struct {

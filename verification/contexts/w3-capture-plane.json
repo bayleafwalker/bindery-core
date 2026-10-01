@@ -63,6 +63,7 @@
   "implementation_anchors": [
     "internal/capture/canon.go:CanonicalBatchBytes",
     "internal/capture/canon.go:OrderedHash",
+    "internal/capture/canon.go:ObservedHash",
     "internal/capture/canon.go:ProducerDigest",
     "internal/capture/filestore.go:FileObjectStore.Put",
     "internal/capture/normalize_gap.go:captureGapNormalizer.Normalize",

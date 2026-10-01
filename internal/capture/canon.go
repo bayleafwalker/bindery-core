@@ -132,11 +132,12 @@ func BatchContentHash(events []RawEvent) (string, error) {
 	return formatDigest(sha256.Sum256(encoded)), nil
 }
 
-// OrderedHash is the stream identity used by the `ordered-hash` reconciliation
-// method and by broker-derived observation summaries: the sha256 over the
+// OrderedHash is the identity of one producer's stream: the sha256 over the
 // concatenated event digests in ascending sequence order. It is deliberately
-// not the hash of the concatenated batch bodies -- two producers that batched
-// the same events differently must still agree.
+// not the hash of the concatenated batch bodies -- one producer that batched
+// the same events differently must still get the same hash. It covers the
+// whole canonical event, producer and receive time included, so two producers
+// never share one; ObservedHash is what two producers compare.
 func OrderedHash(events []RawEvent) (string, error) {
 	ordered := make([]RawEvent, len(events))
 	copy(ordered, events)
@@ -147,6 +148,73 @@ func OrderedHash(events []RawEvent) (string, error) {
 		if err != nil {
 			return "", err
 		}
+		accumulator.Write(digest[:])
+	}
+	var digest [sha256.Size]byte
+	copy(digest[:], accumulator.Sum(nil))
+	return formatDigest(digest), nil
+}
+
+// observedEvent is the part of an event that says what was observed, as
+// opposed to who observed it. It is frozen exactly as canonicalEvent is,
+// because observed_hash is published in evidence sets.
+//
+// Left out on purpose: event_id, capture_id, producer_client_id,
+// producer_class, capture_method, adapter_id and adapter_version say who
+// observed; received_at is the broker's clock and producer_time the
+// producer's; sequence is a position in one producer's stream, which the
+// ordering of the hash already carries. Two producers that witnessed the same
+// events in the same order agree on everything that is left.
+type observedEvent struct {
+	SessionID      string          `json:"session_id"`
+	ExecutionID    string          `json:"execution_id"`
+	GameTick       *uint64         `json:"game_tick"`
+	EventType      string          `json:"event_type"`
+	PayloadVersion string          `json:"payload_version"`
+	Payload        json.RawMessage `json:"payload"`
+}
+
+// observedHashDomain separates observed hashes from ordered hashes, so no
+// stream can ever produce one value that is valid as both.
+const observedHashDomain = "bindery.capture.observed/v1\n"
+
+// ObservedEventBytes returns the frozen producer-independent encoding of a
+// single raw event.
+func ObservedEventBytes(event RawEvent) ([]byte, error) {
+	canonical, err := canonicalize(event)
+	if err != nil {
+		return nil, err
+	}
+	encoded, err := json.Marshal(observedEvent{
+		SessionID:      canonical.SessionID,
+		ExecutionID:    canonical.ExecutionID,
+		GameTick:       canonical.GameTick,
+		EventType:      canonical.EventType,
+		PayloadVersion: canonical.PayloadVersion,
+		Payload:        canonical.Payload,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("%w: event is not encodable", ErrBatchInvalid)
+	}
+	return encoded, nil
+}
+
+// ObservedHash is what the `ordered-hash` reconciliation method compares
+// between producers: the sha256 over the observed-event digests in ascending
+// sequence order, under a domain prefix. It answers "did these producers
+// witness the same events in the same order", which OrderedHash cannot.
+func ObservedHash(events []RawEvent) (string, error) {
+	ordered := make([]RawEvent, len(events))
+	copy(ordered, events)
+	sort.Slice(ordered, func(i, j int) bool { return ordered[i].Sequence < ordered[j].Sequence })
+	accumulator := sha256.New()
+	accumulator.Write([]byte(observedHashDomain))
+	for _, event := range ordered {
+		encoded, err := ObservedEventBytes(event)
+		if err != nil {
+			return "", err
+		}
+		digest := sha256.Sum256(encoded)
 		accumulator.Write(digest[:])
 	}
 	var digest [sha256.Size]byte

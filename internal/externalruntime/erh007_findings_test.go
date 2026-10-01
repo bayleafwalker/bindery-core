@@ -16,19 +16,17 @@ import (
 // loudly instead of leaving the assessment quietly wrong. See
 // docs/assessments/2026-08-26-erh-007-second-runtime.md.
 
-// FINDING: ordered-hash cannot report agreement between two producers, ever.
+// RETIRED FINDING: ordered-hash could not report agreement between two
+// producers, ever. capture.OrderedHash covers producer_client_id, capture_id
+// and received_at, so two producers that observed exactly the same thing
+// hashed differently by construction and always reconciled as inconsistent.
 //
-// capture.OrderedHash composes per-event digests of the canonical encoding,
-// and that encoding binds producer_client_id, capture_id and received_at into
-// every event. Two producers that observed exactly the same thing therefore
-// hash differently by construction. OrderedHash's own doc comment states the
-// opposite intent -- "two producers that batched the same events differently
-// must still agree" -- so this is an implementation that contradicts its
-// documented purpose, not a design choice.
-//
-// It is not specific to a second runtime; RA2's two-client cross-check has the
-// same problem. A second runtime is simply what made anyone look.
-func TestFindingOrderedHashAlwaysDivergesAcrossProducers(t *testing.T) {
+// Broker-derived summaries now also carry capture.ObservedHash, which covers
+// only what was observed, and ordered-hash reconciliation compares that. The
+// stream hashes still differ, because they still identify who produced each
+// stream; agreement is about the observations. The negative control keeps the
+// fix from being a method that agrees with everything.
+func TestOrderedHashAgreesAcrossProducersOnIdenticalObservations(t *testing.T) {
 	service := NewServiceWithPlacementAllocator(testPersistentAllocator)
 	owner := mustIdentity(t, service, "finding-owner")
 	created, err := service.CreateSession(owner.AccountToken, "finding-session", testSessionRequest())
@@ -48,15 +46,44 @@ func TestFindingOrderedHashAlwaysDivergesAcrossProducers(t *testing.T) {
 	if len(result.Observations) != 2 {
 		t.Fatalf("observations = %d", len(result.Observations))
 	}
-	first, second := result.Observations[0].OrderedHash, result.Observations[1].OrderedHash
-	if first == second {
-		t.Fatal("ordered hashes now agree across producers: the finding is fixed and this test, " +
-			"the assessment, and the roadmap note must be retired")
+	first, second := result.Observations[0], result.Observations[1]
+	if first.OrderedHash == second.OrderedHash {
+		t.Fatal("stream hashes agree across producers: ordered_hash stopped identifying the stream")
 	}
-	if result.Reconciliation.Outcome != evidencev1.OutcomeInconsistent {
-		t.Fatalf("outcome = %s, want inconsistent while the finding stands", result.Reconciliation.Outcome)
+	if first.ObservedHash == "" || first.ObservedHash != second.ObservedHash {
+		t.Fatalf("identical observations, divergent observed hashes: %q vs %q", first.ObservedHash, second.ObservedHash)
 	}
-	t.Logf("identical observations, divergent hashes: %s vs %s", first[:20], second[:20])
+	if result.Reconciliation.Outcome != evidencev1.OutcomeConsistent {
+		t.Fatalf("outcome = %s, want consistent", result.Reconciliation.Outcome)
+	}
+}
+
+func TestOrderedHashStillReportsDivergentObservations(t *testing.T) {
+	service := NewServiceWithPlacementAllocator(testPersistentAllocator)
+	owner := mustIdentity(t, service, "divergent-owner")
+	created, err := service.CreateSession(owner.AccountToken, "divergent-session", testSessionRequest())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := mustEnroll(t, service, owner.AccountToken, created.SessionJoinCredential, created.PublicSession.SessionID, "divergent-a", ClientPlayer)
+	b := mustEnroll(t, service, owner.AccountToken, created.SessionJoinCredential, created.PublicSession.SessionID, "divergent-b", ClientPlayer)
+	for client, payload := range map[*testEnrollmentSecrets]string{&a: `{"action":"move"}`, &b: `{"action":"attack"}`} {
+		if _, err := service.IngestCaptureBatch(client.lease, client.capture, "divergent-"+client.id, batchRequest(0, 7, payload)); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := service.CloseCapture(client.lease, client.capture, CaptureCloseRequest{FinalSequence: 7, EndReason: "match-ended"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	result, err := service.CreateEvidenceSet(owner.AccountToken, created.PublicSession.ExecutionID, "divergent-evidence",
+		ReconcileEvidenceRequest{Method: evidencev1.MethodOrderedHash})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Reconciliation.Outcome != evidencev1.OutcomeInconsistent || len(result.Reconciliation.DistinctHashes) != 2 {
+		t.Fatalf("divergent observations reconciled as %+v", result.Reconciliation)
+	}
 }
 
 // FINDING, accepted permanently: game_tick is in the canonical encoding.
