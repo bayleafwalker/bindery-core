@@ -30,6 +30,9 @@ func TestCompletenessGateSeparatesAllFiveOutcomes(t *testing.T) {
 	if complete.Status != string(gatev1.StatusPass) || !complete.CalibrationValid {
 		t.Fatalf("complete capture result = %+v", complete)
 	}
+	if complete.Reason != "capture is closed with complete sequence coverage and no producer-reported local drops" {
+		t.Fatalf("complete capture reason = %q", complete.Reason)
+	}
 	if complete.ImplementationHash == "" || complete.GateID != captureCompletenessGateID {
 		t.Fatalf("gate result carries no implementation identity: %+v", complete)
 	}
@@ -80,6 +83,60 @@ func TestUnreadableEvidenceIsErrorNotFailure(t *testing.T) {
 	result := evaluateCaptureCompleteness(record, service.objects, reconciliationContext())
 	if result.Status != string(gatev1.StatusError) {
 		t.Fatalf("unreadable evidence status = %s, reason = %s", result.Status, result.Reason)
+	}
+}
+
+func TestGateReasonIdentifiesCaptureCompletenessFailure(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		setup func(*testing.T, *Service, testEnrollmentSecrets)
+		want  string
+	}{
+		{
+			name: "open",
+			setup: func(t *testing.T, service *Service, player testEnrollmentSecrets) {
+				mustIngest(t, service, player, 0, 1)
+			},
+			want: "capture remains open without a close receipt",
+		},
+		{
+			name: "abandoned",
+			setup: func(t *testing.T, service *Service, player testEnrollmentSecrets) {
+				service.captures[player.capture].Status = string(CaptureAbandoned)
+			},
+			want: "producer lease ended before the capture was closed",
+		},
+		{
+			name: "missing range",
+			setup: func(t *testing.T, service *Service, player testEnrollmentSecrets) {
+				mustIngest(t, service, player, 0, 1)
+				mustIngest(t, service, player, 3, 3)
+				if _, err := service.CloseCapture(player.lease, player.capture, CaptureCloseRequest{FinalSequence: through(3), EndReason: "match-ended"}); err != nil {
+					t.Fatal(err)
+				}
+			},
+			want: "capture is closed with 1 missing sequence range(s)",
+		},
+		{
+			name: "local drops",
+			setup: func(t *testing.T, service *Service, player testEnrollmentSecrets) {
+				mustIngest(t, service, player, 0, 1)
+				if _, err := service.CloseCapture(player.lease, player.capture, CaptureCloseRequest{FinalSequence: through(1), LocalDrops: 4, EndReason: "match-ended"}); err != nil {
+					t.Fatal(err)
+				}
+			},
+			want: "capture is closed with 4 producer-reported local drop(s)",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			service := NewService()
+			fixture := newCaptureFixture(t, service, "gate-reason-"+strings.ReplaceAll(test.name, " ", "-"))
+			test.setup(t, service, fixture.playerA)
+			result := evaluateCaptureCompleteness(service.captures[fixture.playerA.capture], service.objects, reconciliationContext())
+			if result.Status != string(gatev1.StatusFail) || result.Reason != test.want {
+				t.Fatalf("gate result = %+v, want FAIL with reason %q", result, test.want)
+			}
+		})
 	}
 }
 

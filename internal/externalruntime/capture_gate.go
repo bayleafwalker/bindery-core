@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/bayleafwalker/bindery-core/internal/capture"
@@ -92,6 +93,10 @@ func evaluateCaptureCompleteness(record *captureRecord, objects ObjectStore, con
 	result := gatev1.Evaluate(definition, context, func() (gatev1.Status, error) {
 		return captureCompletenessVerdict(record, objects)
 	})
+	reason := result.Reason
+	if result.Status == gatev1.StatusPass || result.Status == gatev1.StatusFail {
+		reason = captureCompletenessReason(record, result.Status)
+	}
 	return PublicGateResult{
 		SchemaVersion:      SchemaVersion,
 		GateID:             result.GateID,
@@ -99,13 +104,43 @@ func evaluateCaptureCompleteness(record *captureRecord, objects ObjectStore, con
 		ImplementationHash: result.ImplementationHash,
 		CaptureID:          record.CaptureID,
 		Status:             string(result.Status),
-		Reason:             result.Reason,
+		Reason:             reason,
 		CalibrationValid:   result.CalibrationValid,
 	}
 }
 
-// captureCompletenessVerdict is the evaluator proper. It may only return PASS
-// or FAIL; every other outcome is the framework's to assign.
+// captureCompletenessReason makes an applicable PASS or FAIL reconstructable
+// from the public gate result. It describes only what the broker checked; the
+// producer's local drop count remains explicitly a producer-reported claim.
+func captureCompletenessReason(record *captureRecord, status gatev1.Status) string {
+	if status == gatev1.StatusPass {
+		return "capture is closed with complete sequence coverage and no producer-reported local drops"
+	}
+
+	switch CaptureStatus(record.Status) {
+	case CaptureOpen:
+		return "capture remains open without a close receipt"
+	case CaptureAbandoned:
+		return "producer lease ended before the capture was closed"
+	case CaptureClosed:
+		completeness := record.completeness()
+		reasons := make([]string, 0, 2)
+		if count := len(completeness.MissingRanges); count > 0 {
+			reasons = append(reasons, fmt.Sprintf("%d missing sequence range(s)", count))
+		}
+		if completeness.LocalDrops > 0 {
+			reasons = append(reasons, fmt.Sprintf("%d producer-reported local drop(s)", completeness.LocalDrops))
+		}
+		if len(reasons) > 0 {
+			return "capture is closed with " + strings.Join(reasons, " and ")
+		}
+	}
+	return fmt.Sprintf("capture status %q is not closed", record.Status)
+}
+
+// captureCompletenessVerdict is the evaluator proper. It returns PASS or FAIL
+// for a readable capture and an error when the broker cannot verify its bytes;
+// applicability and calibration outcomes belong to the framework.
 func captureCompletenessVerdict(record *captureRecord, objects ObjectStore) (gatev1.Status, error) {
 	// Read every persisted batch and check it against the hash it is filed
 	// under. This is the exhaustive verification startup deliberately skips:
