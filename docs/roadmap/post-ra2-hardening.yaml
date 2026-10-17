@@ -54,8 +54,13 @@ work:
     status: pending
     depends_on: [ERH-001, ERH-002, ERH-003, ERH-004, ERH-005]
     acceptance:
-      - The evidence set resolves to execution, session, placement, and identities after restart.
-      - Exact-count reconciliation records the two client streams without adapter-owned adjudication.
+      - The evidence set resolves to execution, session, placement, participant identities, client builds, and capture records after a broker restart.
+      - Two real Windows clients, prepared as distinct disposable clones of the qualified golden appliance, complete an actual retail Yuri's Revenge match through the coordinator-issued CnCNet private placement and pinned transport.
+      - The operator records the Windows host, game/client build identities, adapter revision, placement/transport identity, and match outcome in a qualification receipt; no game binaries, proprietary assets, live credentials, or private settings enter Git.
+      - Broker-derived observation summaries reconcile the independently captured client streams; adapters cannot supply adjudication counts.
+      - Capture-completeness gates pass for complete captures and fail closed for missing, truncated, or inconsistent capture evidence; positive and negative controls are recorded with the real run.
+      - A restart during or after the run preserves session, execution, placement, identity, capture, and evidence-set references; the post-restart evidence resolves to the same run.
+      - Test fixtures, fake services, simulator results, and the Aug 25 pre-hardening run remain separately labelled and do not satisfy this real-run acceptance.
     enabler_landed: 2026-08-26
     enabler_note: >-
       The control plane now serves the capture plane, derives observation
