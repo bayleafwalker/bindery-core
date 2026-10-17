@@ -15,9 +15,10 @@ Implementation status of the two package boundaries described below:
   `internal/externalruntime/capture_gate.go`, which defines the consequential
   gate `bindery.capture.completeness` and evaluates it over every capture
   before that capture is allowed to contribute an observation summary to an
-  evidence set. Its five outcomes, its applicability rules, and its
-  positive/negative calibration controls are exercised against the running
-  service in `capture_gate_test.go`, not only inside the package's own tests.
+  evidence set. Its five outcomes and applicability rules are exercised using
+  in-process service records in `capture_gate_test.go`; its calibration
+  controls are exercised directly through the gate definition. These tests do
+  not exercise a deployed broker process.
 
 ## Who counted
 
@@ -178,6 +179,13 @@ The result status is one of `PASS`, `FAIL`, `NOT_APPLICABLE`, `UNRESOLVED`, or
 `ERROR`. `FAIL` is reserved for an applicable, calibrated evaluator rejecting
 the subject. Broken fixtures, missing evaluator context, and internal failures
 have their own states.
+
+For applicable capture-completeness results, PASS and FAIL reasons summarize
+the capture state. A FAIL distinguishes an open or abandoned stream from a
+closed stream with missing sequence ranges or producer-reported local drops.
+The drop count remains a producer claim; the broker independently verifies
+sequence coverage from persisted events. A reason is diagnostic context and
+does not replace the status or completeness manifest.
 
 ## Persistence boundary
 
