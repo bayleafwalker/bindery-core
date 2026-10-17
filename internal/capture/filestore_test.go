@@ -154,6 +154,12 @@ func TestSymlinkedAndWidenedObjectPathsAreRefused(t *testing.T) {
 	if err := os.WriteFile(path, payload, 0o644); err != nil {
 		t.Fatal(err)
 	}
+	// WriteFile applies the process umask, so explicitly widen the mode to
+	// make this negative permission check deterministic under a restrictive
+	// test-runner umask.
+	if err := os.Chmod(path, 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := store.Get(contentHash); err == nil || !strings.Contains(err.Error(), "permissions") {
 		t.Fatalf("world-readable object error = %v", err)
 	}
